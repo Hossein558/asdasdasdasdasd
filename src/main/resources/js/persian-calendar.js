@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '1.1';
+    var PC_VERSION = '1.2';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -450,16 +450,28 @@
         logInfo('=== Initializing Persian Calendar ===');
         addStyles();
 
-        // Find all duedate inputs
+        // Find all duedate inputs (Create/Edit screens)
         var selectors = [
             'input#duedate',
             'input[name="duedate"]',
             'input[id*="duedate"]'
         ];
-        logDebug('Searching with selectors', selectors);
+
+        // Add Search page selectors (discovered from logs)
+        var searchSelectors = [
+            'input.js-date-picker-start-date',
+            'input.js-date-picker-end-date',
+            'input.js-start-date',
+            'input.js-end-date',
+            'input#dateBetweenStart',
+            'input#dateBetweenEnd'
+        ];
+
+        var allSelectors = selectors.concat(searchSelectors);
+        logDebug('Searching with selectors', allSelectors);
 
         var foundCount = 0;
-        $(selectors.join(',')).each(function () {
+        $(allSelectors.join(',')).each(function () {
             var $original = $(this);
 
             logDebug('Found matching input', {
@@ -477,62 +489,101 @@
             foundCount++;
             $original.data('pc-init', true);
 
-            // Hide original input
-            $original.css('display', 'none');
-            logDebug('Hidden original input');
+            // Check if this is a Search page input (don't hide, add button instead)
+            var isSearchInput = $original.hasClass('js-date-picker-start-date') ||
+                $original.hasClass('js-date-picker-end-date') ||
+                $original.hasClass('js-start-date') ||
+                $original.hasClass('js-end-date') ||
+                $original.attr('id') === 'dateBetweenStart' ||
+                $original.attr('id') === 'dateBetweenEnd';
 
-            // Also hide calendar trigger
-            $original.siblings('.aui-ss, .aui-date-picker, .icon-calendar, [class*="calendar"]').hide();
-            $original.next().hide();
+            logDebug('Is Search input: ' + isSearchInput);
 
-            // Create Persian input
-            var $persian = $('<input type="text" class="text medium-field" readonly style="cursor:pointer; direction:rtl; text-align:right;">');
-            $persian.attr('placeholder', 'انتخاب تاریخ');
-            $original.after($persian);
-            logInfo('Created Persian input field');
+            if (isSearchInput) {
+                // SEARCH PAGE: Add a button beside the input
+                logInfo('Processing Search page date input');
 
-            // Set initial value
-            var currentVal = $original.val();
-            if (currentVal) {
-                logDebug('Setting initial value from: ' + currentVal);
-                var gDate = parseJiraDate(currentVal);
-                if (gDate) {
-                    var jDate = toJalaali(gDate.year, gDate.month, gDate.day);
-                    $persian.val(formatPersianDate(jDate.jy, jDate.jm, jDate.jd));
-                    logInfo('Initial Persian date set: ' + $persian.val());
-                }
-            }
+                // Create Persian calendar button
+                var $btn = $('<button type="button" class="aui-button pc-search-btn" style="margin-right:5px; background:#0052cc; color:#fff; padding:2px 8px; font-size:11px; border-radius:3px;">📅 شمسی</button>');
+                $original.after($btn);
+                logInfo('Added Persian calendar button to Search input');
 
-            // Click handler
-            $persian.on('click', function (e) {
-                logInfo('Persian input clicked');
-                e.preventDefault();
-                e.stopPropagation();
+                $btn.on('click', function (e) {
+                    logInfo('Search calendar button clicked');
+                    e.preventDefault();
+                    e.stopPropagation();
 
-                showPersianCalendar($persian, $original, function (selectedDate) {
-                    if (selectedDate) {
-                        $persian.val(formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
-                        var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
-                        var formattedDate = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
-                        $original.val(formattedDate);
-                        logInfo('Date saved to original input: ' + formattedDate);
-                        $original.trigger('change');
-                    } else {
-                        $persian.val('');
-                        $original.val('');
-                        logInfo('Date cleared');
-                        $original.trigger('change');
-                    }
+                    showPersianCalendar($btn, $original, function (selectedDate) {
+                        if (selectedDate) {
+                            var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
+                            var formattedDate = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
+                            $original.val(formattedDate);
+                            logInfo('Search date set: ' + formattedDate);
+                            $original.trigger('change').trigger('input').trigger('blur');
+                        }
+                    });
                 });
-            });
+            } else {
+                // CREATE/EDIT PAGE: Replace the input completely
+                logInfo('Processing Create/Edit page date input');
 
-            // Prevent original calendar from opening
-            $original.off('click focus');
-            $original.on('click focus', function (e) {
-                e.preventDefault();
-                e.stopPropagation();
-                return false;
-            });
+                // Hide original input
+                $original.css('display', 'none');
+                logDebug('Hidden original input');
+
+                // Also hide calendar trigger
+                $original.siblings('.aui-ss, .aui-date-picker, .icon-calendar, [class*="calendar"]').hide();
+                $original.next().hide();
+
+                // Create Persian input
+                var $persian = $('<input type="text" class="text medium-field" readonly style="cursor:pointer; direction:rtl; text-align:right;">');
+                $persian.attr('placeholder', 'انتخاب تاریخ');
+                $original.after($persian);
+                logInfo('Created Persian input field');
+
+                // Set initial value
+                var currentVal = $original.val();
+                if (currentVal) {
+                    logDebug('Setting initial value from: ' + currentVal);
+                    var gDate = parseJiraDate(currentVal);
+                    if (gDate) {
+                        var jDate = toJalaali(gDate.year, gDate.month, gDate.day);
+                        $persian.val(formatPersianDate(jDate.jy, jDate.jm, jDate.jd));
+                        logInfo('Initial Persian date set: ' + $persian.val());
+                    }
+                }
+
+                // Click handler
+                $persian.on('click', function (e) {
+                    logInfo('Persian input clicked');
+                    e.preventDefault();
+                    e.stopPropagation();
+
+                    showPersianCalendar($persian, $original, function (selectedDate) {
+                        if (selectedDate) {
+                            $persian.val(formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
+                            var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
+                            var formattedDate = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
+                            $original.val(formattedDate);
+                            logInfo('Date saved to original input: ' + formattedDate);
+                            $original.trigger('change');
+                        } else {
+                            $persian.val('');
+                            $original.val('');
+                            logInfo('Date cleared');
+                            $original.trigger('change');
+                        }
+                    });
+                });
+
+                // Prevent original calendar from opening
+                $original.off('click focus');
+                $original.on('click focus', function (e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    return false;
+                });
+            }
         });
 
         logInfo('Initialization complete. Inputs processed: ' + foundCount);
