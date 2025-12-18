@@ -1,7 +1,7 @@
 <atlassian-plugin key="ir.atlassian.jira.plugins.persian-calendar-plugin" name="Persian Calendar Plugin" plugins-version="2">
     <plugin-info>
         <description>Displays Due Date field with Persian/Shamsi calendar while storing dates in Gregorian format</description>
-        <version>10.3.2</version>
+        <version>10.3.3</version>
         <vendor name="Atlassian Jira IR" url="https://atlassian-jira.ir/" />
         <param name="plugin-icon">images/pluginIcon.png</param>
         <param name="plugin-logo">images/pluginLogo.png</param>
