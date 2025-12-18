@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.4';
+    var PC_VERSION = '10.3.5';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -618,6 +618,12 @@
                 // CREATE/EDIT PAGE: Replace the input completely
                 logInfo('Processing Create/Edit page date input');
 
+                // Check if Persian input already exists (for inline edit re-renders)
+                if ($original.next('.pc-persian-input').length > 0) {
+                    logDebug('Persian input already exists, skipping creation');
+                    return;
+                }
+
                 // Hide original input
                 $original.css('display', 'none');
                 logDebug('Hidden original input');
@@ -626,8 +632,8 @@
                 $original.siblings('.aui-ss, .aui-date-picker, .icon-calendar, [class*="calendar"]').hide();
                 $original.next().hide();
 
-                // Create Persian input
-                var $persian = $('<input type="text" class="text medium-field" readonly style="cursor:pointer; direction:rtl; text-align:right;">');
+                // Create Persian input with unique class
+                var $persian = $('<input type="text" class="text medium-field pc-persian-input" readonly style="cursor:pointer; direction:rtl; text-align:right;">');
                 $persian.attr('placeholder', 'انتخاب تاریخ');
                 $original.after($persian);
                 logInfo('Created Persian input field');
