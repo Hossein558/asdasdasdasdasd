@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.1';
+    var PC_VERSION = '10.3.2';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -450,41 +450,25 @@
         logInfo('=== Initializing Persian Calendar ===');
         addStyles();
 
-        // Find all date-type inputs (Create/Edit/View screens)
-        // Generic date selectors that match any date field
+        // Find all date-type inputs (Create/Edit screens only)
+        // These are for Create/Edit dialogs
         var selectors = [
-            // Specific date fields
+            // Specific date fields in Create/Edit forms
             'input#duedate',
             'input[name="duedate"]',
-            'input[id*="duedate"]',
-            // Generic date fields (custom fields, Plan Date, etc.)
-            'input[id*="date" i]',
-            'input[name*="date" i]',
-            'input[id*="customfield"][type="text"]',
-            // Atlassian UI date pickers
-            'input.aui-date-picker',
-            'input.datepicker',
-            'input[data-aui-dp]',
-            // Custom date fields in Jira
-            'input.text[data-type="date"]',
-            '.field-group input[type="text"][placeholder*="d/MMM"]',
-            '.field-group input[type="text"][placeholder*="date" i]'
+            // Custom date fields in edit dialogs (like Plan Date)
+            '.field-group input.datepicker-input',
+            '.field-group input.aui-date-picker',
+            // Log work date field
+            'input#log-work-form-date-logged-date-picker'
         ];
 
-        // Add Search page selectors (discovered from logs)
+        // Search page selectors - ONLY the Between date inputs
+        // These are the inputs with specific IDs that show actual date pickers
         var searchSelectors = [
-            'input.js-date-picker-start-date',
-            'input.js-date-picker-end-date',
-            'input.js-start-date',
-            'input.js-end-date',
-            'input.js-start-range',
-            'input.js-end-range',
-            'input.js-date-picker-from',
-            'input.js-date-picker-to',
+            // Between dates (the main ones with calendar icon)
             'input#dateBetweenStart',
-            'input#dateBetweenEnd',
-            'input#inRangeStartDate',
-            'input#inRangeEndDate'
+            'input#dateBetweenEnd'
         ];
 
         var allSelectors = selectors.concat(searchSelectors);
@@ -528,19 +512,9 @@
             foundCount++;
             $original.data('pc-init', true);
 
-            // Check if this is a Search page input (don't hide, add button instead)
-            var isSearchInput = $original.hasClass('js-date-picker-start-date') ||
-                $original.hasClass('js-date-picker-end-date') ||
-                $original.hasClass('js-start-date') ||
-                $original.hasClass('js-end-date') ||
-                $original.hasClass('js-start-range') ||
-                $original.hasClass('js-end-range') ||
-                $original.hasClass('js-date-picker-from') ||
-                $original.hasClass('js-date-picker-to') ||
-                $original.attr('id') === 'dateBetweenStart' ||
-                $original.attr('id') === 'dateBetweenEnd' ||
-                $original.attr('id') === 'inRangeStartDate' ||
-                $original.attr('id') === 'inRangeEndDate';
+            // Check if this is a Search page input (Between dates only)
+            var isSearchInput = $original.attr('id') === 'dateBetweenStart' ||
+                $original.attr('id') === 'dateBetweenEnd';
 
             logDebug('Is Search input: ' + isSearchInput);
 
