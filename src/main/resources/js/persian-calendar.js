@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3';
+    var PC_VERSION = '10.3.1';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -493,6 +493,25 @@
         var foundCount = 0;
         $(allSelectors.join(',')).each(function () {
             var $original = $(this);
+
+            // Skip non-text inputs (radio, checkbox, hidden, etc.)
+            var inputType = $original.attr('type') || 'text';
+            if (inputType !== 'text') {
+                logDebug('Skipping non-text input type: ' + inputType);
+                return;
+            }
+
+            // Skip if already has Persian button next to it
+            if ($original.next('.pc-search-btn').length > 0 || $original.prev('.pc-search-btn').length > 0) {
+                logDebug('Skipping - already has Persian button');
+                return;
+            }
+
+            // Skip hidden inputs
+            if ($original.is(':hidden') && !$original.closest('.aui-dialog2-content, .jira-dialog-content, form').length) {
+                logDebug('Skipping hidden input outside dialog');
+                return;
+            }
 
             logDebug('Found matching input', {
                 id: $original.attr('id'),
