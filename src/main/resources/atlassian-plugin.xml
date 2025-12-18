@@ -24,6 +24,10 @@
         <context>jira.view.issue</context>
         <context>jira.create.issue</context>
         <context>jira.edit.issue</context>
+        <context>jira.navigator.advanced</context>
+        <context>jira.navigator.simple</context>
+        <context>jira.search</context>
+        <context>atl.admin</context>
     </web-resource>
 
     <!-- Web Panel to inject additional markup if needed -->

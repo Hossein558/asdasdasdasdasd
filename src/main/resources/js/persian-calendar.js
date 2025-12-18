@@ -1,5 +1,6 @@
 /**
  * Persian Calendar Integration for Jira
+ * Version 1.1 - With Detailed Logging
  * Replaces the default Gregorian date picker with Persian/Shamsi calendar
  * Stores data in Gregorian format
  */
@@ -7,13 +8,111 @@
 (function () {
     'use strict';
 
+    // ========== LOGGING SYSTEM ==========
+    var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
+    var PC_VERSION = '1.1';
+
+    function pcLog(level, message, data) {
+        var timestamp = new Date().toISOString();
+        var logEntry = timestamp + ' ' + PC_LOG_PREFIX + ' [' + level + '] ' + message;
+        if (data !== undefined) {
+            logEntry += ' | Data: ' + JSON.stringify(data);
+        }
+
+        switch (level) {
+            case 'ERROR':
+                console.error(logEntry);
+                break;
+            case 'WARN':
+                console.warn(logEntry);
+                break;
+            case 'DEBUG':
+                console.debug(logEntry);
+                break;
+            default:
+                console.log(logEntry);
+        }
+        return logEntry;
+    }
+
+    function logInfo(msg, data) { return pcLog('INFO', msg, data); }
+    function logDebug(msg, data) { return pcLog('DEBUG', msg, data); }
+    function logWarn(msg, data) { return pcLog('WARN', msg, data); }
+    function logError(msg, data) { return pcLog('ERROR', msg, data); }
+
+    // ========== DOM ANALYSIS ==========
+    function analyzePageForDateElements() {
+        logInfo('=== Starting Page Analysis ===');
+        logInfo('Current URL: ' + window.location.href);
+        logInfo('Page Title: ' + document.title);
+
+        // Check for date-related inputs
+        var allInputs = document.querySelectorAll('input');
+        var dateInputs = [];
+        allInputs.forEach(function (inp) {
+            var id = inp.id || '';
+            var name = inp.name || '';
+            var cls = inp.className || '';
+            if (id.toLowerCase().indexOf('date') !== -1 ||
+                name.toLowerCase().indexOf('date') !== -1 ||
+                cls.toLowerCase().indexOf('date') !== -1) {
+                dateInputs.push({
+                    id: id,
+                    name: name,
+                    class: cls,
+                    type: inp.type,
+                    value: inp.value
+                });
+            }
+        });
+        logInfo('Found date-related inputs: ' + dateInputs.length, dateInputs);
+
+        // Check for duedate specifically
+        var duedateInputs = document.querySelectorAll('input#duedate, input[name="duedate"], input[id*="duedate"]');
+        logInfo('Found duedate inputs: ' + duedateInputs.length);
+        duedateInputs.forEach(function (inp, idx) {
+            logDebug('Duedate input #' + idx, {
+                id: inp.id,
+                name: inp.name,
+                class: inp.className,
+                value: inp.value,
+                visible: inp.offsetParent !== null,
+                parentClass: inp.parentElement ? inp.parentElement.className : 'N/A'
+            });
+        });
+
+        // Check for calendar-related classes
+        var calendarElements = document.querySelectorAll('[class*="calendar"], [class*="date-picker"], .aui-date-picker');
+        logInfo('Found calendar-related elements: ' + calendarElements.length);
+
+        // Check for search page specific elements
+        var searchElements = document.querySelectorAll('.navigator-search, .search-options, .criteria-selector, .date-range');
+        logInfo('Found search-related elements: ' + searchElements.length);
+        if (searchElements.length > 0) {
+            logInfo('This appears to be a SEARCH page');
+            searchElements.forEach(function (el, idx) {
+                logDebug('Search element #' + idx, {
+                    class: el.className,
+                    id: el.id,
+                    childInputs: el.querySelectorAll('input').length
+                });
+            });
+        }
+
+        logInfo('=== Page Analysis Complete ===');
+    }
+
     // Wait for AJS and jQuery
     function waitForJira(callback) {
+        logDebug('Waiting for Jira framework...');
         if (typeof AJS !== 'undefined' && AJS.$) {
+            logInfo('Found AJS framework');
             callback(AJS.$);
         } else if (typeof jQuery !== 'undefined') {
+            logInfo('Found jQuery (no AJS)');
             callback(jQuery);
         } else {
+            logDebug('Framework not ready, retrying in 100ms...');
             setTimeout(function () { waitForJira(callback); }, 100);
         }
     }
@@ -103,15 +202,24 @@
     // Parse Jira date format
     function parseJiraDate(dateStr) {
         if (!dateStr) return null;
+        logDebug('Parsing date: ' + dateStr);
         var parts = dateStr.trim().split('/');
-        if (parts.length !== 3) return null;
+        if (parts.length !== 3) {
+            logWarn('Invalid date format (not 3 parts)', { input: dateStr });
+            return null;
+        }
         var d = parseInt(parts[0], 10);
         var mStr = parts[1];
         var y = parseInt(parts[2], 10);
         var m = GREGORIAN_MONTHS.indexOf(mStr);
-        if (m === -1) return null;
+        if (m === -1) {
+            logWarn('Unknown month: ' + mStr);
+            return null;
+        }
         if (y < 100) y += 2000;
-        return { year: y, month: m + 1, day: d };
+        var result = { year: y, month: m + 1, day: d };
+        logDebug('Parsed date result', result);
+        return result;
     }
 
     function formatJiraDate(year, month, day) {
@@ -126,7 +234,11 @@
 
     // Add CSS styles
     function addStyles() {
-        if (document.getElementById('persian-calendar-styles')) return;
+        if (document.getElementById('persian-calendar-styles')) {
+            logDebug('Styles already added');
+            return;
+        }
+        logInfo('Adding CSS styles');
 
         var css = [
             '.pc-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9998; }',
@@ -154,10 +266,13 @@
         style.id = 'persian-calendar-styles';
         style.textContent = css;
         document.head.appendChild(style);
+        logInfo('CSS styles added successfully');
     }
 
     // Create and show Persian calendar popup
     function showPersianCalendar($input, $originalInput, onSelect) {
+        logInfo('Opening Persian calendar popup');
+
         var $existing = document.querySelector('.pc-popup');
         if ($existing) $existing.remove();
         var $overlay = document.querySelector('.pc-overlay');
@@ -165,14 +280,18 @@
 
         var today = new Date();
         var todayJ = toJalaali(today.getFullYear(), today.getMonth() + 1, today.getDate());
+        logDebug('Today in Jalaali', todayJ);
 
         // Get current value
         var currentJDate = null;
         var currentVal = $originalInput.val ? $originalInput.val() : $originalInput.value;
+        logDebug('Current input value: ' + currentVal);
+
         if (currentVal) {
             var gDate = parseJiraDate(currentVal);
             if (gDate) {
                 currentJDate = toJalaali(gDate.year, gDate.month, gDate.day);
+                logDebug('Current date in Jalaali', currentJDate);
             }
         }
 
@@ -195,8 +314,11 @@
         var rect = inputEl.getBoundingClientRect();
         popup.style.top = (rect.bottom + window.scrollY + 5) + 'px';
         popup.style.left = (rect.left + window.scrollX) + 'px';
+        logDebug('Popup positioned at', { top: popup.style.top, left: popup.style.left });
 
         function render() {
+            logDebug('Rendering calendar for', { year: viewYear, month: viewMonth });
+
             var html = '<div class="pc-header">';
             html += '<button type="button" class="pc-next-year" title="سال بعد">&raquo;</button>';
             html += '<button type="button" class="pc-next-month" title="ماه بعد">&rsaquo;</button>';
@@ -205,8 +327,10 @@
             html += '<button type="button" class="pc-prev-year" title="سال قبل">&laquo;</button>';
             html += '</div>';
 
+            // Weekday headers: In RTL, grid goes right-to-left
+            // Position 0 (rightmost) = Saturday, Position 6 (leftmost) = Friday
             html += '<div class="pc-weekdays">';
-            for (var w = 6; w >= 0; w--) {
+            for (var w = 0; w < 7; w++) {
                 html += '<span>' + PERSIAN_WEEKDAYS[w] + '</span>';
             }
             html += '</div>';
@@ -218,11 +342,18 @@
             var firstDayOfWeek = firstDate.getDay();
             // Convert to Saturday-based week (Saturday = 0)
             var persianFirstDay = (firstDayOfWeek + 1) % 7;
+            logDebug('First day calculation', {
+                gregorianFirst: gFirst,
+                jsDay: firstDayOfWeek,
+                persianFirstDay: persianFirstDay
+            });
 
             var daysInMonth = jalaaliMonthLength(viewYear, viewMonth);
 
-            // Empty cells (from right in RTL)
-            for (var e = 0; e < (6 - persianFirstDay + 7) % 7; e++) {
+            // Empty cells: persianFirstDay = 0 means Saturday (first column in RTL)
+            // So we need persianFirstDay empty cells before day 1
+            logDebug('Empty cells count: ' + persianFirstDay);
+            for (var e = 0; e < persianFirstDay; e++) {
                 html += '<span class="pc-day empty"></span>';
             }
 
@@ -248,17 +379,20 @@
         }
 
         function close() {
+            logDebug('Closing calendar popup');
             popup.remove();
             overlay.remove();
         }
 
         function selectDay(day) {
+            logInfo('Day selected: ' + day);
             selectedDate = { jy: viewYear, jm: viewMonth, jd: day };
             render();
         }
 
         function confirm() {
             if (selectedDate) {
+                logInfo('Confirming date selection', selectedDate);
                 onSelect(selectedDate);
             }
             close();
@@ -269,25 +403,31 @@
             var target = e.target;
             if (target.classList.contains('pc-prev-year')) {
                 viewYear--;
+                logDebug('Navigate to previous year: ' + viewYear);
                 render();
             } else if (target.classList.contains('pc-next-year')) {
                 viewYear++;
+                logDebug('Navigate to next year: ' + viewYear);
                 render();
             } else if (target.classList.contains('pc-prev-month')) {
                 viewMonth--;
                 if (viewMonth < 1) { viewMonth = 12; viewYear--; }
+                logDebug('Navigate to previous month: ' + viewMonth + '/' + viewYear);
                 render();
             } else if (target.classList.contains('pc-next-month')) {
                 viewMonth++;
                 if (viewMonth > 12) { viewMonth = 1; viewYear++; }
+                logDebug('Navigate to next month: ' + viewMonth + '/' + viewYear);
                 render();
             } else if (target.classList.contains('pc-day') && !target.classList.contains('empty')) {
                 selectDay(parseInt(target.dataset.day, 10));
             } else if (target.classList.contains('pc-today')) {
+                logInfo('Today button clicked');
                 selectedDate = { jy: todayJ.jy, jm: todayJ.jm, jd: todayJ.jd };
                 onSelect(selectedDate);
                 close();
             } else if (target.classList.contains('pc-clear')) {
+                logInfo('Clear button clicked');
                 onSelect(null);
                 close();
             } else if (target.classList.contains('pc-confirm')) {
@@ -298,6 +438,7 @@
         });
 
         overlay.addEventListener('click', function () {
+            logDebug('Overlay clicked, closing');
             close();
         });
 
@@ -306,6 +447,7 @@
 
     // Initialize Persian calendar for date inputs
     function initPersianCalendar($) {
+        logInfo('=== Initializing Persian Calendar ===');
         addStyles();
 
         // Find all duedate inputs
@@ -314,14 +456,30 @@
             'input[name="duedate"]',
             'input[id*="duedate"]'
         ];
+        logDebug('Searching with selectors', selectors);
 
+        var foundCount = 0;
         $(selectors.join(',')).each(function () {
             var $original = $(this);
-            if ($original.data('pc-init')) return;
+
+            logDebug('Found matching input', {
+                id: $original.attr('id'),
+                name: $original.attr('name'),
+                class: $original.attr('class'),
+                alreadyInit: $original.data('pc-init') ? true : false
+            });
+
+            if ($original.data('pc-init')) {
+                logDebug('Input already initialized, skipping');
+                return;
+            }
+
+            foundCount++;
             $original.data('pc-init', true);
 
             // Hide original input
             $original.css('display', 'none');
+            logDebug('Hidden original input');
 
             // Also hide calendar trigger
             $original.siblings('.aui-ss, .aui-date-picker, .icon-calendar, [class*="calendar"]').hide();
@@ -331,19 +489,23 @@
             var $persian = $('<input type="text" class="text medium-field" readonly style="cursor:pointer; direction:rtl; text-align:right;">');
             $persian.attr('placeholder', 'انتخاب تاریخ');
             $original.after($persian);
+            logInfo('Created Persian input field');
 
             // Set initial value
             var currentVal = $original.val();
             if (currentVal) {
+                logDebug('Setting initial value from: ' + currentVal);
                 var gDate = parseJiraDate(currentVal);
                 if (gDate) {
                     var jDate = toJalaali(gDate.year, gDate.month, gDate.day);
                     $persian.val(formatPersianDate(jDate.jy, jDate.jm, jDate.jd));
+                    logInfo('Initial Persian date set: ' + $persian.val());
                 }
             }
 
             // Click handler
             $persian.on('click', function (e) {
+                logInfo('Persian input clicked');
                 e.preventDefault();
                 e.stopPropagation();
 
@@ -351,11 +513,14 @@
                     if (selectedDate) {
                         $persian.val(formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
                         var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
-                        $original.val(formatJiraDate(gDate.gy, gDate.gm, gDate.gd));
+                        var formattedDate = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
+                        $original.val(formattedDate);
+                        logInfo('Date saved to original input: ' + formattedDate);
                         $original.trigger('change');
                     } else {
                         $persian.val('');
                         $original.val('');
+                        logInfo('Date cleared');
                         $original.trigger('change');
                     }
                 });
@@ -369,11 +534,18 @@
                 return false;
             });
         });
+
+        logInfo('Initialization complete. Inputs processed: ' + foundCount);
     }
 
     // Main initialization
     waitForJira(function ($) {
-        console.log('[Persian Calendar] Initializing...');
+        logInfo('========================================');
+        logInfo('Persian Calendar Plugin v' + PC_VERSION + ' Starting');
+        logInfo('========================================');
+
+        // Analyze page first
+        analyzePageForDateElements();
 
         // Initial run
         setTimeout(function () {
@@ -382,11 +554,16 @@
 
         // Re-run on AJAX content
         if (typeof JIRA !== 'undefined' && JIRA.bind) {
+            logInfo('JIRA framework detected, binding to NEW_CONTENT_ADDED');
             JIRA.bind(JIRA.Events.NEW_CONTENT_ADDED, function () {
+                logDebug('NEW_CONTENT_ADDED event fired');
                 setTimeout(function () {
+                    analyzePageForDateElements();
                     initPersianCalendar($);
                 }, 200);
             });
+        } else {
+            logWarn('JIRA framework not detected');
         }
 
         // Also observe DOM changes
@@ -397,6 +574,7 @@
                     for (var i = 0; i < mutation.addedNodes.length; i++) {
                         var node = mutation.addedNodes[i];
                         if (node.nodeType === 1 && (node.id === 'duedate' || (node.querySelector && node.querySelector('#duedate, [name="duedate"]')))) {
+                            logDebug('MutationObserver: Found duedate element in DOM change');
                             shouldInit = true;
                             break;
                         }
@@ -409,6 +587,7 @@
         });
 
         observer.observe(document.body, { childList: true, subtree: true });
+        logInfo('MutationObserver attached');
     });
 
 })();
