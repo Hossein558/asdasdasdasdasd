@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.3';
+    var PC_VERSION = '10.3.4';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -445,6 +445,63 @@
         render();
     }
 
+    // Convert date displays on View page (sidebar dates like Due, Plan Date, etc.)
+    function convertViewPageDates($) {
+        logInfo('=== Converting View Page Dates ===');
+
+        // Selectors for date display elements in the issue detail sidebar
+        var dateValueSelectors = [
+            // Due date in detail view
+            '#due-date .value time',
+            '#due-date .value',
+            '#customfield_10015-val time',  // Plan Date
+            '#customfield_10015-val',
+            // Generic date display patterns
+            '.item-details .date-value',
+            '.dates-module .value time',
+            '.dates-module .value',
+            // Description area date displays
+            '[data-field-id="duedate"] .value',
+            '[data-field-id="duedate"] time',
+            // Any time element with datetime attribute containing date
+            '.details-layout time[datetime]',
+            '#issuedetails .value time',
+            '#datesmodule .value',
+            '#datesmodule time'
+        ];
+
+        var convertedCount = 0;
+
+        $(dateValueSelectors.join(',')).each(function () {
+            var $el = $(this);
+
+            // Skip if already converted
+            if ($el.data('pc-converted')) {
+                return;
+            }
+
+            var text = $el.text().trim();
+
+            // Try to parse Jira date format (d/MMM/yy or similar)
+            var parsed = parseJiraDate(text);
+            if (parsed) {
+                var jDate = toJalaali(parsed.year, parsed.month, parsed.day);
+                var persianText = formatPersianDate(jDate.jy, jDate.jm, jDate.jd);
+
+                // Save original for tooltip
+                $el.attr('title', text + ' = ' + persianText);
+                $el.text(persianText);
+                $el.data('pc-converted', true);
+                $el.css('direction', 'rtl');
+
+                logInfo('Converted date: ' + text + ' → ' + persianText);
+                convertedCount++;
+            }
+        });
+
+        logInfo('View page dates converted: ' + convertedCount);
+    }
+
     // Initialize Persian calendar for date inputs
     function initPersianCalendar($) {
         logInfo('=== Initializing Persian Calendar ===');
@@ -635,6 +692,7 @@
         // Initial run
         setTimeout(function () {
             initPersianCalendar($);
+            convertViewPageDates($);
         }, 500);
 
         // Re-run on AJAX content
@@ -645,6 +703,7 @@
                 setTimeout(function () {
                     analyzePageForDateElements();
                     initPersianCalendar($);
+                    convertViewPageDates($);
                 }, 200);
             });
         } else {
