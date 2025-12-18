@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '1.2';
+    var PC_VERSION = '10.2';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -503,10 +503,24 @@
                 // SEARCH PAGE: Add a button beside the input
                 logInfo('Processing Search page date input');
 
+                // Create Persian date display span
+                var $persianDisplay = $('<span class="pc-persian-display" style="margin-right:5px; color:#0052cc; font-weight:bold; font-size:12px; direction:rtl;"></span>');
+
                 // Create Persian calendar button
                 var $btn = $('<button type="button" class="aui-button pc-search-btn" style="margin-right:5px; background:#0052cc; color:#fff; padding:2px 8px; font-size:11px; border-radius:3px;">📅 شمسی</button>');
                 $original.after($btn);
+                $btn.after($persianDisplay);
                 logInfo('Added Persian calendar button to Search input');
+
+                // If input already has a value, show Persian equivalent
+                var existingVal = $original.val();
+                if (existingVal) {
+                    var parsedDate = parseJiraDate(existingVal);
+                    if (parsedDate) {
+                        var jDate = toJalaali(parsedDate.year, parsedDate.month, parsedDate.day);
+                        $persianDisplay.text(formatPersianDate(jDate.jy, jDate.jm, jDate.jd));
+                    }
+                }
 
                 $btn.on('click', function (e) {
                     logInfo('Search calendar button clicked');
@@ -518,7 +532,8 @@
                             var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
                             var formattedDate = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
                             $original.val(formattedDate);
-                            logInfo('Search date set: ' + formattedDate);
+                            $persianDisplay.text(formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
+                            logInfo('Search date set: ' + formattedDate + ' / ' + formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
                             $original.trigger('change').trigger('input').trigger('blur');
                         }
                     });
