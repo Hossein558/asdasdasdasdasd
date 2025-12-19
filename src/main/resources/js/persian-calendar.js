@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.6';
+    var PC_VERSION = '10.3.7';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -259,7 +259,13 @@
             '.pc-footer button { background: #f4f5f7; border: 1px solid #ddd; border-radius: 4px; padding: 8px 14px; cursor: pointer; font-size: 13px; font-family: inherit; }',
             '.pc-footer button:hover { background: #e4e5e7; }',
             '.pc-footer button.primary { background: #0052cc; color: #fff; border-color: #0052cc; }',
-            '.pc-footer button.primary:hover { background: #0065ff; }'
+            '.pc-footer button.primary:hover { background: #0065ff; }',
+            // Time picker styles
+            '.pc-time-picker { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee; direction: ltr; }',
+            '.pc-time-picker label { font-size: 13px; color: #5e6c84; margin-left: 8px; }',
+            '.pc-time-picker input { width: 50px; text-align: center; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }',
+            '.pc-time-picker select { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; background: #fff; cursor: pointer; }',
+            '.pc-time-picker span { font-size: 16px; font-weight: bold; color: #5e6c84; }'
         ].join('\n');
 
         var style = document.createElement('style');
@@ -445,6 +451,247 @@
         render();
     }
 
+    // Create and show Persian DateTime picker popup (Date + Time)
+    function showPersianDateTimePicker($input, $originalInput, onSelect) {
+        logInfo('Opening Persian DateTime picker popup');
+
+        var $existing = document.querySelector('.pc-popup');
+        if ($existing) $existing.remove();
+        var $overlay = document.querySelector('.pc-overlay');
+        if ($overlay) $overlay.remove();
+
+        var today = new Date();
+        var todayJ = toJalaali(today.getFullYear(), today.getMonth() + 1, today.getDate());
+        logDebug('Today in Jalaali', todayJ);
+
+        // Get current value and parse time
+        var currentJDate = null;
+        var currentHour = today.getHours();
+        var currentMinute = today.getMinutes();
+        var currentAmPm = currentHour >= 12 ? 'PM' : 'AM';
+
+        var currentVal = $originalInput.val ? $originalInput.val() : $originalInput.value;
+        logDebug('Current DateTime value: ' + currentVal);
+
+        if (currentVal) {
+            // Parse date part
+            var gDate = parseJiraDate(currentVal);
+            if (gDate) {
+                currentJDate = toJalaali(gDate.year, gDate.month, gDate.day);
+                logDebug('Current date in Jalaali', currentJDate);
+            }
+
+            // Parse time part (e.g., "5:23 PM" or "17:23")
+            var timeMatch = currentVal.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+            if (timeMatch) {
+                currentHour = parseInt(timeMatch[1], 10);
+                currentMinute = parseInt(timeMatch[2], 10);
+                if (timeMatch[3]) {
+                    currentAmPm = timeMatch[3].toUpperCase();
+                } else {
+                    currentAmPm = currentHour >= 12 ? 'PM' : 'AM';
+                }
+                // Convert to 12-hour format if needed
+                if (currentHour > 12) {
+                    currentHour = currentHour - 12;
+                } else if (currentHour === 0) {
+                    currentHour = 12;
+                }
+                logDebug('Parsed time: ' + currentHour + ':' + currentMinute + ' ' + currentAmPm);
+            }
+        }
+
+        var selectedDate = currentJDate ? { jy: currentJDate.jy, jm: currentJDate.jm, jd: currentJDate.jd } : null;
+        var selectedHour = currentHour > 12 ? currentHour - 12 : (currentHour === 0 ? 12 : currentHour);
+        var selectedMinute = currentMinute;
+        var selectedAmPm = currentAmPm;
+
+        var viewYear = selectedDate ? selectedDate.jy : todayJ.jy;
+        var viewMonth = selectedDate ? selectedDate.jm : todayJ.jm;
+
+        // Create overlay
+        var overlay = document.createElement('div');
+        overlay.className = 'pc-overlay';
+        document.body.appendChild(overlay);
+
+        // Create popup
+        var popup = document.createElement('div');
+        popup.className = 'pc-popup';
+        document.body.appendChild(popup);
+
+        // Position popup
+        var inputEl = $input[0] || $input;
+        var rect = inputEl.getBoundingClientRect();
+        popup.style.top = (rect.bottom + window.scrollY + 5) + 'px';
+        popup.style.left = (rect.left + window.scrollX) + 'px';
+        logDebug('DateTime Popup positioned at', { top: popup.style.top, left: popup.style.left });
+
+        function render() {
+            logDebug('Rendering DateTime calendar for', { year: viewYear, month: viewMonth });
+
+            var html = '<div class="pc-header">';
+            html += '<button type="button" class="pc-next-year" title="سال بعد">&raquo;</button>';
+            html += '<button type="button" class="pc-next-month" title="ماه بعد">&rsaquo;</button>';
+            html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
+            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&lsaquo;</button>';
+            html += '<button type="button" class="pc-prev-year" title="سال قبل">&laquo;</button>';
+            html += '</div>';
+
+            html += '<div class="pc-weekdays">';
+            PERSIAN_WEEKDAYS.forEach(function (d) { html += '<span>' + d + '</span>'; });
+            html += '</div>';
+
+            html += '<div class="pc-days">';
+
+            var gFirst = toGregorian(viewYear, viewMonth, 1);
+            var dFirst = new Date(gFirst.gy, gFirst.gm - 1, gFirst.gd);
+            var jsDay = dFirst.getDay();
+            var persianFirstDay = (jsDay + 1) % 7;
+
+            for (var i = 0; i < persianFirstDay; i++) {
+                html += '<span class="pc-day empty"></span>';
+            }
+
+            var daysInMonth = jalaaliMonthLength(viewYear, viewMonth);
+            for (var d = 1; d <= daysInMonth; d++) {
+                var cls = 'pc-day';
+                if (d === todayJ.jd && viewMonth === todayJ.jm && viewYear === todayJ.jy) {
+                    cls += ' today';
+                }
+                if (selectedDate && d === selectedDate.jd && viewMonth === selectedDate.jm && viewYear === selectedDate.jy) {
+                    cls += ' selected';
+                }
+                html += '<span class="' + cls + '" data-day="' + d + '">' + d + '</span>';
+            }
+
+            html += '</div>';
+
+            // Time picker section
+            html += '<div class="pc-time-picker">';
+            html += '<label>ساعت:</label>';
+            html += '<select class="pc-hour">';
+            for (var h = 1; h <= 12; h++) {
+                var sel = h === selectedHour ? ' selected' : '';
+                html += '<option value="' + h + '"' + sel + '>' + (h < 10 ? '0' + h : h) + '</option>';
+            }
+            html += '</select>';
+            html += '<span>:</span>';
+            html += '<select class="pc-minute">';
+            for (var m = 0; m < 60; m += 5) {
+                var sel = m === selectedMinute || (m <= selectedMinute && m + 5 > selectedMinute) ? ' selected' : '';
+                html += '<option value="' + m + '"' + sel + '>' + (m < 10 ? '0' + m : m) + '</option>';
+            }
+            html += '</select>';
+            html += '<select class="pc-ampm">';
+            html += '<option value="AM"' + (selectedAmPm === 'AM' ? ' selected' : '') + '>AM</option>';
+            html += '<option value="PM"' + (selectedAmPm === 'PM' ? ' selected' : '') + '>PM</option>';
+            html += '</select>';
+            html += '</div>';
+
+            html += '<div class="pc-footer">';
+            html += '<button type="button" class="pc-confirm primary">تأیید</button>';
+            html += '<button type="button" class="pc-today">الان</button>';
+            html += '<button type="button" class="pc-clear">پاک کردن</button>';
+            html += '</div>';
+
+            popup.innerHTML = html;
+
+            // Attach change handlers for time inputs
+            popup.querySelector('.pc-hour').addEventListener('change', function (e) {
+                selectedHour = parseInt(e.target.value, 10);
+            });
+            popup.querySelector('.pc-minute').addEventListener('change', function (e) {
+                selectedMinute = parseInt(e.target.value, 10);
+            });
+            popup.querySelector('.pc-ampm').addEventListener('change', function (e) {
+                selectedAmPm = e.target.value;
+            });
+        }
+
+        function close() {
+            logDebug('Closing DateTime picker popup');
+            popup.remove();
+            overlay.remove();
+        }
+
+        function selectDay(day) {
+            selectedDate = { jy: viewYear, jm: viewMonth, jd: day };
+            logDebug('Day selected', selectedDate);
+            render();
+        }
+
+        function confirm() {
+            if (selectedDate) {
+                // Combine date and time
+                var result = {
+                    jy: selectedDate.jy,
+                    jm: selectedDate.jm,
+                    jd: selectedDate.jd,
+                    hour: selectedHour,
+                    minute: selectedMinute,
+                    ampm: selectedAmPm
+                };
+                logInfo('Confirming DateTime selection', result);
+                onSelect(result);
+            }
+            close();
+        }
+
+        // Event delegation
+        popup.addEventListener('click', function (e) {
+            var target = e.target;
+            if (target.classList.contains('pc-prev-year')) {
+                viewYear--;
+                render();
+            } else if (target.classList.contains('pc-next-year')) {
+                viewYear++;
+                render();
+            } else if (target.classList.contains('pc-prev-month')) {
+                viewMonth--;
+                if (viewMonth < 1) { viewMonth = 12; viewYear--; }
+                render();
+            } else if (target.classList.contains('pc-next-month')) {
+                viewMonth++;
+                if (viewMonth > 12) { viewMonth = 1; viewYear++; }
+                render();
+            } else if (target.classList.contains('pc-day') && !target.classList.contains('empty')) {
+                selectDay(parseInt(target.dataset.day, 10));
+            } else if (target.classList.contains('pc-today')) {
+                logInfo('Now button clicked');
+                var now = new Date();
+                selectedDate = { jy: todayJ.jy, jm: todayJ.jm, jd: todayJ.jd };
+                selectedHour = now.getHours() > 12 ? now.getHours() - 12 : (now.getHours() === 0 ? 12 : now.getHours());
+                selectedMinute = Math.floor(now.getMinutes() / 5) * 5;
+                selectedAmPm = now.getHours() >= 12 ? 'PM' : 'AM';
+                var result = {
+                    jy: selectedDate.jy,
+                    jm: selectedDate.jm,
+                    jd: selectedDate.jd,
+                    hour: selectedHour,
+                    minute: selectedMinute,
+                    ampm: selectedAmPm
+                };
+                onSelect(result);
+                close();
+            } else if (target.classList.contains('pc-clear')) {
+                logInfo('Clear button clicked');
+                onSelect(null);
+                close();
+            } else if (target.classList.contains('pc-confirm')) {
+                confirm();
+            }
+            e.preventDefault();
+            e.stopPropagation();
+        });
+
+        overlay.addEventListener('click', function () {
+            logDebug('Overlay clicked, closing');
+            close();
+        });
+
+        render();
+    }
+
     // Convert date displays on View page (sidebar dates like Due, Plan Date, etc.)
     function convertViewPageDates($) {
         logInfo('=== Converting View Page Dates ===');
@@ -565,10 +812,8 @@
                 $original.attr('name') === 'startDate' ||
                 $original.attr('name') === 'worklog_startDate';
 
-            if (isDateTimeField) {
-                logDebug('Skipping DateTime field (contains time): ' + $original.attr('id'));
-                return;
-            }
+            // Don't skip DateTime fields anymore - we'll handle them with DateTimePicker
+            logDebug('Is DateTime field: ' + isDateTimeField);
 
             logDebug('Found matching input', {
                 id: $original.attr('id'),
@@ -632,7 +877,7 @@
                 });
             } else {
                 // CREATE/EDIT PAGE: Replace the input completely
-                logInfo('Processing Create/Edit page date input');
+                logInfo('Processing Create/Edit page date input (isDateTime: ' + isDateTimeField + ')');
 
                 // Check if Persian input already exists (for inline edit re-renders)
                 if ($original.next('.pc-persian-input').length > 0) {
@@ -649,8 +894,9 @@
                 $original.next().hide();
 
                 // Create Persian input with unique class
+                var placeholderText = isDateTimeField ? 'انتخاب تاریخ و ساعت' : 'انتخاب تاریخ';
                 var $persian = $('<input type="text" class="text medium-field pc-persian-input" readonly style="cursor:pointer; direction:rtl; text-align:right;">');
-                $persian.attr('placeholder', 'انتخاب تاریخ');
+                $persian.attr('placeholder', placeholderText);
                 $original.after($persian);
                 logInfo('Created Persian input field');
 
@@ -661,33 +907,72 @@
                     var gDate = parseJiraDate(currentVal);
                     if (gDate) {
                         var jDate = toJalaali(gDate.year, gDate.month, gDate.day);
-                        $persian.val(formatPersianDate(jDate.jy, jDate.jm, jDate.jd));
+                        if (isDateTimeField) {
+                            // Parse time part
+                            var timeMatch = currentVal.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+                            var timeStr = timeMatch ? ' ' + timeMatch[0] : '';
+                            $persian.val(formatPersianDate(jDate.jy, jDate.jm, jDate.jd) + timeStr);
+                        } else {
+                            $persian.val(formatPersianDate(jDate.jy, jDate.jm, jDate.jd));
+                        }
                         logInfo('Initial Persian date set: ' + $persian.val());
                     }
                 }
 
-                // Click handler
-                $persian.on('click', function (e) {
-                    logInfo('Persian input clicked');
-                    e.preventDefault();
-                    e.stopPropagation();
+                // Click handler - different for Date vs DateTime
+                if (isDateTimeField) {
+                    // DateTime picker with time selection
+                    $persian.on('click', function (e) {
+                        logInfo('Persian DateTime input clicked');
+                        e.preventDefault();
+                        e.stopPropagation();
 
-                    showPersianCalendar($persian, $original, function (selectedDate) {
-                        if (selectedDate) {
-                            $persian.val(formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
-                            var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
-                            var formattedDate = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
-                            $original.val(formattedDate);
-                            logInfo('Date saved to original input: ' + formattedDate);
-                            $original.trigger('change');
-                        } else {
-                            $persian.val('');
-                            $original.val('');
-                            logInfo('Date cleared');
-                            $original.trigger('change');
-                        }
+                        showPersianDateTimePicker($persian, $original, function (selectedDateTime) {
+                            if (selectedDateTime) {
+                                // Format display value (Persian)
+                                var hour12 = selectedDateTime.hour;
+                                var minute = selectedDateTime.minute < 10 ? '0' + selectedDateTime.minute : selectedDateTime.minute;
+                                var timeStr = hour12 + ':' + minute + ' ' + selectedDateTime.ampm;
+                                $persian.val(formatPersianDate(selectedDateTime.jy, selectedDateTime.jm, selectedDateTime.jd) + ' ' + timeStr);
+
+                                // Format Jira value (Gregorian with time)
+                                var gDate = toGregorian(selectedDateTime.jy, selectedDateTime.jm, selectedDateTime.jd);
+                                var formattedDate = formatJiraDate(gDate.gy, gDate.gm, gDate.gd) + ' ' + timeStr;
+                                $original.val(formattedDate);
+                                logInfo('DateTime saved to original input: ' + formattedDate);
+                                $original.trigger('change');
+                            } else {
+                                $persian.val('');
+                                $original.val('');
+                                logInfo('DateTime cleared');
+                                $original.trigger('change');
+                            }
+                        });
                     });
-                });
+                } else {
+                    // Date-only picker
+                    $persian.on('click', function (e) {
+                        logInfo('Persian input clicked');
+                        e.preventDefault();
+                        e.stopPropagation();
+
+                        showPersianCalendar($persian, $original, function (selectedDate) {
+                            if (selectedDate) {
+                                $persian.val(formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
+                                var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
+                                var formattedDate = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
+                                $original.val(formattedDate);
+                                logInfo('Date saved to original input: ' + formattedDate);
+                                $original.trigger('change');
+                            } else {
+                                $persian.val('');
+                                $original.val('');
+                                logInfo('Date cleared');
+                                $original.trigger('change');
+                            }
+                        });
+                    });
+                }
 
                 // Prevent original calendar from opening
                 $original.off('click focus');
