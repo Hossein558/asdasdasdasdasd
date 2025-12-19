@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.8';
+    var PC_VERSION = '10.3.9';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -315,12 +315,39 @@
         popup.className = 'pc-popup';
         document.body.appendChild(popup);
 
-        // Position popup
+        // Position popup - smart positioning to avoid going off-screen
         var inputEl = $input[0] || $input;
         var rect = inputEl.getBoundingClientRect();
-        popup.style.top = (rect.bottom + window.scrollY + 5) + 'px';
-        popup.style.left = (rect.left + window.scrollX) + 'px';
-        logDebug('Popup positioned at', { top: popup.style.top, left: popup.style.left });
+        var popupHeight = 420; // Approximate height of popup
+        var popupWidth = 320; // Approximate width
+        var viewportHeight = window.innerHeight;
+        var viewportWidth = window.innerWidth;
+
+        // Determine if popup should appear above or below
+        var spaceBelow = viewportHeight - rect.bottom;
+        var spaceAbove = rect.top;
+        var topPos, leftPos;
+
+        if (spaceBelow >= popupHeight || spaceBelow > spaceAbove) {
+            // Position below the input
+            topPos = rect.bottom + window.scrollY + 5;
+        } else {
+            // Position above the input
+            topPos = rect.top + window.scrollY - popupHeight - 5;
+        }
+
+        // Ensure left position doesn't go off-screen
+        leftPos = rect.left + window.scrollX;
+        if (leftPos + popupWidth > viewportWidth) {
+            leftPos = viewportWidth - popupWidth - 10;
+        }
+        if (leftPos < 10) leftPos = 10;
+
+        popup.style.top = topPos + 'px';
+        popup.style.left = leftPos + 'px';
+        popup.style.maxHeight = (viewportHeight - 40) + 'px';
+        popup.style.overflowY = 'auto';
+        logDebug('Popup positioned at', { top: popup.style.top, left: popup.style.left, spaceBelow: spaceBelow, spaceAbove: spaceAbove });
 
         function render() {
             logDebug('Rendering calendar for', { year: viewYear, month: viewMonth });
@@ -376,9 +403,9 @@
             html += '</div>';
 
             html += '<div class="pc-footer">';
-            html += '<button type="button" class="pc-clear">پاک کردن</button>';
-            html += '<button type="button" class="pc-today">امروز</button>';
             html += '<button type="button" class="pc-confirm primary">تأیید</button>';
+            html += '<button type="button" class="pc-today">امروز</button>';
+            html += '<button type="button" class="pc-clear">پاک کردن</button>';
             html += '</div>';
 
             popup.innerHTML = html;
@@ -519,11 +546,34 @@
         popup.className = 'pc-popup';
         document.body.appendChild(popup);
 
-        // Position popup
+        // Position popup - smart positioning to avoid going off-screen
         var inputEl = $input[0] || $input;
         var rect = inputEl.getBoundingClientRect();
-        popup.style.top = (rect.bottom + window.scrollY + 5) + 'px';
-        popup.style.left = (rect.left + window.scrollX) + 'px';
+        var popupHeight = 480; // DateTime popup is taller due to time picker
+        var popupWidth = 320;
+        var viewportHeight = window.innerHeight;
+        var viewportWidth = window.innerWidth;
+
+        var spaceBelow = viewportHeight - rect.bottom;
+        var spaceAbove = rect.top;
+        var topPos, leftPos;
+
+        if (spaceBelow >= popupHeight || spaceBelow > spaceAbove) {
+            topPos = rect.bottom + window.scrollY + 5;
+        } else {
+            topPos = rect.top + window.scrollY - popupHeight - 5;
+        }
+
+        leftPos = rect.left + window.scrollX;
+        if (leftPos + popupWidth > viewportWidth) {
+            leftPos = viewportWidth - popupWidth - 10;
+        }
+        if (leftPos < 10) leftPos = 10;
+
+        popup.style.top = topPos + 'px';
+        popup.style.left = leftPos + 'px';
+        popup.style.maxHeight = (viewportHeight - 40) + 'px';
+        popup.style.overflowY = 'auto';
         logDebug('DateTime Popup positioned at', { top: popup.style.top, left: popup.style.left });
 
         function render() {
@@ -760,10 +810,14 @@
             // Specific date fields in Create/Edit forms
             'input#duedate',
             'input[name="duedate"]',
-            // Custom date fields in edit dialogs (like Plan Date)
+            // Custom date fields in edit dialogs (like Plan Date, Time of Start)
             '.field-group input.datepicker-input',
-            '.field-group input.aui-date-picker'
-            // NOTE: log-work-form-date-logged-date-picker is DateTime, not Date-only, so we skip it
+            '.field-group input.aui-date-picker',
+            // Log Work dialog DateTime fields (Date Started)
+            'input#log-work-form-date-logged-date-picker',
+            'input#log-work-date-logged-date-picker',
+            'input[name="startDate"]',
+            'input[name="worklog_startDate"]'
         ];
 
         // Search page selectors - ONLY the Between date inputs
