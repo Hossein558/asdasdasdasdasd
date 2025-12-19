@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.11';
+    var PC_VERSION = '10.3.12';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -775,19 +775,22 @@
             '#issuedetails .value time',
             '#datesmodule .value',
             '#datesmodule time',
-            // Work Log / Activity section dates
-            '.activity-container .worklog-date',
-            '.activity-container time',
-            '.activity-container .livestamp',
-            '.activity-content time',
-            '#worklog-tabpanel time',
+            // Work Log / Activity section dates (based on HTML inspection)
+            '.actionContainer .date',
+            '.actionContainer span.date',
+            '.action-details .date',
+            '.action-details span.date',
+            '#activitymodule .date',
             '#worklog-tabpanel .date',
-            '.issue-data-block time',
-            '.actionContainer .action-head time',
+            '#worklog-tabpanel span.date',
+            '.issue-data-block .date',
+            // Livestamp elements
+            '.activity-container .livestamp',
+            '.actionContainer .livestamp',
+            // Time elements
+            '.actionContainer time',
             '.action-details time',
-            // Worklog items
-            '.worklog-item .date',
-            '.worklog-item time'
+            '#activitymodule time'
         ];
 
         var convertedCount = 0;
