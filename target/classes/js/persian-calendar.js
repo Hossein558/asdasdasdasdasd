@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.9';
+    var PC_VERSION = '10.3.10';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -223,9 +223,19 @@
     }
 
     function formatJiraDate(year, month, day) {
+        // Format: d/MMM/yy (e.g., 9/Dec/25 or 19/Dec/25)
         var yy = year % 100;
         var yyStr = yy < 10 ? '0' + yy : '' + yy;
         return day + '/' + GREGORIAN_MONTHS[month - 1] + '/' + yyStr;
+    }
+
+    function formatJiraDateTime(year, month, day, hour, minute, ampm) {
+        // Format: dd/MMM/yy h:mm a (e.g., 19/Dec/25 6:30 PM)
+        var yy = year % 100;
+        var yyStr = yy < 10 ? '0' + yy : '' + yy;
+        var dayStr = day < 10 ? '0' + day : '' + day;
+        var minStr = minute < 10 ? '0' + minute : '' + minute;
+        return dayStr + '/' + GREGORIAN_MONTHS[month - 1] + '/' + yyStr + ' ' + hour + ':' + minStr + ' ' + ampm;
     }
 
     function formatPersianDate(jy, jm, jd) {
@@ -1005,17 +1015,16 @@
                         showPersianDateTimePicker($persian, $original, function (selectedDateTime) {
                             if (selectedDateTime) {
                                 // Format display value (Persian)
-                                var hour12 = selectedDateTime.hour;
-                                var minute = selectedDateTime.minute < 10 ? '0' + selectedDateTime.minute : selectedDateTime.minute;
-                                var timeStr = hour12 + ':' + minute + ' ' + selectedDateTime.ampm;
+                                var minStr = selectedDateTime.minute < 10 ? '0' + selectedDateTime.minute : '' + selectedDateTime.minute;
+                                var timeStr = selectedDateTime.hour + ':' + minStr + ' ' + selectedDateTime.ampm;
                                 $persian.val(formatPersianDate(selectedDateTime.jy, selectedDateTime.jm, selectedDateTime.jd) + ' ' + timeStr);
 
-                                // Format Jira value (Gregorian with time)
+                                // Format Jira value (Gregorian with time) - dd/MMM/yy h:mm a
                                 var gDate = toGregorian(selectedDateTime.jy, selectedDateTime.jm, selectedDateTime.jd);
-                                var formattedDate = formatJiraDate(gDate.gy, gDate.gm, gDate.gd) + ' ' + timeStr;
+                                var formattedDate = formatJiraDateTime(gDate.gy, gDate.gm, gDate.gd, selectedDateTime.hour, selectedDateTime.minute, selectedDateTime.ampm);
                                 $original.val(formattedDate);
                                 logInfo('DateTime saved to original input: ' + formattedDate);
-                                $original.trigger('change');
+                                $original.trigger('change').trigger('input').trigger('blur');
                             } else {
                                 $persian.val('');
                                 $original.val('');
@@ -1038,7 +1047,7 @@
                                 var formattedDate = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
                                 $original.val(formattedDate);
                                 logInfo('Date saved to original input: ' + formattedDate);
-                                $original.trigger('change');
+                                $original.trigger('change').trigger('input').trigger('blur');
                             } else {
                                 $persian.val('');
                                 $original.val('');
