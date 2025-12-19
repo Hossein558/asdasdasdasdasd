@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.7';
+    var PC_VERSION = '10.3.8';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -800,20 +800,41 @@
                 return;
             }
 
-            // Skip DateTime fields (Date + Time picker) - they contain AM/PM or time format
+            // Detect DateTime fields (Date + Time picker)
+            // Check multiple sources: value, placeholder, description text, data attributes
             var currentValue = $original.val() || '';
             var placeholder = $original.attr('placeholder') || '';
-            var isDateTimeField = currentValue.match(/\d{1,2}:\d{2}/) ||
-                currentValue.match(/[AP]M/i) ||
-                placeholder.match(/\d{1,2}:\d{2}/) ||
-                placeholder.match(/h:mm/i) ||
+
+            // Check if the field has time in its value
+            var hasTimeInValue = currentValue.match(/\d{1,2}:\d{2}/) || currentValue.match(/[AP]M/i);
+
+            // Check placeholder for time hints
+            var hasTimeInPlaceholder = placeholder.match(/\d{1,2}:\d{2}/) || placeholder.match(/h:mm/i);
+
+            // Check description text in sibling elements (e.g., "Use the dd/MMM/yy h:mm a date format")
+            var $fieldGroup = $original.closest('.field-group');
+            var descriptionText = $fieldGroup.find('.description, .field-desc, .aui-field-description').text() || '';
+            var hasTimeInDescription = descriptionText.match(/h:mm/i) || descriptionText.match(/time/i) || descriptionText.match(/\d{1,2}:\d{2}/);
+
+            // Check specific known DateTime field IDs/names
+            var isKnownDateTimeField =
                 $original.attr('id') === 'log-work-form-date-logged-date-picker' ||
                 $original.attr('id') === 'log-work-date-logged-date-picker' ||
                 $original.attr('name') === 'startDate' ||
                 $original.attr('name') === 'worklog_startDate';
 
-            // Don't skip DateTime fields anymore - we'll handle them with DateTimePicker
-            logDebug('Is DateTime field: ' + isDateTimeField);
+            // Combine all checks
+            var isDateTimeField = hasTimeInValue || hasTimeInPlaceholder || hasTimeInDescription || isKnownDateTimeField;
+
+            // Log detection details for debugging
+            logDebug('DateTime detection', {
+                id: $original.attr('id'),
+                hasTimeInValue: !!hasTimeInValue,
+                hasTimeInPlaceholder: !!hasTimeInPlaceholder,
+                hasTimeInDescription: !!hasTimeInDescription,
+                descriptionText: descriptionText.substring(0, 100),
+                isDateTimeField: isDateTimeField
+            });
 
             logDebug('Found matching input', {
                 id: $original.attr('id'),
