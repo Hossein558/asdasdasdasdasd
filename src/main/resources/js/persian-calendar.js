@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.13';
+    var PC_VERSION = '10.3.14';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -834,9 +834,29 @@
             var datePart = text.split(/\s+\d{1,2}:/)[0].trim();
             var timePart = '';
 
-            var timeMatch = text.match(/\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
+            // Match time with AM/PM format (e.g., "7:11 PM" or "12:30 AM")
+            var timeMatch = text.match(/\s+(\d{1,2}):(\d{2})\s*(AM|PM)/i);
             if (timeMatch) {
-                timePart = ' ' + timeMatch[1];
+                var hour = parseInt(timeMatch[1], 10);
+                var minute = timeMatch[2];
+                var ampm = timeMatch[3].toUpperCase();
+
+                // Convert to 24-hour format
+                if (ampm === 'PM' && hour !== 12) {
+                    hour += 12;
+                } else if (ampm === 'AM' && hour === 12) {
+                    hour = 0;
+                }
+
+                // Format with leading zero
+                var hour24 = (hour < 10 ? '0' : '') + hour;
+                timePart = ' ' + hour24 + ':' + minute;
+            } else {
+                // Try to match time without AM/PM (already 24-hour format)
+                var time24Match = text.match(/\s+(\d{1,2}:\d{2})(?!\s*[AP]M)/i);
+                if (time24Match) {
+                    timePart = ' ' + time24Match[1];
+                }
             }
 
             var parsed = parseJiraDate(datePart);
