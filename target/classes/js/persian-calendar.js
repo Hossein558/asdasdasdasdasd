@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.21';
+    var PC_VERSION = '10.3.22';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -919,77 +919,77 @@
 
         // Selectors for Jira's calendar trigger buttons in inline edit
         var calendarButtonSelectors = [
-            '#datesmodule .aui-iconfont-calendar',
-            '#datesmodule .icon-calendar',
-            '#datesmodule .calendar-icon',
-            '#datesmodule button[class*="calendar"]',
-            '.editable-field .aui-iconfont-calendar',
-            '.editable-field .icon-calendar',
-            '.inline-edit-fields .aui-iconfont-calendar',
-            '[data-type="date"] .aui-iconfont-calendar',
-            '[data-type="datetime"] .aui-iconfont-calendar'
+            '.aui-iconfont-calendar',
+            '.icon-calendar',
+            '.calendar-icon',
+            '[class*="calendar-trigger"]',
+            'button[class*="calendar"]',
+            'span[class*="calendar"]'
         ];
 
-        // Use event delegation on document to catch dynamically added buttons
-        $(document).off('click.pcInlineCalendar').on('click.pcInlineCalendar', calendarButtonSelectors.join(','), function (e) {
-            var $btn = $(this);
+        // Remove old listener if exists
+        if (window.pcCalendarCaptureListener) {
+            document.removeEventListener('click', window.pcCalendarCaptureListener, true);
+        }
+
+        // Use CAPTURE phase (third param = true) to intercept BEFORE Jira's handlers
+        window.pcCalendarCaptureListener = function (e) {
+            var target = e.target;
+            var $target = $(target);
+
+            // Check if clicked on calendar icon or its parent
+            var isCalendarButton = false;
+            var $btn = null;
+
+            // Check target and parents for calendar-related classes
+            for (var i = 0; i < calendarButtonSelectors.length; i++) {
+                if ($target.is(calendarButtonSelectors[i])) {
+                    isCalendarButton = true;
+                    $btn = $target;
+                    break;
+                }
+                var $parent = $target.closest(calendarButtonSelectors[i]);
+                if ($parent.length > 0) {
+                    isCalendarButton = true;
+                    $btn = $parent;
+                    break;
+                }
+            }
+
+            if (!isCalendarButton) return;
+
+            // Check if inside datesmodule (inline edit context)
+            var $datesModule = $btn.closest('#datesmodule');
+            if ($datesModule.length === 0) return;
 
             // Find the associated input field
             var $container = $btn.closest('.editable-field, .inline-edit-fields, [data-type="date"], [data-type="datetime"]');
             if ($container.length === 0) {
-                $container = $btn.closest('#datesmodule').find('.editable-field:visible, .inline-edit-fields:visible').first();
+                $container = $datesModule.find('.editable-field:visible, .inline-edit-fields:visible').first();
             }
 
             var $input = $container.find('input.datepicker-input, input[class*="date"], input[type="text"]').first();
 
             if ($input.length === 0) {
-                logDebug('No input found for calendar button, allowing default behavior');
-                return; // Let Jira handle it
+                logDebug('No input found for calendar button');
+                return;
             }
 
-            logInfo('Intercepting calendar button click for inline edit');
+            logInfo('Intercepting calendar button click (capture phase)');
 
-            // Prevent Jira's calendar from opening
+            // STOP propagation completely - this prevents Jira from handling it
             e.preventDefault();
             e.stopPropagation();
             e.stopImmediatePropagation();
 
-            // Function to hide Jira's calendar aggressively
-            function hideJiraCalendar() {
-                // Multiple selectors for Jira's calendar popups
-                var jiraCalendarSelectors = [
-                    '.aui-datepicker-dialog',
-                    '.aui-layer',
-                    '.ajs-layer',
-                    '.calendar-popup',
-                    '.jira-calendar',
-                    '[data-aui-alignment]',
-                    '.aui-picker-value-layer',
-                    '.aui-dropdown2',
-                    '.aui-blanket'
-                ];
+            // Also disable Jira's datepicker on this input
+            try {
+                if ($input.data('aui-datepicker')) {
+                    $input.data('aui-datepicker').hide();
+                }
+            } catch (ex) { }
 
-                $(jiraCalendarSelectors.join(',')).each(function () {
-                    var $el = $(this);
-                    // Don't hide our own popup
-                    if (!$el.hasClass('pc-popup') && !$el.hasClass('pc-overlay')) {
-                        $el.hide().css('visibility', 'hidden');
-                    }
-                });
-            }
-
-            // Hide immediately and multiple times
-            hideJiraCalendar();
-            setTimeout(hideJiraCalendar, 0);
-            setTimeout(hideJiraCalendar, 10);
-            setTimeout(hideJiraCalendar, 50);
-            setTimeout(hideJiraCalendar, 100);
-            setTimeout(hideJiraCalendar, 200);
-
-            // Blur the input to prevent Jira from reopening calendar
-            $input.blur();
-
-            // Detect if this is a DateTime field (has time component)
+            // Detect if this is a DateTime field
             var inputValue = $input.val() || '';
             var placeholder = $input.attr('placeholder') || '';
             var isDateTime = inputValue.match(/\d{1,2}:\d{2}/) ||
@@ -997,19 +997,22 @@
                 placeholder.match(/h:mm/i) ||
                 $container.attr('data-type') === 'datetime';
 
-            logDebug('Inline edit calendar: isDateTime=' + isDateTime + ', value=' + inputValue);
+            logDebug('Inline edit calendar: isDateTime=' + !!isDateTime + ', value=' + inputValue);
 
             // Show our Persian calendar
-            if (isDateTime) {
-                showPersianDateTimePickerForInlineEdit($, $btn, $input);
-            } else {
-                showPersianCalendarForInlineEdit($, $btn, $input);
-            }
+            setTimeout(function () {
+                if (isDateTime) {
+                    showPersianDateTimePickerForInlineEdit($, $btn, $input);
+                } else {
+                    showPersianCalendarForInlineEdit($, $btn, $input);
+                }
+            }, 0);
+        };
 
-            return false;
-        });
+        // Add listener with CAPTURE phase
+        document.addEventListener('click', window.pcCalendarCaptureListener, true);
 
-        logInfo('Inline edit calendar initialized');
+        logInfo('Inline edit calendar initialized (with capture phase)');
     }
 
     // Show Persian calendar popup for inline edit (Date only)
