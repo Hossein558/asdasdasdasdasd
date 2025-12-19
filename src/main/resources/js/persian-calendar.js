@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.12';
+    var PC_VERSION = '10.3.13';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -776,11 +776,17 @@
             '#datesmodule .value',
             '#datesmodule time',
             // Work Log / Activity section dates (based on HTML inspection)
+            // The date is inside: .action-details > .subText > span.date
+            '.subText .date',
+            '.subText span.date',
+            'span.date[data-datetime]',
+            '.action-details .subText .date',
             '.actionContainer .date',
             '.actionContainer span.date',
             '.action-details .date',
             '.action-details span.date',
             '#activitymodule .date',
+            '#activity-stream-issue-tab .date',
             '#worklog-tabpanel .date',
             '#worklog-tabpanel span.date',
             '.issue-data-block .date',
@@ -795,6 +801,15 @@
 
         var convertedCount = 0;
 
+        // Debug: Log how many elements match each selector individually
+        logDebug('Checking selectors individually:');
+        dateValueSelectors.forEach(function (sel) {
+            var count = $(sel).length;
+            if (count > 0) {
+                logDebug('Selector "' + sel + '" matched ' + count + ' elements');
+            }
+        });
+
         $(dateValueSelectors.join(',')).each(function () {
             var $el = $(this);
 
@@ -805,8 +820,12 @@
 
             var text = $el.text().trim();
 
+            // Debug: Log each element found
+            logDebug('Found element with text: "' + text + '" | tag: ' + $el.prop('tagName') + ' | class: ' + $el.attr('class'));
+
             // Skip relative dates like "17 hours ago", "Just now", etc.
             if (text.match(/ago|now|yesterday|tomorrow|hours|minutes|seconds/i)) {
+                logDebug('Skipped relative date: ' + text);
                 return;
             }
 
@@ -833,6 +852,8 @@
 
                 logInfo('Converted date: ' + text + ' → ' + persianText);
                 convertedCount++;
+            } else {
+                logDebug('Could not parse date: "' + text + '" (datePart: "' + datePart + '")');
             }
         });
 
