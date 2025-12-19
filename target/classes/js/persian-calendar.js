@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.10';
+    var PC_VERSION = '10.3.11';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -774,7 +774,20 @@
             '.details-layout time[datetime]',
             '#issuedetails .value time',
             '#datesmodule .value',
-            '#datesmodule time'
+            '#datesmodule time',
+            // Work Log / Activity section dates
+            '.activity-container .worklog-date',
+            '.activity-container time',
+            '.activity-container .livestamp',
+            '.activity-content time',
+            '#worklog-tabpanel time',
+            '#worklog-tabpanel .date',
+            '.issue-data-block time',
+            '.actionContainer .action-head time',
+            '.action-details time',
+            // Worklog items
+            '.worklog-item .date',
+            '.worklog-item time'
         ];
 
         var convertedCount = 0;
@@ -789,11 +802,25 @@
 
             var text = $el.text().trim();
 
-            // Try to parse Jira date format (d/MMM/yy or similar)
-            var parsed = parseJiraDate(text);
+            // Skip relative dates like "17 hours ago", "Just now", etc.
+            if (text.match(/ago|now|yesterday|tomorrow|hours|minutes|seconds/i)) {
+                return;
+            }
+
+            // Try to parse Jira date format (d/MMM/yy or dd/MMM/yy h:mm a)
+            // Extract date part first (before any time)
+            var datePart = text.split(/\s+\d{1,2}:/)[0].trim();
+            var timePart = '';
+
+            var timeMatch = text.match(/\s+(\d{1,2}:\d{2}\s*(?:AM|PM)?)/i);
+            if (timeMatch) {
+                timePart = ' ' + timeMatch[1];
+            }
+
+            var parsed = parseJiraDate(datePart);
             if (parsed) {
                 var jDate = toJalaali(parsed.year, parsed.month, parsed.day);
-                var persianText = formatPersianDate(jDate.jy, jDate.jm, jDate.jd);
+                var persianText = formatPersianDate(jDate.jy, jDate.jm, jDate.jd) + timePart;
 
                 // Save original for tooltip
                 $el.attr('title', text + ' = ' + persianText);
