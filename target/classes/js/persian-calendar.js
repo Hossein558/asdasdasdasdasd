@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.14';
+    var PC_VERSION = '10.3.15';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -866,9 +866,22 @@
 
                 // Save original for tooltip
                 $el.attr('title', text + ' = ' + persianText);
-                $el.text(persianText);
+
+                // Use HTML with proper RTL handling to prevent bidirectional text mixing
+                // The LRM (Left-to-Right Mark) character helps separate the time from Persian text
+                var lrm = '\u200E';  // Left-to-Right Mark
+                var rlm = '\u200F';  // Right-to-Left Mark
+                var displayText = formatPersianDate(jDate.jy, jDate.jm, jDate.jd);
+                if (timePart) {
+                    displayText = displayText + lrm + timePart;
+                }
+
+                $el.text(displayText);
                 $el.data('pc-converted', true);
-                $el.css('direction', 'rtl');
+                $el.css({
+                    'direction': 'rtl',
+                    'unicode-bidi': 'embed'
+                });
 
                 logInfo('Converted date: ' + text + ' → ' + persianText);
                 convertedCount++;
