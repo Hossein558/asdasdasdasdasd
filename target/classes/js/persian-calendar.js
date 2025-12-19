@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.20';
+    var PC_VERSION = '10.3.21';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -954,10 +954,40 @@
             e.stopPropagation();
             e.stopImmediatePropagation();
 
-            // Hide Jira's calendar if it opened
-            setTimeout(function () {
-                $('.aui-datepicker-dialog, .calendar-popup, .ajs-layer').hide();
-            }, 10);
+            // Function to hide Jira's calendar aggressively
+            function hideJiraCalendar() {
+                // Multiple selectors for Jira's calendar popups
+                var jiraCalendarSelectors = [
+                    '.aui-datepicker-dialog',
+                    '.aui-layer',
+                    '.ajs-layer',
+                    '.calendar-popup',
+                    '.jira-calendar',
+                    '[data-aui-alignment]',
+                    '.aui-picker-value-layer',
+                    '.aui-dropdown2',
+                    '.aui-blanket'
+                ];
+
+                $(jiraCalendarSelectors.join(',')).each(function () {
+                    var $el = $(this);
+                    // Don't hide our own popup
+                    if (!$el.hasClass('pc-popup') && !$el.hasClass('pc-overlay')) {
+                        $el.hide().css('visibility', 'hidden');
+                    }
+                });
+            }
+
+            // Hide immediately and multiple times
+            hideJiraCalendar();
+            setTimeout(hideJiraCalendar, 0);
+            setTimeout(hideJiraCalendar, 10);
+            setTimeout(hideJiraCalendar, 50);
+            setTimeout(hideJiraCalendar, 100);
+            setTimeout(hideJiraCalendar, 200);
+
+            // Blur the input to prevent Jira from reopening calendar
+            $input.blur();
 
             // Detect if this is a DateTime field (has time component)
             var inputValue = $input.val() || '';
