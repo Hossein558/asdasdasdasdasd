@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.17';
+    var PC_VERSION = '10.3.18';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -948,6 +948,21 @@
             // Skip if already has Persian button next to it
             if ($original.next('.pc-search-btn').length > 0 || $original.prev('.pc-search-btn').length > 0) {
                 logDebug('Skipping - already has Persian button');
+                return;
+            }
+
+            // Skip inputs inside inline edit containers on the view page
+            // These should use Jira's native date picker, not our Persian calendar
+            if ($original.closest('.inline-edit-fields').length > 0 ||
+                $original.closest('.inline-edit-fields-container').length > 0 ||
+                $original.closest('.editable-field').length > 0 ||
+                $original.closest('.aui-inline-dialog').length > 0 ||
+                $original.closest('#datesmodule').length > 0 ||
+                $original.closest('#details-module').length > 0 ||
+                $original.closest('.issue-view').length > 0 ||
+                $original.closest('[data-type="date"]').length > 0 ||
+                $original.closest('.ajs-layer').length > 0) {
+                logDebug('Skipping input inside inline edit container: ' + $original.attr('id'));
                 return;
             }
 
