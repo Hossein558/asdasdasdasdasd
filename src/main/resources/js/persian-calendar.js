@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.18';
+    var PC_VERSION = '10.3.19';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -808,22 +808,33 @@
         $(dateValueSelectors.join(',')).each(function () {
             var $el = $(this);
 
-            // Skip if already converted
+            // Check if element was previously converted but text has changed back to Gregorian
+            // This happens after inline edit saves - Jira replaces the element content
             if ($el.data('pc-converted')) {
-                return;
+                var currentText = $el.text().trim();
+                // If text looks like Gregorian date (contains month abbreviation like Dec, Jan, etc.)
+                // then it was updated by Jira and needs re-conversion
+                if (currentText.match(/\d{1,2}\/[A-Za-z]{3}\/\d{2}/)) {
+                    logDebug('Date was updated by Jira, resetting conversion flag: ' + currentText);
+                    $el.removeData('pc-converted');
+                } else {
+                    // Already converted and still showing Persian
+                    return;
+                }
             }
 
-            // Skip if inside an inline edit form or editable container
-            // These are elements that Jira uses for inline editing
-            if ($el.closest('.inline-edit-fields').length > 0 ||
-                $el.closest('.inline-edit-fields-container').length > 0 ||
-                $el.closest('.editable-field').length > 0 ||
-                $el.closest('.aui-inline-dialog').length > 0 ||
-                $el.closest('.jira-dialog').length > 0 ||
-                $el.closest('form').length > 0 ||
-                $el.closest('.ajs-layer').length > 0 ||
-                $el.closest('[data-inline-edit-opened]').length > 0) {
-                logDebug('Skipped element inside inline edit: ' + $el.text().trim());
+            // Skip if inside an ACTIVE inline edit form (with visible input)
+            // Only skip when inline edit is actually open, not after it closes
+            var $parentForm = $el.closest('form');
+            var hasActiveInput = $parentForm.length > 0 && $parentForm.find('input:visible, textarea:visible').length > 0;
+
+            if (hasActiveInput ||
+                $el.closest('.inline-edit-fields:visible').length > 0 ||
+                $el.closest('.editable-field.active').length > 0 ||
+                $el.closest('.aui-inline-dialog:visible').length > 0 ||
+                $el.closest('.jira-dialog:visible').length > 0 ||
+                $el.closest('.ajs-layer:visible').length > 0) {
+                logDebug('Skipped element inside ACTIVE inline edit: ' + $el.text().trim());
                 return;
             }
 
