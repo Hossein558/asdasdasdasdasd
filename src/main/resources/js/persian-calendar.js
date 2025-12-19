@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.15';
+    var PC_VERSION = '10.3.16';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -756,25 +756,20 @@
     function convertViewPageDates($) {
         logInfo('=== Converting View Page Dates ===');
 
-        // Selectors for date display elements in the issue detail sidebar
+        // Selectors for date display elements - ONLY read-only areas
+        // NOTE: Do NOT convert editable fields in sidebar (#due-date, #customfield_*) 
+        // as it breaks Jira's inline edit functionality
         var dateValueSelectors = [
-            // Due date in detail view
-            '#due-date .value time',
-            '#due-date .value',
-            '#customfield_10015-val time',  // Plan Date
-            '#customfield_10015-val',
+            // Due date in detail view - ONLY time element (read-only display)
+            '#due-date .value time[datetime]',
+            '#customfield_10015-val time[datetime]',  // Plan Date - only time element
             // Generic date display patterns
             '.item-details .date-value',
-            '.dates-module .value time',
-            '.dates-module .value',
-            // Description area date displays
-            '[data-field-id="duedate"] .value',
-            '[data-field-id="duedate"] time',
-            // Any time element with datetime attribute containing date
+            '.dates-module time[datetime]',
+            // Any time element with datetime attribute (read-only display)
             '.details-layout time[datetime]',
-            '#issuedetails .value time',
-            '#datesmodule .value',
-            '#datesmodule time',
+            '#issuedetails time[datetime]',
+            '#datesmodule time[datetime]',
             // Work Log / Activity section dates (based on HTML inspection)
             // The date is inside: .action-details > .subText > span.date
             '.subText .date',
