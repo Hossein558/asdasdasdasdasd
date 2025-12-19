@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.22';
+    var PC_VERSION = '10.3.23';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -1126,9 +1126,23 @@
         function confirm() {
             if (selectedDate) {
                 var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
+                logInfo('Converting Shamsi to Gregorian: ' + selectedDate.jy + '/' + selectedDate.jm + '/' + selectedDate.jd + ' -> ' + gDate.gy + '/' + gDate.gm + '/' + gDate.gd);
                 var gregorianStr = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
-                logInfo('Setting inline edit value: ' + gregorianStr);
-                $input.val(gregorianStr).trigger('change').trigger('input');
+                logInfo('Setting inline edit value (Gregorian): ' + gregorianStr);
+
+                // Set value using multiple methods to ensure it works
+                $input.val(gregorianStr);
+                $input[0].value = gregorianStr;
+
+                // Trigger various events to notify Jira
+                $input.trigger('change').trigger('input').trigger('blur');
+
+                // Also dispatch native events
+                var inputEl = $input[0];
+                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+
+                logInfo('Value set successfully: ' + $input.val());
             }
             close();
         }
@@ -1279,12 +1293,23 @@
         function confirm() {
             if (selectedDate) {
                 var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
-                var h = selectedHour % 12;
-                if (selectedAmPm === 'PM' && selectedHour !== 12) h = selectedHour;
-                if (selectedAmPm === 'AM' && selectedHour === 12) h = 0;
+                logInfo('Converting Shamsi to Gregorian: ' + selectedDate.jy + '/' + selectedDate.jm + '/' + selectedDate.jd + ' -> ' + gDate.gy + '/' + gDate.gm + '/' + gDate.gd);
                 var gregorianStr = formatJiraDateTime(gDate.gy, gDate.gm, gDate.gd, selectedHour, selectedMinute, selectedAmPm);
-                logInfo('Setting inline edit DateTime value: ' + gregorianStr);
-                $input.val(gregorianStr).trigger('change').trigger('input');
+                logInfo('Setting inline edit DateTime value (Gregorian): ' + gregorianStr);
+
+                // Set value using multiple methods to ensure it works
+                $input.val(gregorianStr);
+                $input[0].value = gregorianStr;
+
+                // Trigger various events to notify Jira
+                $input.trigger('change').trigger('input').trigger('blur');
+
+                // Also dispatch native events
+                var inputEl = $input[0];
+                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+
+                logInfo('DateTime value set successfully: ' + $input.val());
             }
             close();
         }
