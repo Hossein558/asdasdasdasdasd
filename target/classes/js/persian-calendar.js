@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.16';
+    var PC_VERSION = '10.3.17';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -810,6 +810,20 @@
 
             // Skip if already converted
             if ($el.data('pc-converted')) {
+                return;
+            }
+
+            // Skip if inside an inline edit form or editable container
+            // These are elements that Jira uses for inline editing
+            if ($el.closest('.inline-edit-fields').length > 0 ||
+                $el.closest('.inline-edit-fields-container').length > 0 ||
+                $el.closest('.editable-field').length > 0 ||
+                $el.closest('.aui-inline-dialog').length > 0 ||
+                $el.closest('.jira-dialog').length > 0 ||
+                $el.closest('form').length > 0 ||
+                $el.closest('.ajs-layer').length > 0 ||
+                $el.closest('[data-inline-edit-opened]').length > 0) {
+                logDebug('Skipped element inside inline edit: ' + $el.text().trim());
                 return;
             }
 
