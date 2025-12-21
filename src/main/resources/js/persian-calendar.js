@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.29';
+    var PC_VERSION = '10.3.30';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -925,16 +925,13 @@
             '[class*="calendar-trigger"]',
             'button[class*="calendar"]',
             'span[class*="calendar"]',
-            // JSM Customer Portal specific selectors
-            '.cv-datepicker-trigger',
-            '.cv-datepicker__trigger',
-            '[data-testid*="datepicker"]',
-            '[data-testid*="date-picker"]',
-            '.sc-date-picker-trigger',
-            '.date-picker-trigger',
-            '.aui-ss-field + button',
-            '[aria-label*="calendar"]',
-            '[aria-label*="date"]'
+            // JSM Customer Portal specific selectors (from DOM inspection)
+            '.sd-calendar-icon',
+            '.trigger-show-date-picker',
+            '.show-date-picker',
+            'button[id*="trigger-"]',
+            '.sd-date-picker-gr',
+            '[class*="date-picker"]'
         ];
 
         // Remove old listener if exists
