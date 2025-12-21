@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.24';
+    var PC_VERSION = '10.3.25';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -1130,60 +1130,118 @@
                 var gregorianStr = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
                 logInfo('Setting inline edit value (Gregorian): ' + gregorianStr);
 
+                // Re-find the input field in case DOM has changed
+                // Look for the visible input in datesmodule that is currently in edit mode
+                var $datesModule = $('#datesmodule');
+                var $activeInput = $datesModule.find('.editable-field.active input[type="text"]:visible, .inline-edit-fields input[type="text"]:visible').first();
+
+                // If not found, try broader selectors
+                if ($activeInput.length === 0) {
+                    $activeInput = $datesModule.find('input.datepicker-input:visible, input[class*="date"]:visible').first();
+                }
+
+                // Fallback to original input
+                if ($activeInput.length === 0) {
+                    $activeInput = $input;
+                }
+
+                logInfo('Found active input: ' + $activeInput.attr('id') + ' / ' + $activeInput.attr('class'));
+                logInfo('Current input value before change: ' + $activeInput.val());
+
                 // Set value using multiple methods to ensure it works
-                $input.val(gregorianStr);
-                $input[0].value = gregorianStr;
+                $activeInput.val(gregorianStr);
+                if ($activeInput[0]) {
+                    $activeInput[0].value = gregorianStr;
 
-                // Trigger various events to notify Jira
-                $input.trigger('change').trigger('input');
+                    // Set the value attribute too
+                    $activeInput.attr('value', gregorianStr);
+                }
 
-                // Also dispatch native events
-                var inputEl = $input[0];
-                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                logInfo('Input value after setting: ' + $activeInput.val());
+
+                // Trigger various events to notify Jira - use proper event initialization
+                var inputEl = $activeInput[0];
+
+                // Create and dispatch InputEvent for better compatibility with React/modern frameworks
+                try {
+                    var nativeInputEvent = new InputEvent('input', {
+                        bubbles: true,
+                        cancelable: true,
+                        data: gregorianStr
+                    });
+                    inputEl.dispatchEvent(nativeInputEvent);
+                } catch (e) {
+                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+
                 inputEl.dispatchEvent(new Event('change', { bubbles: true }));
 
-                logInfo('Value set successfully: ' + $input.val());
+                // Also trigger jQuery events
+                $activeInput.trigger('input').trigger('change');
 
-                // Find and click Jira's inline edit submit button to save the change
-                var $container = $input.closest('.editable-field, .inline-edit-fields, .aui-inline-dialog, form');
-                var $submitBtn = $container.find('button[type="submit"], .aui-button.submit, input[type="submit"], .save-button, button.submit');
+                logInfo('Value set and events dispatched: ' + $activeInput.val());
 
-                if ($submitBtn.length > 0) {
-                    logInfo('Found submit button, clicking to save');
+                // Find and click Jira's inline edit submit button (the checkmark icon)
+                var $form = $activeInput.closest('form');
+                var $editableField = $activeInput.closest('.editable-field');
+
+                // Look for the submit/save button - Jira uses various patterns
+                var $submitBtn = null;
+
+                // Try to find submit button in form first
+                if ($form.length > 0) {
+                    $submitBtn = $form.find('button[type="submit"], input[type="submit"], .aui-button.submit, button.submit').first();
+                }
+
+                // Try editable field container
+                if ((!$submitBtn || $submitBtn.length === 0) && $editableField.length > 0) {
+                    $submitBtn = $editableField.find('button[type="submit"], .aui-button.submit, .inline-edit-save, .save').first();
+                }
+
+                // Try the icons container (Jira often uses icon buttons)
+                if (!$submitBtn || $submitBtn.length === 0) {
+                    $submitBtn = $datesModule.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                }
+
+                if ($submitBtn && $submitBtn.length > 0) {
+                    logInfo('Found submit button: ' + $submitBtn.attr('class') + ', clicking to save');
                     setTimeout(function () {
-                        $submitBtn.first().click();
-                    }, 100);
+                        $submitBtn.click();
+                        $submitBtn.trigger('click');
+                    }, 50);
                 } else {
-                    // Try to find the submit button in common Jira inline edit structures
-                    var $form = $input.closest('form');
-                    if ($form.length > 0) {
-                        var $formSubmit = $form.find('button[type="submit"], input[type="submit"], .aui-button.submit');
-                        if ($formSubmit.length > 0) {
-                            logInfo('Found form submit button, clicking to save');
-                            setTimeout(function () {
-                                $formSubmit.first().click();
-                            }, 100);
-                        } else {
-                            // Trigger Enter key as fallback
-                            logInfo('No submit button found, triggering Enter key');
-                            setTimeout(function () {
-                                var enterEvent = new KeyboardEvent('keydown', {
-                                    key: 'Enter',
-                                    keyCode: 13,
-                                    which: 13,
-                                    bubbles: true
-                                });
-                                inputEl.dispatchEvent(enterEvent);
-                                $input.trigger('blur');
-                            }, 100);
-                        }
-                    } else {
-                        // Trigger blur to try auto-save
-                        logInfo('No form found, triggering blur for auto-save');
+                    // Trigger Enter key as fallback - this often submits inline edit forms
+                    logInfo('No submit button found, triggering Enter key on input');
+                    setTimeout(function () {
+                        // Focus the input first
+                        inputEl.focus();
+
+                        // Simulate pressing Enter
+                        var enterEvent = new KeyboardEvent('keydown', {
+                            key: 'Enter',
+                            code: 'Enter',
+                            keyCode: 13,
+                            which: 13,
+                            bubbles: true,
+                            cancelable: true
+                        });
+                        inputEl.dispatchEvent(enterEvent);
+
+                        var enterUp = new KeyboardEvent('keyup', {
+                            key: 'Enter',
+                            code: 'Enter',
+                            keyCode: 13,
+                            which: 13,
+                            bubbles: true
+                        });
+                        inputEl.dispatchEvent(enterUp);
+
+                        // Also trigger blur which sometimes triggers save
                         setTimeout(function () {
-                            $input.trigger('blur');
-                        }, 100);
-                    }
+                            $activeInput.trigger('blur');
+                            inputEl.blur();
+                        }, 50);
+                    }, 50);
                 }
             }
             close();
@@ -1339,60 +1397,87 @@
                 var gregorianStr = formatJiraDateTime(gDate.gy, gDate.gm, gDate.gd, selectedHour, selectedMinute, selectedAmPm);
                 logInfo('Setting inline edit DateTime value (Gregorian): ' + gregorianStr);
 
-                // Set value using multiple methods to ensure it works
-                $input.val(gregorianStr);
-                $input[0].value = gregorianStr;
+                // Re-find the input field in case DOM has changed
+                var $datesModule = $('#datesmodule');
+                var $activeInput = $datesModule.find('.editable-field.active input[type="text"]:visible, .inline-edit-fields input[type="text"]:visible').first();
 
-                // Trigger various events to notify Jira
-                $input.trigger('change').trigger('input');
+                if ($activeInput.length === 0) {
+                    $activeInput = $datesModule.find('input.datepicker-input:visible, input[class*="date"]:visible').first();
+                }
 
-                // Also dispatch native events
-                var inputEl = $input[0];
-                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                if ($activeInput.length === 0) {
+                    $activeInput = $input;
+                }
+
+                logInfo('Found active input for DateTime: ' + $activeInput.attr('id') + ' / ' + $activeInput.attr('class'));
+
+                // Set value using multiple methods
+                $activeInput.val(gregorianStr);
+                if ($activeInput[0]) {
+                    $activeInput[0].value = gregorianStr;
+                    $activeInput.attr('value', gregorianStr);
+                }
+
+                // Trigger events
+                var inputEl = $activeInput[0];
+                try {
+                    var nativeInputEvent = new InputEvent('input', {
+                        bubbles: true,
+                        cancelable: true,
+                        data: gregorianStr
+                    });
+                    inputEl.dispatchEvent(nativeInputEvent);
+                } catch (e) {
+                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+
                 inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+                $activeInput.trigger('input').trigger('change');
 
-                logInfo('DateTime value set successfully: ' + $input.val());
+                logInfo('DateTime value set: ' + $activeInput.val());
 
-                // Find and click Jira's inline edit submit button to save the change
-                var $container = $input.closest('.editable-field, .inline-edit-fields, .aui-inline-dialog, form');
-                var $submitBtn = $container.find('button[type="submit"], .aui-button.submit, input[type="submit"], .save-button, button.submit');
+                // Find submit button
+                var $form = $activeInput.closest('form');
+                var $editableField = $activeInput.closest('.editable-field');
+                var $submitBtn = null;
 
-                if ($submitBtn.length > 0) {
-                    logInfo('Found submit button, clicking to save');
+                if ($form.length > 0) {
+                    $submitBtn = $form.find('button[type="submit"], input[type="submit"], .aui-button.submit').first();
+                }
+
+                if ((!$submitBtn || $submitBtn.length === 0) && $editableField.length > 0) {
+                    $submitBtn = $editableField.find('button[type="submit"], .aui-button.submit, .inline-edit-save').first();
+                }
+
+                if (!$submitBtn || $submitBtn.length === 0) {
+                    $submitBtn = $datesModule.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                }
+
+                if ($submitBtn && $submitBtn.length > 0) {
+                    logInfo('Found submit button for DateTime, clicking');
                     setTimeout(function () {
-                        $submitBtn.first().click();
-                    }, 100);
+                        $submitBtn.click();
+                        $submitBtn.trigger('click');
+                    }, 50);
                 } else {
-                    // Try to find the submit button in common Jira inline edit structures
-                    var $form = $input.closest('form');
-                    if ($form.length > 0) {
-                        var $formSubmit = $form.find('button[type="submit"], input[type="submit"], .aui-button.submit');
-                        if ($formSubmit.length > 0) {
-                            logInfo('Found form submit button, clicking to save');
-                            setTimeout(function () {
-                                $formSubmit.first().click();
-                            }, 100);
-                        } else {
-                            // Trigger Enter key as fallback
-                            logInfo('No submit button found, triggering Enter key');
-                            setTimeout(function () {
-                                var enterEvent = new KeyboardEvent('keydown', {
-                                    key: 'Enter',
-                                    keyCode: 13,
-                                    which: 13,
-                                    bubbles: true
-                                });
-                                inputEl.dispatchEvent(enterEvent);
-                                $input.trigger('blur');
-                            }, 100);
-                        }
-                    } else {
-                        // Trigger blur to try auto-save
-                        logInfo('No form found, triggering blur for auto-save');
+                    logInfo('No submit button found for DateTime, triggering Enter');
+                    setTimeout(function () {
+                        inputEl.focus();
+                        var enterEvent = new KeyboardEvent('keydown', {
+                            key: 'Enter',
+                            code: 'Enter',
+                            keyCode: 13,
+                            which: 13,
+                            bubbles: true,
+                            cancelable: true
+                        });
+                        inputEl.dispatchEvent(enterEvent);
+
                         setTimeout(function () {
-                            $input.trigger('blur');
-                        }, 100);
-                    }
+                            $activeInput.trigger('blur');
+                            inputEl.blur();
+                        }, 50);
+                    }, 50);
                 }
             }
             close();
