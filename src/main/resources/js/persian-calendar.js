@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.31';
+    var PC_VERSION = '10.3.32';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -1032,12 +1032,28 @@
             // Detect if this is a DateTime field
             var inputValue = $input.val() || '';
             var placeholder = $input.attr('placeholder') || '';
-            var isDateTime = inputValue.match(/\d{1,2}:\d{2}/) ||
+            var inputClass = $input.attr('class') || '';
+            var dataFormat = $input.attr('data-iformat') || $input.attr('data-format') || '';
+            var dataShowTime = $input.attr('data-showtime') || '';
+            var timeFormat = $input.attr('timeformat') || '';
+
+            // Check multiple ways to detect DateTime
+            var isDateTime =
+                inputValue.match(/\d{1,2}:\d{2}/) ||
                 inputValue.match(/[AP]M/i) ||
                 placeholder.match(/h:mm/i) ||
-                $container.attr('data-type') === 'datetime';
+                placeholder.match(/time/i) ||
+                $container.attr('data-type') === 'datetime' ||
+                // JSM specific checks
+                inputClass.indexOf('datetime') !== -1 ||
+                inputClass.indexOf('time') !== -1 ||
+                dataFormat.indexOf('h') !== -1 ||
+                dataFormat.indexOf('H') !== -1 ||
+                dataFormat.indexOf(':') !== -1 ||
+                dataShowTime === 'true' ||
+                timeFormat.length > 0;
 
-            logDebug('Inline edit calendar: isDateTime=' + !!isDateTime + ', value=' + inputValue);
+            logInfo('DateTime detection: isDateTime=' + !!isDateTime + ', value="' + inputValue + '", class="' + inputClass + '", dataFormat="' + dataFormat + '"');
 
             // Show our Persian calendar
             setTimeout(function () {
