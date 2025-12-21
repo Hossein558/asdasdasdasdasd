@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.25';
+    var PC_VERSION = '10.3.26';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -1124,45 +1124,68 @@
         }
 
         function confirm() {
+            logInfo('=== CONFIRM CALLED ===');
+            logInfo('selectedDate: ' + JSON.stringify(selectedDate));
+
             if (selectedDate) {
                 var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
                 logInfo('Converting Shamsi to Gregorian: ' + selectedDate.jy + '/' + selectedDate.jm + '/' + selectedDate.jd + ' -> ' + gDate.gy + '/' + gDate.gm + '/' + gDate.gd);
                 var gregorianStr = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
-                logInfo('Setting inline edit value (Gregorian): ' + gregorianStr);
+                logInfo('Formatted Gregorian string: ' + gregorianStr);
 
-                // Re-find the input field in case DOM has changed
-                // Look for the visible input in datesmodule that is currently in edit mode
+                // Re-find the input field - try multiple strategies
                 var $datesModule = $('#datesmodule');
-                var $activeInput = $datesModule.find('.editable-field.active input[type="text"]:visible, .inline-edit-fields input[type="text"]:visible').first();
+                logInfo('datesmodule found: ' + ($datesModule.length > 0));
 
-                // If not found, try broader selectors
+                var $activeInput = null;
+
+                // Strategy 1: Find input#duedate directly (most reliable)
+                $activeInput = $datesModule.find('input#duedate:visible').first();
+                logInfo('Strategy 1 (input#duedate:visible): found ' + $activeInput.length);
+
+                // Strategy 2: Find any visible text input in the dates module
                 if ($activeInput.length === 0) {
-                    $activeInput = $datesModule.find('input.datepicker-input:visible, input[class*="date"]:visible').first();
+                    $activeInput = $datesModule.find('input[type="text"]:visible').first();
+                    logInfo('Strategy 2 (input[type="text"]:visible): found ' + $activeInput.length);
                 }
 
-                // Fallback to original input
+                // Strategy 3: Look in editable-field for any input
+                if ($activeInput.length === 0) {
+                    $activeInput = $datesModule.find('.editable-field input:visible, .inline-edit-fields input:visible').first();
+                    logInfo('Strategy 3 (.editable-field input:visible): found ' + $activeInput.length);
+                }
+
+                // Strategy 4: Use the original $input passed to this function
                 if ($activeInput.length === 0) {
                     $activeInput = $input;
+                    logInfo('Strategy 4 (original $input fallback): found ' + ($activeInput ? $activeInput.length : 0));
                 }
 
-                logInfo('Found active input: ' + $activeInput.attr('id') + ' / ' + $activeInput.attr('class'));
+                if (!$activeInput || $activeInput.length === 0) {
+                    logError('NO INPUT FOUND! Cannot set value.');
+                    close();
+                    return;
+                }
+
+                logInfo('Found active input: id=' + $activeInput.attr('id') + ', name=' + $activeInput.attr('name') + ', class=' + $activeInput.attr('class'));
                 logInfo('Current input value before change: ' + $activeInput.val());
 
                 // Set value using multiple methods to ensure it works
                 $activeInput.val(gregorianStr);
                 if ($activeInput[0]) {
                     $activeInput[0].value = gregorianStr;
-
                     // Set the value attribute too
                     $activeInput.attr('value', gregorianStr);
+                    // Also set using native setter
+                    var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                    nativeInputValueSetter.call($activeInput[0], gregorianStr);
                 }
 
                 logInfo('Input value after setting: ' + $activeInput.val());
 
-                // Trigger various events to notify Jira - use proper event initialization
+                // Define inputEl for event dispatching
                 var inputEl = $activeInput[0];
 
-                // Create and dispatch InputEvent for better compatibility with React/modern frameworks
                 try {
                     var nativeInputEvent = new InputEvent('input', {
                         bubbles: true,
