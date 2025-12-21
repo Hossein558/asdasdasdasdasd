@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.23';
+    var PC_VERSION = '10.3.24';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -1135,7 +1135,7 @@
                 $input[0].value = gregorianStr;
 
                 // Trigger various events to notify Jira
-                $input.trigger('change').trigger('input').trigger('blur');
+                $input.trigger('change').trigger('input');
 
                 // Also dispatch native events
                 var inputEl = $input[0];
@@ -1143,6 +1143,48 @@
                 inputEl.dispatchEvent(new Event('change', { bubbles: true }));
 
                 logInfo('Value set successfully: ' + $input.val());
+
+                // Find and click Jira's inline edit submit button to save the change
+                var $container = $input.closest('.editable-field, .inline-edit-fields, .aui-inline-dialog, form');
+                var $submitBtn = $container.find('button[type="submit"], .aui-button.submit, input[type="submit"], .save-button, button.submit');
+
+                if ($submitBtn.length > 0) {
+                    logInfo('Found submit button, clicking to save');
+                    setTimeout(function () {
+                        $submitBtn.first().click();
+                    }, 100);
+                } else {
+                    // Try to find the submit button in common Jira inline edit structures
+                    var $form = $input.closest('form');
+                    if ($form.length > 0) {
+                        var $formSubmit = $form.find('button[type="submit"], input[type="submit"], .aui-button.submit');
+                        if ($formSubmit.length > 0) {
+                            logInfo('Found form submit button, clicking to save');
+                            setTimeout(function () {
+                                $formSubmit.first().click();
+                            }, 100);
+                        } else {
+                            // Trigger Enter key as fallback
+                            logInfo('No submit button found, triggering Enter key');
+                            setTimeout(function () {
+                                var enterEvent = new KeyboardEvent('keydown', {
+                                    key: 'Enter',
+                                    keyCode: 13,
+                                    which: 13,
+                                    bubbles: true
+                                });
+                                inputEl.dispatchEvent(enterEvent);
+                                $input.trigger('blur');
+                            }, 100);
+                        }
+                    } else {
+                        // Trigger blur to try auto-save
+                        logInfo('No form found, triggering blur for auto-save');
+                        setTimeout(function () {
+                            $input.trigger('blur');
+                        }, 100);
+                    }
+                }
             }
             close();
         }
@@ -1302,7 +1344,7 @@
                 $input[0].value = gregorianStr;
 
                 // Trigger various events to notify Jira
-                $input.trigger('change').trigger('input').trigger('blur');
+                $input.trigger('change').trigger('input');
 
                 // Also dispatch native events
                 var inputEl = $input[0];
@@ -1310,6 +1352,48 @@
                 inputEl.dispatchEvent(new Event('change', { bubbles: true }));
 
                 logInfo('DateTime value set successfully: ' + $input.val());
+
+                // Find and click Jira's inline edit submit button to save the change
+                var $container = $input.closest('.editable-field, .inline-edit-fields, .aui-inline-dialog, form');
+                var $submitBtn = $container.find('button[type="submit"], .aui-button.submit, input[type="submit"], .save-button, button.submit');
+
+                if ($submitBtn.length > 0) {
+                    logInfo('Found submit button, clicking to save');
+                    setTimeout(function () {
+                        $submitBtn.first().click();
+                    }, 100);
+                } else {
+                    // Try to find the submit button in common Jira inline edit structures
+                    var $form = $input.closest('form');
+                    if ($form.length > 0) {
+                        var $formSubmit = $form.find('button[type="submit"], input[type="submit"], .aui-button.submit');
+                        if ($formSubmit.length > 0) {
+                            logInfo('Found form submit button, clicking to save');
+                            setTimeout(function () {
+                                $formSubmit.first().click();
+                            }, 100);
+                        } else {
+                            // Trigger Enter key as fallback
+                            logInfo('No submit button found, triggering Enter key');
+                            setTimeout(function () {
+                                var enterEvent = new KeyboardEvent('keydown', {
+                                    key: 'Enter',
+                                    keyCode: 13,
+                                    which: 13,
+                                    bubbles: true
+                                });
+                                inputEl.dispatchEvent(enterEvent);
+                                $input.trigger('blur');
+                            }, 100);
+                        }
+                    } else {
+                        // Trigger blur to try auto-save
+                        logInfo('No form found, triggering blur for auto-save');
+                        setTimeout(function () {
+                            $input.trigger('blur');
+                        }, 100);
+                    }
+                }
             }
             close();
         }
