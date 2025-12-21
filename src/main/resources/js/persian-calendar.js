@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.30';
+    var PC_VERSION = '10.3.31';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -965,22 +965,55 @@
 
             if (!isCalendarButton) return;
 
-            // Check if inside datesmodule (inline edit context)
-            var $datesModule = $btn.closest('#datesmodule');
-            if ($datesModule.length === 0) return;
+            logInfo('Calendar button clicked! Checking context...');
 
-            // Find the associated input field
-            var $container = $btn.closest('.editable-field, .inline-edit-fields, [data-type="date"], [data-type="datetime"]');
-            if ($container.length === 0) {
-                $container = $datesModule.find('.editable-field:visible, .inline-edit-fields:visible').first();
+            // Check if inside datesmodule (Jira Core inline edit) OR JSM Customer Portal date picker
+            var $datesModule = $btn.closest('#datesmodule');
+            var $jsmDatePicker = $btn.closest('.cv-request-create-container, .sd-date-picker, .cp-date-picker, .field-group, [class*="date-picker"], form');
+
+            // Allow either Jira Core (datesmodule) or JSM (various containers)
+            var isJiraCore = $datesModule.length > 0;
+            var isJSM = $jsmDatePicker.length > 0;
+
+            if (!isJiraCore && !isJSM) {
+                logDebug('Not in recognized context (neither Jira Core nor JSM)');
+                return;
             }
 
+            logInfo('Context detected: ' + (isJiraCore ? 'Jira Core' : 'JSM Customer Portal'));
+
+            // Find the associated input field
+            var $container = $btn.closest('.editable-field, .inline-edit-fields, [data-type="date"], [data-type="datetime"], .field-group, .cv-date-picker, .sd-date-picker');
+            if ($container.length === 0) {
+                if (isJiraCore) {
+                    $container = $datesModule.find('.editable-field:visible, .inline-edit-fields:visible').first();
+                } else {
+                    // JSM: find nearby input
+                    $container = $btn.parent();
+                }
+            }
+
+            // Try multiple selectors to find the input
             var $input = $container.find('input.datepicker-input, input[class*="date"], input[type="text"]').first();
+
+            // JSM specific: look for input with id containing duedate or date
+            if ($input.length === 0) {
+                $input = $btn.parent().find('input[type="text"]').first();
+            }
+            if ($input.length === 0) {
+                $input = $btn.siblings('input[type="text"]').first();
+            }
+            if ($input.length === 0) {
+                // Try finding any visible date input in the form
+                $input = $btn.closest('form').find('input[id*="duedate"], input[name*="date"], input.text.date-picker').first();
+            }
 
             if ($input.length === 0) {
                 logDebug('No input found for calendar button');
                 return;
             }
+
+            logInfo('Found input: id=' + $input.attr('id') + ', name=' + $input.attr('name') + ', value=' + $input.val());
 
             logInfo('Intercepting calendar button click (capture phase)');
 
