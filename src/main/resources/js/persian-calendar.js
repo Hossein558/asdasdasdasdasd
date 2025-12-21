@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.32';
+    var PC_VERSION = '10.3.33';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -791,7 +791,24 @@
             // Time elements
             '.actionContainer time',
             '.action-details time',
-            '#activitymodule time'
+            '#activitymodule time',
+            // ========== JSM Customer Portal specific selectors ==========
+            // Request details page date fields
+            'dd[data-test-id="duedate"]',
+            'dd[data-test-id*="customfield_"]',
+            'dd[data-test-cv-dummy-text]',
+            '.cv-request-details dd',
+            '.activity-item-request-fields dd',
+            // Request fields in sidebar
+            '.cv-request-current-value',
+            '.cv-request-field-value',
+            // Date display in request lists
+            '.cv-request-list .date',
+            '.cv-request-list time',
+            // General JSM date displays
+            '[data-test-id*="date"] dd',
+            '[data-test-id*="Date"] dd',
+            '.vp-activity-list dd'
         ];
 
         var convertedCount = 0;
