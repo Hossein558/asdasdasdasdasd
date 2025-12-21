@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.26';
+    var PC_VERSION = '10.3.27';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -1042,11 +1042,68 @@
         var viewYear = selectedDate ? selectedDate.jy : todayJ.jy;
         var viewMonth = selectedDate ? selectedDate.jm : todayJ.jm;
 
-        // Create overlay
+        // *** CRITICAL: Prevent Jira from closing inline edit when we click on our popup ***
+        // Store the editable field container
+        var $editableField = $input.closest('.editable-field');
+        var $inlineEditFields = $input.closest('.inline-edit-fields');
+
+        // Mark that our popup is active - this helps prevent blur handlers
+        window.pcPopupActive = true;
+
+        // Prevent blur events on the input while our popup is visible
+        var preventBlur = function (e) {
+            if (window.pcPopupActive) {
+                logInfo('Preventing blur event while popup is active');
+                e.stopPropagation();
+                e.preventDefault();
+                return false;
+            }
+        };
+
+        // Prevent focusout which Jira uses to detect when to close inline edit
+        var preventFocusOut = function (e) {
+            if (window.pcPopupActive) {
+                logInfo('Preventing focusout event while popup is active');
+                e.stopPropagation();
+                e.preventDefault();
+                return false;
+            }
+        };
+
+        // Add event listeners to capture and prevent blur/focusout
+        $input[0].addEventListener('blur', preventBlur, true);
+        $input[0].addEventListener('focusout', preventFocusOut, true);
+        if ($editableField.length) {
+            $editableField[0].addEventListener('focusout', preventFocusOut, true);
+        }
+
+        // Store cleanup functions
+        var cleanupBlurPrevention = function () {
+            window.pcPopupActive = false;
+            try {
+                $input[0].removeEventListener('blur', preventBlur, true);
+                $input[0].removeEventListener('focusout', preventFocusOut, true);
+                if ($editableField.length) {
+                    $editableField[0].removeEventListener('focusout', preventFocusOut, true);
+                }
+            } catch (e) { }
+        };
+
+        // Create overlay - clicking it will close the popup but keep inline edit open
         var overlay = $('<div class="pc-overlay"></div>').appendTo('body');
 
         // Create popup
         var popup = $('<div class="pc-popup"></div>').appendTo('body');
+
+        // Prevent mousedown on popup from causing blur
+        popup.on('mousedown', function (e) {
+            e.preventDefault();
+            logInfo('Mousedown on popup - preventing default');
+        });
+
+        overlay.on('mousedown', function (e) {
+            e.preventDefault();
+        });
 
         // Position popup near the button
         var rect = $btn[0].getBoundingClientRect();
@@ -1114,6 +1171,8 @@
         }
 
         function close() {
+            // Cleanup blur prevention before closing
+            cleanupBlurPrevention();
             popup.remove();
             overlay.remove();
         }
