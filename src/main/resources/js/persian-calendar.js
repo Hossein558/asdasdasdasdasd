@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.33';
+    var PC_VERSION = '10.3.34';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -2025,26 +2025,54 @@
                 }, 200);
             });
         } else {
-            logWarn('JIRA framework not detected');
+            logWarn('JIRA framework not detected - using fallback for JSM Customer Portal');
+
+            // For JSM Customer Portal: run conversion multiple times with delays
+            // since content loads dynamically
+            var jsmConversionDelays = [1000, 2000, 3000, 5000];
+            jsmConversionDelays.forEach(function (delay) {
+                setTimeout(function () {
+                    logDebug('JSM delayed conversion at ' + delay + 'ms');
+                    convertViewPageDates($);
+                }, delay);
+            });
         }
 
         // Also observe DOM changes
         var observer = new MutationObserver(function (mutations) {
             var shouldInit = false;
+            var shouldConvertDates = false;
+
             mutations.forEach(function (mutation) {
                 if (mutation.addedNodes.length > 0) {
                     for (var i = 0; i < mutation.addedNodes.length; i++) {
                         var node = mutation.addedNodes[i];
-                        if (node.nodeType === 1 && (node.id === 'duedate' || (node.querySelector && node.querySelector('#duedate, [name="duedate"]')))) {
-                            logDebug('MutationObserver: Found duedate element in DOM change');
-                            shouldInit = true;
-                            break;
+                        if (node.nodeType === 1) {
+                            // Jira Core patterns
+                            if (node.id === 'duedate' || (node.querySelector && node.querySelector('#duedate, [name="duedate"]'))) {
+                                logDebug('MutationObserver: Found duedate element in DOM change');
+                                shouldInit = true;
+                            }
+                            // JSM Customer Portal patterns
+                            if (node.querySelector && node.querySelector('[data-test-cv-dummy-text], .cv-request-details, .activity-item-request-fields')) {
+                                logDebug('MutationObserver: Found JSM date element in DOM change');
+                                shouldConvertDates = true;
+                            }
+                            // Also check if the node itself has date-related content
+                            if (node.hasAttribute && (node.hasAttribute('data-test-cv-dummy-text') ||
+                                (node.textContent && node.textContent.match(/\d{1,2}\/[A-Z][a-z]{2}\/\d{2}/)))) {
+                                shouldConvertDates = true;
+                            }
                         }
                     }
                 }
             });
+
             if (shouldInit) {
                 setTimeout(function () { initPersianCalendar($); }, 100);
+            }
+            if (shouldConvertDates) {
+                setTimeout(function () { convertViewPageDates($); }, 100);
             }
         });
 
