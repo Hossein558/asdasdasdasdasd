@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.4.5';
+    var PC_VERSION = '10.4.6';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();

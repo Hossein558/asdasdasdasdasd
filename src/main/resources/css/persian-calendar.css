@@ -16,7 +16,8 @@
 }
 
 /* Calendar Popup */
-.persian-calendar-popup {
+.persian-calendar-popup,
+.pc-popup {
     position: absolute;
     top: 100%;
     right: 0;
