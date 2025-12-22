@@ -16,7 +16,6 @@
 }
 
 /* Calendar Popup */
-.persian-calendar-popup,
 .pc-popup {
     position: absolute;
     top: 100%;
@@ -25,10 +24,10 @@
     background: #fff;
     border: 1px solid #ccc;
     border-radius: 4px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
     width: 280px;
     padding: 10px;
-    direction: rtl;
+    direction: rtl !important;
     font-family: 'Vazir', 'Tahoma', 'B Nazanin', sans-serif;
 }
 
@@ -40,6 +39,7 @@
     margin-bottom: 10px;
     padding-bottom: 10px;
     border-bottom: 1px solid #eee;
+    direction: rtl !important;
 }
 
 .pc-header button {
@@ -149,9 +149,9 @@
 }
 
 /* Hide Jira's default calendar stuff when our picker is active */
-.persian-datepicker-wrapper ~ .aui-ss,
-.persian-datepicker-wrapper ~ .aui-date-picker,
-.persian-datepicker-wrapper ~ .icon-calendar,
-.persian-datepicker-wrapper ~ .trigger {
+.persian-datepicker-wrapper~.aui-ss,
+.persian-datepicker-wrapper~.aui-date-picker,
+.persian-datepicker-wrapper~.icon-calendar,
+.persian-datepicker-wrapper~.trigger {
     display: none !important;
 }
