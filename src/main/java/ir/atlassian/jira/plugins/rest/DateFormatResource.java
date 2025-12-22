@@ -2,6 +2,7 @@ package ir.atlassian.jira.plugins.rest;
 
 import com.atlassian.jira.config.properties.ApplicationProperties;
 import com.atlassian.plugin.spring.scanner.annotation.imports.ComponentImport;
+import com.atlassian.plugins.rest.common.security.AnonymousAllowed;
 import org.springframework.stereotype.Component;
 
 import javax.inject.Inject;
@@ -29,6 +30,7 @@ public class DateFormatResource {
     }
 
     @GET
+    @AnonymousAllowed
     @Produces(MediaType.APPLICATION_JSON)
     public Response getDateFormats() {
         Map<String, String> formats = new HashMap<>();
