@@ -47,7 +47,4 @@
         <package>ir.atlassian.jira.plugins.rest</package>
     </rest>
 
-    <!-- Component Import for ApplicationProperties -->
-    <component-import key="applicationProperties" interface="com.atlassian.jira.config.properties.ApplicationProperties"/>
-
 </atlassian-plugin>
