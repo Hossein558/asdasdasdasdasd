@@ -10,10 +10,33 @@ This is a custom Jira plugin designed to integrate a **Persian (Jalali/Shamsi) C
     *   Prevents Jira's native calendar from opening.
     *   Displays the Persian calendar popup instead.
 *   **DateTime Support**: Handles both **Date-only** fields (e.g., Due Date) and **DateTime** fields (e.g., Time of Start) with a built-in time picker (Hour, Minute, AM/PM).
+*   **JSM Customer Portal Support**: Works on Jira Service Management customer portal pages.
+*   **Dynamic Date Format Detection**: Automatically reads Jira's configured date format via REST API.
+*   **Smart Date Parser**: Supports multiple date formats including `d/MMM/yy`, `yyyy-MM-dd`, `MM/dd/yyyy`, and more.
 *   **Automatic Conversion**:
     *   **Display**: Converts Gregorian dates from the database to Persian for the user.
-    *   **Save**: Converts selected Persian dates back to Gregorian format (`d/MMM/yy` or `dd/MMM/yy h:mm a`) before submitting to Jira.
+    *   **Save**: Converts selected Persian dates back to Gregorian format before submitting to Jira.
 *   **Jalaali Library**: Uses a lightweight JavaScript implementation for accurate date conversions.
+*   **Unified Arrow Layout**: Consistent navigation arrows in both Date and DateTime pickers:
+    *   `<<` سال قبل | `<` ماه قبل | عنوان | `>` ماه بعد | `>>` سال بعد
+
+## 🔌 REST API
+
+The plugin exposes a REST endpoint to retrieve Jira's date format settings:
+
+```
+GET /rest/persian-calendar/1.0/date-formats
+```
+
+**Response:**
+```json
+{
+  "dateFormat": "d/MMM/yy",
+  "dateTimeFormat": "dd/MMM/yy h:mm a",
+  "dateFormatJS": "%e/%b/%y",
+  "dateTimeFormatJS": "%e/%b/%y %I:%M %p"
+}
+```
 
 ## 🛠 Technical Details
 
@@ -24,8 +47,10 @@ This is a custom Jira plugin designed to integrate a **Persian (Jalali/Shamsi) C
     *   `initInlineEditCalendar()`: Sets up event listeners (using **capture phase**) to intercept clicks on calendar buttons before Jira's native handlers can react.
     *   `showPersianCalendarForInlineEdit()`: Renders the calendar popup.
     *   `toGregorian()` / `toJalaali()`: Date conversion logic.
-    *   Mutation Observers: Monitors the DOM for changes (like opening inline edit dialogs) to re-attach listeners if needed.
-*   **`src/main/resources/atlassian-plugin.xml`**: configuration file. Defines the web resources (CSS/JS) and contexts (e.g., `jira.view.issue`, `jira.edit.issue`).
+    *   `parseJiraDate()`: Smart date parser with multi-format support.
+    *   Mutation Observers: Monitors the DOM for changes.
+*   **`src/main/java/ir/atlassian/jira/plugins/rest/DateFormatResource.java`**: REST API for date formats.
+*   **`src/main/resources/atlassian-plugin.xml`**: Configuration file. Defines the web resources (CSS/JS) and contexts.
 *   **`pom.xml`**: Maven project configuration and dependencies.
 
 ### How Inline Edit Interception Works
@@ -52,14 +77,14 @@ You can build the project using the included Maven Wrapper:
 ./mvnw clean package -DskipTests
 ```
 
-This will generate a JAR file in the `target/` directory (e.g., `persian-calendar-plugin-10.3.24.jar`).
+This will generate a JAR file in the `target/` directory (e.g., `persian-calendar-plugin-10.4.12.jar`).
 
 ### Installation on Jira Server
 1.  Copy the generated JAR file to the Jira plugins directory on your server:
     ```bash
     scp target/persian-calendar-plugin-x.x.x.jar root@your-jira-server:/var/atlassian/application-data/jira/plugins/installed-plugins/
     ```
-2.  Restart the Jira service to load the new plugin (hot-reloading might not work for all changes):
+2.  Restart the Jira service to load the new plugin:
     ```bash
     /opt/atlassian/jira/bin/stop-jira.sh
     sleep 5
@@ -68,10 +93,14 @@ This will generate a JAR file in the `target/` directory (e.g., `persian-calenda
 
 ## 📝 Version History
 
+*   **v10.4.12**: Fixed unified arrow layout for both Date and DateTime pickers (سال قبل → ماه قبل → عنوان → ماه بعد → سال بعد).
+*   **v10.4.1**: Added smart date parser with multi-format support.
+*   **v10.4.0**: Added REST API for dynamic date format detection.
+*   **v10.3.34**: Added JSM Customer Portal support.
+*   **v10.3.28**: Fixed inline edit blur prevention for DateTime fields.
 *   **v10.3.24**: Merged inline edit features to master.
-*   **v10.3.23**: Fixed date format output to match Jira's expected Gregorian format (`d/MMM/yy`). Added detailed logging.
-*   **v10.3.21**: Implemented **capture phase** event listeners to completely block Jira's native calendar in inline edit mode.
-*   **v10.3.20**: Initial support for inline edit interception.
+*   **v10.3.23**: Fixed date format output to match Jira's expected Gregorian format.
+*   **v10.3.21**: Implemented capture phase event listeners for inline edit interception.
 
 ## 🤝 Contributing
 1.  Use the `master` branch for the latest stable code.
