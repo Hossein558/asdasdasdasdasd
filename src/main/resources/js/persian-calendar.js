@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.4.0';
+    var PC_VERSION = '10.4.1';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -272,27 +272,124 @@
     function div(a, b) { return ~~(a / b); }
     function mod(a, b) { return a - ~~(a / b) * b; }
 
-    // Parse Jira date format
+    // Parse Jira date format - supports multiple formats based on DATE_FORMAT_CACHE
     function parseJiraDate(dateStr) {
         if (!dateStr) return null;
         logDebug('Parsing date: ' + dateStr);
-        var parts = dateStr.trim().split('/');
-        if (parts.length !== 3) {
-            logWarn('Invalid date format (not 3 parts)', { input: dateStr });
-            return null;
+
+        // Try multiple parsing strategies
+        var result = null;
+
+        // Strategy 1: Parse based on current format (d/MMM/yy or dd/MMM/yy)
+        result = parseDateByPattern(dateStr, DATE_FORMAT_CACHE.dateFormat);
+        if (result) return result;
+
+        // Strategy 2: Try common Jira formats
+        var commonFormats = ['d/MMM/yy', 'dd/MMM/yy', 'dd/MMM/yyyy', 'd/MMM/yyyy', 'yyyy-MM-dd', 'MM/dd/yyyy', 'dd-MMM-yy'];
+        for (var i = 0; i < commonFormats.length; i++) {
+            result = parseDateByPattern(dateStr, commonFormats[i]);
+            if (result) return result;
         }
-        var d = parseInt(parts[0], 10);
-        var mStr = parts[1];
-        var y = parseInt(parts[2], 10);
-        var m = GREGORIAN_MONTHS.indexOf(mStr);
-        if (m === -1) {
-            logWarn('Unknown month: ' + mStr);
-            return null;
+
+        // Strategy 3: Auto-detect format
+        result = autoDetectAndParse(dateStr);
+        if (result) return result;
+
+        logWarn('Could not parse date: ' + dateStr);
+        return null;
+    }
+
+    // Parse date string based on format pattern
+    function parseDateByPattern(dateStr, pattern) {
+        if (!dateStr || !pattern) return null;
+
+        var str = dateStr.trim().split(' ')[0]; // Remove time part if present
+        var day, month, year;
+
+        // Determine separator
+        var separator = '/';
+        if (str.indexOf('-') !== -1) separator = '-';
+        if (str.indexOf('.') !== -1) separator = '.';
+
+        var parts = str.split(separator);
+        if (parts.length < 3) return null;
+
+        // Determine order from pattern
+        var patternLower = pattern.toLowerCase();
+        var patternParts = pattern.split(/[\/\-\.]/);
+
+        try {
+            if (patternParts.length >= 3) {
+                for (var i = 0; i < 3; i++) {
+                    var p = patternParts[i].toLowerCase();
+                    if (p.indexOf('y') !== -1) {
+                        year = parseInt(parts[i], 10);
+                        if (year < 100) year += 2000;
+                    } else if (p.indexOf('mmm') !== -1) {
+                        // Month as abbreviation (Jan, Feb, etc.)
+                        var mIdx = GREGORIAN_MONTHS.indexOf(parts[i]);
+                        if (mIdx === -1) return null;
+                        month = mIdx + 1;
+                    } else if (p.indexOf('m') !== -1 && p.indexOf('mmm') === -1) {
+                        // Month as number
+                        month = parseInt(parts[i], 10);
+                    } else if (p.indexOf('d') !== -1) {
+                        day = parseInt(parts[i], 10);
+                    }
+                }
+            }
+
+            if (day && month && year && !isNaN(day) && !isNaN(month) && !isNaN(year)) {
+                var result = { year: year, month: month, day: day };
+                logDebug('Parsed date result', result);
+                return result;
+            }
+        } catch (e) {
+            logDebug('Pattern parsing failed: ' + e.message);
         }
-        if (y < 100) y += 2000;
-        var result = { year: y, month: m + 1, day: d };
-        logDebug('Parsed date result', result);
-        return result;
+
+        return null;
+    }
+
+    // Auto-detect and parse common date formats
+    function autoDetectAndParse(dateStr) {
+        var str = dateStr.trim().split(' ')[0];
+
+        // Try d/MMM/yy format (most common Jira format)
+        var match1 = str.match(/^(\d{1,2})\/([A-Za-z]{3})\/(\d{2,4})$/);
+        if (match1) {
+            var mIdx = GREGORIAN_MONTHS.indexOf(match1[2]);
+            if (mIdx !== -1) {
+                var y = parseInt(match1[3], 10);
+                if (y < 100) y += 2000;
+                return { year: y, month: mIdx + 1, day: parseInt(match1[1], 10) };
+            }
+        }
+
+        // Try yyyy-MM-dd format (ISO)
+        var match2 = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (match2) {
+            return { year: parseInt(match2[1], 10), month: parseInt(match2[2], 10), day: parseInt(match2[3], 10) };
+        }
+
+        // Try MM/dd/yyyy format (US)
+        var match3 = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (match3) {
+            return { year: parseInt(match3[3], 10), month: parseInt(match3[1], 10), day: parseInt(match3[2], 10) };
+        }
+
+        // Try dd-MMM-yyyy format
+        var match4 = str.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2,4})$/);
+        if (match4) {
+            var mIdx2 = GREGORIAN_MONTHS.indexOf(match4[2]);
+            if (mIdx2 !== -1) {
+                var y2 = parseInt(match4[3], 10);
+                if (y2 < 100) y2 += 2000;
+                return { year: y2, month: mIdx2 + 1, day: parseInt(match4[1], 10) };
+            }
+        }
+
+        return null;
     }
 
     function formatJiraDate(year, month, day) {
