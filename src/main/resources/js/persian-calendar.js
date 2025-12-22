@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.4.12';
+    var PC_VERSION = '10.4.13';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -1370,14 +1370,14 @@
         });
 
         function render() {
-            // Final layout for v10.4.12:
-            // User requested order from LEFT to RIGHT: << < Title > >>
+            // DateTime v10.4.13: OUTWARD arrows
+            // Visual order LEFT to RIGHT: >> > | Title | < <<
             var html = '<div class="pc-header">';
-            html += '<button type="button" class="pc-prev-year" title="سال قبل">&laquo;</button>';
-            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&lsaquo;</button>';
-            html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
-            html += '<button type="button" class="pc-next-month" title="ماه بعد">&rsaquo;</button>';
             html += '<button type="button" class="pc-next-year" title="سال بعد">&raquo;</button>';
+            html += '<button type="button" class="pc-next-month" title="ماه بعد">&rsaquo;</button>';
+            html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
+            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&lsaquo;</button>';
+            html += '<button type="button" class="pc-prev-year" title="سال قبل">&laquo;</button>';
             html += '</div>';
 
             html += '<div class="pc-weekdays">';
