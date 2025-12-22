@@ -39,7 +39,7 @@
     margin-bottom: 10px;
     padding-bottom: 10px;
     border-bottom: 1px solid #eee;
-    direction: rtl !important;
+    direction: ltr !important;
 }
 
 .pc-header button {
