@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.34';
+    var PC_VERSION = '10.4.0';
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -122,6 +122,79 @@
     var PERSIAN_WEEKDAYS = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
     var GREGORIAN_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
+    // ========== DATE FORMAT SETTINGS ==========
+    // Cache for date format settings (loaded from Jira settings)
+    var DATE_FORMAT_CACHE = {
+        loaded: false,
+        dateFormat: 'd/MMM/yy',           // Default Jira date format
+        dateTimeFormat: 'dd/MMM/yy h:mm a', // Default Jira datetime format
+        dateFormatJS: '%e/%b/%y',
+        dateTimeFormatJS: '%e/%b/%y %I:%M %p'
+    };
+
+    // Fetch date format settings from REST API
+    function fetchDateFormatSettings() {
+        if (DATE_FORMAT_CACHE.loaded) {
+            logDebug('Date format settings already loaded from cache');
+            return;
+        }
+
+        // Try to get base URL
+        var baseUrl = AJS && AJS.contextPath ? AJS.contextPath() : '';
+        var apiUrl = baseUrl + '/rest/persian-calendar/1.0/date-formats';
+
+        logInfo('Fetching date format settings from: ' + apiUrl);
+
+        try {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', apiUrl, true);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        try {
+                            var data = JSON.parse(xhr.responseText);
+                            DATE_FORMAT_CACHE.dateFormat = data.dateFormat || DATE_FORMAT_CACHE.dateFormat;
+                            DATE_FORMAT_CACHE.dateTimeFormat = data.dateTimeFormat || DATE_FORMAT_CACHE.dateTimeFormat;
+                            DATE_FORMAT_CACHE.dateFormatJS = data.dateFormatJS || DATE_FORMAT_CACHE.dateFormatJS;
+                            DATE_FORMAT_CACHE.dateTimeFormatJS = data.dateTimeFormatJS || DATE_FORMAT_CACHE.dateTimeFormatJS;
+                            DATE_FORMAT_CACHE.loaded = true;
+                            logInfo('Date format settings loaded successfully', DATE_FORMAT_CACHE);
+                        } catch (e) {
+                            logWarn('Failed to parse date format response: ' + e.message);
+                        }
+                    } else {
+                        logWarn('Failed to fetch date formats (status ' + xhr.status + '), using defaults');
+                    }
+                }
+            };
+            xhr.send();
+        } catch (e) {
+            logWarn('Error fetching date formats: ' + e.message + ', using defaults');
+        }
+    }
+
+    // Parse date format pattern and format a date accordingly
+    function formatDateWithPattern(year, month, day, pattern) {
+        // pattern examples: d/MMM/yy, dd/MMM/yyyy, yyyy-MM-dd
+        var result = pattern;
+        var yy = year % 100;
+
+        // Replace year patterns
+        result = result.replace(/yyyy/g, year.toString());
+        result = result.replace(/yy/g, (yy < 10 ? '0' : '') + yy);
+
+        // Replace month patterns
+        result = result.replace(/MMM/g, GREGORIAN_MONTHS[month - 1]);
+        result = result.replace(/MM/g, (month < 10 ? '0' : '') + month);
+        result = result.replace(/M/g, month.toString());
+
+        // Replace day patterns (careful with order, dd before d)
+        result = result.replace(/dd/g, (day < 10 ? '0' : '') + day);
+        result = result.replace(/d/g, day.toString());
+
+        return result;
+    }
+
     // Jalaali conversion functions
     function toJalaali(gy, gm, gd) {
         return d2j(g2d(gy, gm, gd));
@@ -223,19 +296,18 @@
     }
 
     function formatJiraDate(year, month, day) {
-        // Format: d/MMM/yy (e.g., 9/Dec/25 or 19/Dec/25)
-        var yy = year % 100;
-        var yyStr = yy < 10 ? '0' + yy : '' + yy;
-        return day + '/' + GREGORIAN_MONTHS[month - 1] + '/' + yyStr;
+        // Use dynamic format from cache, fallback to default
+        return formatDateWithPattern(year, month, day, DATE_FORMAT_CACHE.dateFormat);
     }
 
     function formatJiraDateTime(year, month, day, hour, minute, ampm) {
-        // Format: dd/MMM/yy h:mm a (e.g., 19/Dec/25 6:30 PM)
-        var yy = year % 100;
-        var yyStr = yy < 10 ? '0' + yy : '' + yy;
-        var dayStr = day < 10 ? '0' + day : '' + day;
+        // Format date part using dynamic format
+        var dateFormatPart = DATE_FORMAT_CACHE.dateTimeFormat.split(' ')[0] || 'dd/MMM/yy';
+        var dateStr = formatDateWithPattern(year, month, day, dateFormatPart);
+
+        // Format time part (h:mm a)
         var minStr = minute < 10 ? '0' + minute : '' + minute;
-        return dayStr + '/' + GREGORIAN_MONTHS[month - 1] + '/' + yyStr + ' ' + hour + ':' + minStr + ' ' + ampm;
+        return dateStr + ' ' + hour + ':' + minStr + ' ' + ampm;
     }
 
     function formatPersianDate(jy, jm, jd) {
@@ -2002,6 +2074,9 @@
         logInfo('========================================');
         logInfo('Persian Calendar Plugin v' + PC_VERSION + ' Starting');
         logInfo('========================================');
+
+        // Fetch date format settings from REST API first
+        fetchDateFormatSettings();
 
         // Analyze page first
         analyzePageForDateElements();
