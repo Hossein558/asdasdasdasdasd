@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.4.13';
+    var PC_VERSION = '10.5.0';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -2255,6 +2255,326 @@
 
         observer.observe(document.body, { childList: true, subtree: true });
         logInfo('MutationObserver attached');
+
+        // ========== JXL SUPPORT ==========
+        initJXLSupport($);
     });
+
+    // ========== JXL (Jira eXtensible List) SUPPORT ==========
+    function initJXLSupport($) {
+        logInfo('Initializing JXL Support...');
+
+        // English month names for parsing
+        var ENGLISH_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        var ENGLISH_MONTHS_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+        // Track converted elements to avoid re-conversion
+        var convertedElements = new WeakSet();
+
+        // Date patterns that JXL might use
+        var DATE_PATTERNS = [
+            // Dec 23, 2025
+            /^([A-Z][a-z]{2})\s+(\d{1,2}),?\s+(\d{4})$/,
+            // December 23, 2025
+            /^([A-Z][a-z]+)\s+(\d{1,2}),?\s+(\d{4})$/,
+            // 23 Dec 2025
+            /^(\d{1,2})\s+([A-Z][a-z]{2})\s+(\d{4})$/,
+            // 2025-12-23
+            /^(\d{4})-(\d{2})-(\d{2})$/,
+            // 12/23/2025
+            /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/
+        ];
+
+        function parseEnglishMonth(monthStr) {
+            var idx = ENGLISH_MONTHS.indexOf(monthStr);
+            if (idx === -1) {
+                idx = ENGLISH_MONTHS_FULL.indexOf(monthStr);
+            }
+            return idx !== -1 ? idx + 1 : null;
+        }
+
+        function parseJXLDate(text) {
+            if (!text || typeof text !== 'string') return null;
+            text = text.trim();
+
+            var match;
+
+            // Pattern 1: Dec 23, 2025 or Dec 23 2025
+            match = text.match(/^([A-Z][a-z]{2,})\s+(\d{1,2}),?\s+(\d{4})$/);
+            if (match) {
+                var month = parseEnglishMonth(match[1]);
+                if (month) {
+                    return { year: parseInt(match[3]), month: month, day: parseInt(match[2]) };
+                }
+            }
+
+            // Pattern 2: 23 Dec 2025
+            match = text.match(/^(\d{1,2})\s+([A-Z][a-z]{2,})\s+(\d{4})$/);
+            if (match) {
+                var month = parseEnglishMonth(match[2]);
+                if (month) {
+                    return { year: parseInt(match[3]), month: month, day: parseInt(match[1]) };
+                }
+            }
+
+            // Pattern 3: 2025-12-23
+            match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            if (match) {
+                return { year: parseInt(match[1]), month: parseInt(match[2]), day: parseInt(match[3]) };
+            }
+
+            // Pattern 4: 12/23/2025 (US format)
+            match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            if (match) {
+                return { year: parseInt(match[3]), month: parseInt(match[1]), day: parseInt(match[2]) };
+            }
+
+            return null;
+        }
+
+        function convertDateTextToPersian(text) {
+            var parsed = parseJXLDate(text);
+            if (!parsed) return null;
+
+            try {
+                var persian = toJalaali(parsed.year, parsed.month, parsed.day);
+                return persian.jy + '/' + persian.jm + '/' + persian.jd;
+            } catch (e) {
+                logError('Error converting date to Persian', { text: text, error: e.message });
+                return null;
+            }
+        }
+
+        function processJXLIframe(iframe) {
+            try {
+                var iframeDoc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+                if (!iframeDoc) {
+                    logDebug('JXL: Cannot access iframe document (cross-origin?)');
+                    return;
+                }
+
+                logInfo('JXL: Processing iframe content');
+                convertJXLDates(iframeDoc);
+                observeJXLChanges(iframeDoc, iframe);
+                interceptJXLCalendar(iframeDoc, iframe);
+
+            } catch (e) {
+                logError('JXL: Error processing iframe', { error: e.message });
+            }
+        }
+
+        function convertJXLDates(doc) {
+            if (!doc || !doc.body) return;
+
+            var converted = 0;
+
+            // Find all text nodes that might contain dates
+            var walker = doc.createTreeWalker(
+                doc.body,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+
+            var nodesToProcess = [];
+            while (walker.nextNode()) {
+                var node = walker.currentNode;
+                var text = node.textContent.trim();
+
+                // Skip if already converted or empty
+                if (!text || text.length < 6 || text.length > 30) continue;
+                if (text.indexOf('/') !== -1 && text.match(/^\d{4}\/\d{1,2}\/\d{1,2}$/)) continue; // Already Persian
+
+                var parsed = parseJXLDate(text);
+                if (parsed) {
+                    nodesToProcess.push({ node: node, text: text });
+                }
+            }
+
+            // Process found date nodes
+            nodesToProcess.forEach(function (item) {
+                var parent = item.node.parentElement;
+                if (!parent || convertedElements.has(parent)) return;
+
+                var persian = convertDateTextToPersian(item.text);
+                if (persian) {
+                    item.node.textContent = persian;
+                    convertedElements.add(parent);
+                    converted++;
+
+                    // Style the parent for RTL
+                    parent.style.direction = 'ltr';
+                    parent.style.fontFamily = 'Tahoma, Arial, sans-serif';
+                }
+            });
+
+            if (converted > 0) {
+                logInfo('JXL: Converted ' + converted + ' dates to Persian');
+            }
+        }
+
+        function observeJXLChanges(iframeDoc, iframe) {
+            if (!iframeDoc || !iframeDoc.body) return;
+
+            var jxlObserver = new MutationObserver(function (mutations) {
+                var hasNewContent = false;
+                mutations.forEach(function (mutation) {
+                    if (mutation.addedNodes.length > 0) {
+                        hasNewContent = true;
+                    }
+                });
+
+                if (hasNewContent) {
+                    // Debounce conversion
+                    clearTimeout(iframe._jxlConvertTimeout);
+                    iframe._jxlConvertTimeout = setTimeout(function () {
+                        convertJXLDates(iframeDoc);
+                    }, 200);
+                }
+            });
+
+            jxlObserver.observe(iframeDoc.body, {
+                childList: true,
+                subtree: true,
+                characterData: true
+            });
+
+            logDebug('JXL: MutationObserver attached to iframe');
+        }
+
+        function interceptJXLCalendar(iframeDoc, iframe) {
+            if (!iframeDoc || !iframeDoc.body) return;
+
+            // Listen for clicks on date cells
+            iframeDoc.body.addEventListener('click', function (e) {
+                var target = e.target;
+
+                // Check if clicked on a date cell (has date-like content)
+                var cellText = target.textContent ? target.textContent.trim() : '';
+                var parsed = parseJXLDate(cellText);
+
+                if (parsed) {
+                    logDebug('JXL: Clicked on date cell', { text: cellText });
+                    // Will add calendar popup in next iteration
+                }
+            }, true);
+
+            // Intercept native calendar if it appears
+            var calendarObserver = new MutationObserver(function (mutations) {
+                mutations.forEach(function (mutation) {
+                    mutation.addedNodes.forEach(function (node) {
+                        if (node.nodeType === 1) {
+                            // Look for calendar popup elements
+                            var isCalendar = false;
+                            if (node.classList) {
+                                var classList = Array.from(node.classList).join(' ').toLowerCase();
+                                if (classList.indexOf('calendar') !== -1 ||
+                                    classList.indexOf('datepicker') !== -1 ||
+                                    classList.indexOf('date-picker') !== -1) {
+                                    isCalendar = true;
+                                }
+                            }
+
+                            // Also check for calendar-like structure
+                            if (!isCalendar && node.querySelector) {
+                                var hasDays = node.querySelectorAll('[class*="day"], [role="gridcell"]');
+                                if (hasDays.length > 7) {
+                                    isCalendar = true;
+                                }
+                            }
+
+                            if (isCalendar) {
+                                logInfo('JXL: Detected calendar popup, may replace with Persian');
+                                // For now, just convert any dates inside it
+                                convertJXLDates(node);
+                            }
+                        }
+                    });
+                });
+            });
+
+            calendarObserver.observe(iframeDoc.body, { childList: true, subtree: true });
+            logDebug('JXL: Calendar interceptor attached');
+        }
+
+        function findAndProcessJXLIframes() {
+            // Look for JXL iframes
+            var selectors = [
+                'iframe[data-src*="app.jxl"]',
+                'iframe[src*="app.jxl"]',
+                'iframe[data-src*="jxl"]',
+                'iframe[src*="jxl"]',
+                'iframe[class*="jxl"]',
+                'iframe[id*="jxl"]',
+                // Also try generic iframe in JXL containers
+                '.itsfine-sconnect-layout iframe',
+                '[data-project-key] iframe'
+            ];
+
+            var foundIframes = [];
+            selectors.forEach(function (selector) {
+                try {
+                    var iframes = document.querySelectorAll(selector);
+                    iframes.forEach(function (iframe) {
+                        if (foundIframes.indexOf(iframe) === -1) {
+                            foundIframes.push(iframe);
+                        }
+                    });
+                } catch (e) { }
+            });
+
+            if (foundIframes.length > 0) {
+                logInfo('JXL: Found ' + foundIframes.length + ' JXL iframe(s)');
+                foundIframes.forEach(function (iframe) {
+                    // Process immediately if loaded
+                    if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+                        processJXLIframe(iframe);
+                    }
+
+                    // Also listen for load event
+                    iframe.addEventListener('load', function () {
+                        logDebug('JXL: iframe loaded');
+                        setTimeout(function () {
+                            processJXLIframe(iframe);
+                        }, 500);
+                    });
+                });
+            }
+        }
+
+        // Initial scan for JXL iframes
+        setTimeout(findAndProcessJXLIframes, 1000);
+
+        // Also watch for dynamically added iframes
+        var iframeObserver = new MutationObserver(function (mutations) {
+            var foundNewIframe = false;
+            mutations.forEach(function (mutation) {
+                mutation.addedNodes.forEach(function (node) {
+                    if (node.nodeType === 1) {
+                        if (node.tagName === 'IFRAME') {
+                            var src = node.getAttribute('src') || node.getAttribute('data-src') || '';
+                            if (src.toLowerCase().indexOf('jxl') !== -1) {
+                                foundNewIframe = true;
+                            }
+                        }
+                        // Also check children
+                        if (node.querySelector) {
+                            var childIframes = node.querySelectorAll('iframe[src*="jxl"], iframe[data-src*="jxl"]');
+                            if (childIframes.length > 0) {
+                                foundNewIframe = true;
+                            }
+                        }
+                    }
+                });
+            });
+
+            if (foundNewIframe) {
+                setTimeout(findAndProcessJXLIframes, 500);
+            }
+        });
+
+        iframeObserver.observe(document.body, { childList: true, subtree: true });
+        logInfo('JXL: Iframe observer attached');
+    }
 
 })();
