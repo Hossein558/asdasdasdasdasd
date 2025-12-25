@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.5.0';
+    var PC_VERSION = '10.5.1';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -2257,12 +2257,17 @@
         logInfo('MutationObserver attached');
 
         // ========== JXL SUPPORT ==========
-        initJXLSupport($);
+        try {
+            logInfo('Starting JXL Support initialization...');
+            initJXLSupport($);
+        } catch (jxlError) {
+            logError('JXL Support initialization failed', { error: jxlError.message, stack: jxlError.stack });
+        }
     });
 
     // ========== JXL (Jira eXtensible List) SUPPORT ==========
     function initJXLSupport($) {
-        logInfo('Initializing JXL Support...');
+        logInfo('JXL: initJXLSupport function called');
 
         // English month names for parsing
         var ENGLISH_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
