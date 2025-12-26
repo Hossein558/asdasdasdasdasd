@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.5.2';
+    var PC_VERSION = '10.5.3';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -2308,35 +2308,67 @@
             text = text.trim();
 
             var match;
+            // Common time regex part: optional HH:MM and optional AM/PM
+            // Matches: 10:30, 10:30 PM, 10:30PM, 22:30
+            var timeRegex = /(?:\s+(\d{1,2}):(\d{2})(?:\s*([APap][Mm]))?)?$/;
 
-            // Pattern 1: Dec 23, 2025 or Dec 23 2025
-            match = text.match(/^([A-Z][a-z]{2,})\s+(\d{1,2}),?\s+(\d{4})$/);
+            // Helper to extract time from match result
+            // assumes time groups are at indices: yearIdx+1, yearIdx+2, yearIdx+3
+            function extractTime(m, yearIdx) {
+                if (m[yearIdx + 1]) {
+                    return {
+                        hour: parseInt(m[yearIdx + 1]),
+                        minute: parseInt(m[yearIdx + 2]),
+                        ampm: m[yearIdx + 3] ? m[yearIdx + 3].toUpperCase() : null
+                    };
+                }
+                return null;
+            }
+
+            // Pattern 1: Dec 23, 2025 [10:30 PM]
+            // Groups: 1=Month, 2=Day, 3=Year, 4=Hour, 5=Min, 6=AM/PM
+            match = text.match(new RegExp('^([A-Z][a-z]{2,})\\s+(\\d{1,2}),?\\s+(\\d{4})' + timeRegex.source));
             if (match) {
                 var month = parseEnglishMonth(match[1]);
                 if (month) {
-                    return { year: parseInt(match[3]), month: month, day: parseInt(match[2]) };
+                    var result = { year: parseInt(match[3]), month: month, day: parseInt(match[2]) };
+                    var time = extractTime(match, 3);
+                    if (time) Object.assign(result, time);
+                    return result;
                 }
             }
 
-            // Pattern 2: 23 Dec 2025
-            match = text.match(/^(\d{1,2})\s+([A-Z][a-z]{2,})\s+(\d{4})$/);
+            // Pattern 2: 23 Dec 2025 [10:30 PM]
+            // Groups: 1=Day, 2=Month, 3=Year, 4=Hour, 5=Min, 6=AM/PM
+            match = text.match(new RegExp('^(\\d{1,2})\\s+([A-Z][a-z]{2,})\\s+(\\d{4})' + timeRegex.source));
             if (match) {
                 var month = parseEnglishMonth(match[2]);
                 if (month) {
-                    return { year: parseInt(match[3]), month: month, day: parseInt(match[1]) };
+                    var result = { year: parseInt(match[3]), month: month, day: parseInt(match[1]) };
+                    var time = extractTime(match, 3);
+                    if (time) Object.assign(result, time);
+                    return result;
                 }
             }
 
-            // Pattern 3: 2025-12-23
-            match = text.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+            // Pattern 3: 2025-12-23 [10:30]
+            // Groups: 1=Year, 2=Month, 3=Day, 4=Hour, 5=Min, 6=AM/PM
+            match = text.match(new RegExp('^(\\d{4})-(\\d{2})-(\\d{2})' + timeRegex.source));
             if (match) {
-                return { year: parseInt(match[1]), month: parseInt(match[2]), day: parseInt(match[3]) };
+                var result = { year: parseInt(match[1]), month: parseInt(match[2]), day: parseInt(match[3]) };
+                var time = extractTime(match, 3);
+                if (time) Object.assign(result, time);
+                return result;
             }
 
-            // Pattern 4: 12/23/2025 (US format)
-            match = text.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+            // Pattern 4: 12/23/2025 [10:30 PM]
+            // Groups: 1=Month, 2=Day, 3=Year, 4=Hour, 5=Min, 6=AM/PM
+            match = text.match(new RegExp('^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{4})' + timeRegex.source));
             if (match) {
-                return { year: parseInt(match[3]), month: parseInt(match[1]), day: parseInt(match[2]) };
+                var result = { year: parseInt(match[3]), month: parseInt(match[1]), day: parseInt(match[2]) };
+                var time = extractTime(match, 3);
+                if (time) Object.assign(result, time);
+                return result;
             }
 
             return null;
@@ -2348,7 +2380,17 @@
 
             try {
                 var persian = toJalaali(parsed.year, parsed.month, parsed.day);
-                return persian.jy + '/' + persian.jm + '/' + persian.jd;
+                var dateStr = persian.jy + '/' + persian.jm + '/' + persian.jd;
+
+                if (parsed.hour !== undefined) {
+                    var timeStr = parsed.hour + ':' + (parsed.minute < 10 ? '0' + parsed.minute : parsed.minute);
+                    if (parsed.ampm) {
+                        timeStr += ' ' + parsed.ampm;
+                    }
+                    return dateStr + ' ' + timeStr;
+                }
+
+                return dateStr;
             } catch (e) {
                 logError('Error converting date to Persian', { text: text, error: e.message });
                 return null;
