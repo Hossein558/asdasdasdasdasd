@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.5.1';
+    var PC_VERSION = '10.5.2';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -104,14 +104,19 @@
     }
 
     // Wait for AJS and jQuery
+    // Wait for AJS and jQuery and DOM Ready
     function waitForJira(callback) {
         logDebug('Waiting for Jira framework...');
-        if (typeof AJS !== 'undefined' && AJS.$) {
-            logInfo('Found AJS framework');
-            callback(AJS.$);
+        if (typeof AJS !== 'undefined' && AJS.toInit) {
+            logInfo('Found AJS framework (using toInit)');
+            AJS.toInit(function () {
+                callback(AJS.$);
+            });
         } else if (typeof jQuery !== 'undefined') {
-            logInfo('Found jQuery (no AJS)');
-            callback(jQuery);
+            logInfo('Found jQuery (using document.ready)');
+            jQuery(document).ready(function () {
+                callback(jQuery);
+            });
         } else {
             logDebug('Framework not ready, retrying in 100ms...');
             setTimeout(function () { waitForJira(callback); }, 100);
