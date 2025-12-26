@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.5.3';
+    var PC_VERSION = '10.5.4';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -2497,19 +2497,56 @@
         function interceptJXLCalendar(iframeDoc, iframe) {
             if (!iframeDoc || !iframeDoc.body) return;
 
-            // Listen for clicks on date cells
+            // Listen for clicks on date cells to debug specific structure
             iframeDoc.body.addEventListener('click', function (e) {
                 var target = e.target;
 
-                // Check if clicked on a date cell (has date-like content)
-                var cellText = target.textContent ? target.textContent.trim() : '';
-                var parsed = parseJXLDate(cellText);
+                // Log what was clicked to understand structure
+                // logDebug('JXL: Click intercepted', { tagName: target.tagName, className: target.className, text: target.textContent });
 
-                if (parsed) {
-                    logDebug('JXL: Clicked on date cell', { text: cellText });
-                    // Will add calendar popup in next iteration
-                }
+                // Check behavior: Does an input appear after a short delay?
+                setTimeout(function () {
+                    var inputs = iframeDoc.body.querySelectorAll('input:not([type="hidden"])');
+                    // logDebug('JXL: Visible inputs after click', { count: inputs.length });
+
+                    if (inputs.length > 0) {
+                        inputs.forEach(function (input) {
+                            // If this input looks like a date/time picker (has specific class or value matches date)
+                            var val = input.value;
+                            // logInfo('JXL: Input found', { value: val, className: input.className });
+
+                            // Attach Persian Calendar if not already attached
+                            if (!input.dataset.pcAttached) {
+                                input.dataset.pcAttached = 'true';
+                                // Determine if it needs time
+                                var isDateTime = val.indexOf(':') !== -1;
+
+                                input.addEventListener('click', function (ev) {
+                                    ev.preventDefault();
+                                    ev.stopPropagation();
+                                    if (isDateTime) {
+                                        showPersianDateTimePicker(jQuery(input), jQuery(input), function (date) {
+                                            // Format back to JXL expectation? JXL likely expects Gregorian string
+                                            // But for display we might want Persian? 
+                                            // Actually best is to just set the value and trigger events
+                                            // input.value = ...
+                                            // input.dispatchEvent(new Event('change', { bubbles: true }));
+                                        });
+                                    } else {
+                                        showPersianCalendar(jQuery(input), jQuery(input), function (date) {
+                                            // ...
+                                        });
+                                    }
+                                });
+                            }
+                        });
+                    }
+                }, 100);
+
             }, true);
+
+            // ... MutationObserver for calendar popup ...
+
 
             // Intercept native calendar if it appears
             var calendarObserver = new MutationObserver(function (mutations) {
