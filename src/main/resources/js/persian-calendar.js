@@ -2508,7 +2508,7 @@
                 var target = e.target;
 
                 // Log what was clicked to understand structure
-                // logDebug('JXL: Click intercepted', { tagName: target.tagName, className: target.className, text: target.textContent });
+                logInfo('JXL Debug: Click intercepted', { tagName: target.tagName, className: target.className });
 
                 // Check behavior: Does an input appear after a short delay?
                 setTimeout(function () {
