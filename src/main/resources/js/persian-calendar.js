@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.5.8';
+    var PC_VERSION = '10.5.11';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -768,15 +768,15 @@
 
             var html = '<div class="pc-header" style="direction: rtl; display: flex; justify-content: space-between; align-items: center;">';
             html += '<div style="display:flex;">';
-            html += '<button type="button" class="pc-prev-year" title="سال قبل">&raquo;</button>';
-            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&rsaquo;</button>';
+            html += '<button type="button" class="pc-next-year" title="سال بعد">&raquo;</button>';
+            html += '<button type="button" class="pc-next-month" title="ماه بعد">&rsaquo;</button>';
             html += '</div>';
 
             html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
 
             html += '<div style="display:flex;">';
-            html += '<button type="button" class="pc-next-month" title="ماه بعد">&lsaquo;</button>';
-            html += '<button type="button" class="pc-next-year" title="سال بعد">&laquo;</button>';
+            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&lsaquo;</button>';
+            html += '<button type="button" class="pc-prev-year" title="سال قبل">&laquo;</button>';
             html += '</div>';
             html += '</div>';
 
@@ -1385,15 +1385,15 @@
             // Visual order RIGHT to LEFT: >> > | Title | < <<
             var html = '<div class="pc-header" style="direction: rtl; display: flex; justify-content: space-between; align-items: center;">';
             html += '<div style="display:flex;">';
-            html += '<button type="button" class="pc-prev-year" title="سال قبل">&raquo;</button>';
-            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&rsaquo;</button>';
+            html += '<button type="button" class="pc-next-year" title="سال بعد">&raquo;</button>';
+            html += '<button type="button" class="pc-next-month" title="ماه بعد">&rsaquo;</button>';
             html += '</div>';
 
             html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
 
             html += '<div style="display:flex;">';
-            html += '<button type="button" class="pc-next-month" title="ماه بعد">&lsaquo;</button>';
-            html += '<button type="button" class="pc-next-year" title="سال بعد">&laquo;</button>';
+            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&lsaquo;</button>';
+            html += '<button type="button" class="pc-prev-year" title="سال قبل">&laquo;</button>';
             html += '</div>';
             html += '</div>';
 
