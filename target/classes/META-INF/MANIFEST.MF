@@ -1,0 +1,21 @@
+Manifest-Version: 1.0
+Atlassian-Build-Date: 2025-12-27T00:57:35+0330
+Atlassian-Plugin-Key: ir.atlassian.jira.plugins.persian-calendar-plugin
+Bnd-LastModified: 1766784456146
+Build-Jdk: 20.0.1
+Built-By: Hossein
+Bundle-Description: Displays Due Date field with Persian/Shamsi calendar
+  while storing in Gregorian format
+Bundle-DocURL: https://atlassian-jira.ir/
+Bundle-ManifestVersion: 2
+Bundle-Name: Persian Calendar for Jira
+Bundle-SymbolicName: ir.atlassian.jira.plugins.persian-calendar-plugin
+Bundle-Vendor: Atlassian Jira IR
+Bundle-Version: 10.5.16
+Created-By: Apache Maven Bundle Plugin
+Import-Package: com.atlassian.jira.component;resolution:=optional,com.at
+ lassian.jira.config.properties;resolution:=optional,com.atlassian.plugi
+ ns.rest.common.security;resolution:=optional,javax.ws.rs;resolution:=op
+ tional,javax.ws.rs.core;resolution:=optional
+Spring-Context: *
+Tool: Bnd-3.5.0.201709291849

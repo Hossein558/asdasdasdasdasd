@@ -540,11 +540,11 @@
             // Final layout for v10.4.12:
             // User requested order from LEFT to RIGHT: << < Title > >>
             var html = '<div class="pc-header">';
-            html += '<button type="button" class="pc-prev-year" title="سال قبل">&laquo;</button>';
-            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&lsaquo;</button>';
+            html += '<button type="button" class="pc-next-year" title="سال بعد">&laquo;</button>';
+            html += '<button type="button" class="pc-next-month" title="ماه بعد">&lsaquo;</button>';
             html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
-            html += '<button type="button" class="pc-next-month" title="ماه بعد">&rsaquo;</button>';
-            html += '<button type="button" class="pc-next-year" title="سال بعد">&raquo;</button>';
+            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&rsaquo;</button>';
+            html += '<button type="button" class="pc-prev-year" title="سال قبل">&raquo;</button>';
             html += '</div>';
 
             // Weekday headers: In RTL, grid goes right-to-left
@@ -768,15 +768,15 @@
 
             var html = '<div class="pc-header" style="direction: rtl; display: flex; justify-content: space-between; align-items: center;">';
             html += '<div style="display:flex;">';
-            html += '<button type="button" class="pc-prev-year" title="سال قبل">&raquo;</button>';
-            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&rsaquo;</button>';
+            html += '<button type="button" class="pc-next-year" title="سال بعد">&raquo;</button>';
+            html += '<button type="button" class="pc-next-month" title="ماه بعد">&rsaquo;</button>';
             html += '</div>';
 
             html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
 
             html += '<div style="display:flex;">';
-            html += '<button type="button" class="pc-next-month" title="ماه بعد">&lsaquo;</button>';
-            html += '<button type="button" class="pc-next-year" title="سال بعد">&laquo;</button>';
+            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&lsaquo;</button>';
+            html += '<button type="button" class="pc-prev-year" title="سال قبل">&laquo;</button>';
             html += '</div>';
             html += '</div>';
 

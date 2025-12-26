@@ -1,0 +1,18 @@
+<repository lastmodified='20251227125736.377'>
+  <resource id='ir.atlassian.jira.plugins.persian-calendar-plugin/10.5.16' symbolicname='ir.atlassian.jira.plugins.persian-calendar-plugin' presentationname='Persian Calendar for Jira' uri='persian-calendar-plugin-10.5.16.jar' version='10.5.16'>
+    <description>Displays Due Date field with Persian/Shamsi calendar while storing in Gregorian format</description>
+    <size>81188</size>
+    <documentation>https://atlassian-jira.ir/</documentation>
+    <capability name='bundle'>
+      <p n='symbolicname' v='ir.atlassian.jira.plugins.persian-calendar-plugin'/>
+      <p n='presentationname' v='Persian Calendar for Jira'/>
+      <p n='version' t='version' v='10.5.16'/>
+      <p n='manifestversion' v='2'/>
+    </capability>
+    <require name='package' filter='(&amp;(package=com.atlassian.jira.component))' extend='false' multiple='false' optional='true'>Import package com.atlassian.jira.component;resolution:=optional</require>
+    <require name='package' filter='(&amp;(package=com.atlassian.jira.config.properties))' extend='false' multiple='false' optional='true'>Import package com.atlassian.jira.config.properties;resolution:=optional</require>
+    <require name='package' filter='(&amp;(package=com.atlassian.plugins.rest.common.security))' extend='false' multiple='false' optional='true'>Import package com.atlassian.plugins.rest.common.security;resolution:=optional</require>
+    <require name='package' filter='(&amp;(package=javax.ws.rs))' extend='false' multiple='false' optional='true'>Import package javax.ws.rs;resolution:=optional</require>
+    <require name='package' filter='(&amp;(package=javax.ws.rs.core))' extend='false' multiple='false' optional='true'>Import package javax.ws.rs.core;resolution:=optional</require>
+  </resource>
+</repository>

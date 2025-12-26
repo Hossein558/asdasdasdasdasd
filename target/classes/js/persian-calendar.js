@@ -10,7 +10,8 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.3.23';
+    var PC_VERSION = '10.5.16';
+    console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -103,14 +104,19 @@
     }
 
     // Wait for AJS and jQuery
+    // Wait for AJS and jQuery and DOM Ready
     function waitForJira(callback) {
         logDebug('Waiting for Jira framework...');
-        if (typeof AJS !== 'undefined' && AJS.$) {
-            logInfo('Found AJS framework');
-            callback(AJS.$);
+        if (typeof AJS !== 'undefined' && AJS.toInit) {
+            logInfo('Found AJS framework (using toInit)');
+            AJS.toInit(function () {
+                callback(AJS.$);
+            });
         } else if (typeof jQuery !== 'undefined') {
-            logInfo('Found jQuery (no AJS)');
-            callback(jQuery);
+            logInfo('Found jQuery (using document.ready)');
+            jQuery(document).ready(function () {
+                callback(jQuery);
+            });
         } else {
             logDebug('Framework not ready, retrying in 100ms...');
             setTimeout(function () { waitForJira(callback); }, 100);
@@ -121,6 +127,79 @@
     var PERSIAN_MONTHS = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
     var PERSIAN_WEEKDAYS = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
     var GREGORIAN_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    // ========== DATE FORMAT SETTINGS ==========
+    // Cache for date format settings (loaded from Jira settings)
+    var DATE_FORMAT_CACHE = {
+        loaded: false,
+        dateFormat: 'd/MMM/yy',           // Default Jira date format
+        dateTimeFormat: 'dd/MMM/yy h:mm a', // Default Jira datetime format
+        dateFormatJS: '%e/%b/%y',
+        dateTimeFormatJS: '%e/%b/%y %I:%M %p'
+    };
+
+    // Fetch date format settings from REST API
+    function fetchDateFormatSettings() {
+        if (DATE_FORMAT_CACHE.loaded) {
+            logDebug('Date format settings already loaded from cache');
+            return;
+        }
+
+        // Try to get base URL
+        var baseUrl = AJS && AJS.contextPath ? AJS.contextPath() : '';
+        var apiUrl = baseUrl + '/rest/persian-calendar/1.0/date-formats';
+
+        logInfo('Fetching date format settings from: ' + apiUrl);
+
+        try {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', apiUrl, true);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        try {
+                            var data = JSON.parse(xhr.responseText);
+                            DATE_FORMAT_CACHE.dateFormat = data.dateFormat || DATE_FORMAT_CACHE.dateFormat;
+                            DATE_FORMAT_CACHE.dateTimeFormat = data.dateTimeFormat || DATE_FORMAT_CACHE.dateTimeFormat;
+                            DATE_FORMAT_CACHE.dateFormatJS = data.dateFormatJS || DATE_FORMAT_CACHE.dateFormatJS;
+                            DATE_FORMAT_CACHE.dateTimeFormatJS = data.dateTimeFormatJS || DATE_FORMAT_CACHE.dateTimeFormatJS;
+                            DATE_FORMAT_CACHE.loaded = true;
+                            logInfo('Date format settings loaded successfully', DATE_FORMAT_CACHE);
+                        } catch (e) {
+                            logWarn('Failed to parse date format response: ' + e.message);
+                        }
+                    } else {
+                        logWarn('Failed to fetch date formats (status ' + xhr.status + '), using defaults');
+                    }
+                }
+            };
+            xhr.send();
+        } catch (e) {
+            logWarn('Error fetching date formats: ' + e.message + ', using defaults');
+        }
+    }
+
+    // Parse date format pattern and format a date accordingly
+    function formatDateWithPattern(year, month, day, pattern) {
+        // pattern examples: d/MMM/yy, dd/MMM/yyyy, yyyy-MM-dd
+        var result = pattern;
+        var yy = year % 100;
+
+        // Replace year patterns
+        result = result.replace(/yyyy/g, year.toString());
+        result = result.replace(/yy/g, (yy < 10 ? '0' : '') + yy);
+
+        // Replace month patterns
+        result = result.replace(/MMM/g, GREGORIAN_MONTHS[month - 1]);
+        result = result.replace(/MM/g, (month < 10 ? '0' : '') + month);
+        result = result.replace(/M/g, month.toString());
+
+        // Replace day patterns (careful with order, dd before d)
+        result = result.replace(/dd/g, (day < 10 ? '0' : '') + day);
+        result = result.replace(/d/g, day.toString());
+
+        return result;
+    }
 
     // Jalaali conversion functions
     function toJalaali(gy, gm, gd) {
@@ -199,43 +278,139 @@
     function div(a, b) { return ~~(a / b); }
     function mod(a, b) { return a - ~~(a / b) * b; }
 
-    // Parse Jira date format
+    // Parse Jira date format - supports multiple formats based on DATE_FORMAT_CACHE
     function parseJiraDate(dateStr) {
         if (!dateStr) return null;
         logDebug('Parsing date: ' + dateStr);
-        var parts = dateStr.trim().split('/');
-        if (parts.length !== 3) {
-            logWarn('Invalid date format (not 3 parts)', { input: dateStr });
-            return null;
+
+        // Try multiple parsing strategies
+        var result = null;
+
+        // Strategy 1: Parse based on current format (d/MMM/yy or dd/MMM/yy)
+        result = parseDateByPattern(dateStr, DATE_FORMAT_CACHE.dateFormat);
+        if (result) return result;
+
+        // Strategy 2: Try common Jira formats
+        var commonFormats = ['d/MMM/yy', 'dd/MMM/yy', 'dd/MMM/yyyy', 'd/MMM/yyyy', 'yyyy-MM-dd', 'MM/dd/yyyy', 'dd-MMM-yy'];
+        for (var i = 0; i < commonFormats.length; i++) {
+            result = parseDateByPattern(dateStr, commonFormats[i]);
+            if (result) return result;
         }
-        var d = parseInt(parts[0], 10);
-        var mStr = parts[1];
-        var y = parseInt(parts[2], 10);
-        var m = GREGORIAN_MONTHS.indexOf(mStr);
-        if (m === -1) {
-            logWarn('Unknown month: ' + mStr);
-            return null;
+
+        // Strategy 3: Auto-detect format
+        result = autoDetectAndParse(dateStr);
+        if (result) return result;
+
+        logWarn('Could not parse date: ' + dateStr);
+        return null;
+    }
+
+    // Parse date string based on format pattern
+    function parseDateByPattern(dateStr, pattern) {
+        if (!dateStr || !pattern) return null;
+
+        var str = dateStr.trim().split(' ')[0]; // Remove time part if present
+        var day, month, year;
+
+        // Determine separator
+        var separator = '/';
+        if (str.indexOf('-') !== -1) separator = '-';
+        if (str.indexOf('.') !== -1) separator = '.';
+
+        var parts = str.split(separator);
+        if (parts.length < 3) return null;
+
+        // Determine order from pattern
+        var patternLower = pattern.toLowerCase();
+        var patternParts = pattern.split(/[\/\-\.]/);
+
+        try {
+            if (patternParts.length >= 3) {
+                for (var i = 0; i < 3; i++) {
+                    var p = patternParts[i].toLowerCase();
+                    if (p.indexOf('y') !== -1) {
+                        year = parseInt(parts[i], 10);
+                        if (year < 100) year += 2000;
+                    } else if (p.indexOf('mmm') !== -1) {
+                        // Month as abbreviation (Jan, Feb, etc.)
+                        var mIdx = GREGORIAN_MONTHS.indexOf(parts[i]);
+                        if (mIdx === -1) return null;
+                        month = mIdx + 1;
+                    } else if (p.indexOf('m') !== -1 && p.indexOf('mmm') === -1) {
+                        // Month as number
+                        month = parseInt(parts[i], 10);
+                    } else if (p.indexOf('d') !== -1) {
+                        day = parseInt(parts[i], 10);
+                    }
+                }
+            }
+
+            if (day && month && year && !isNaN(day) && !isNaN(month) && !isNaN(year)) {
+                var result = { year: year, month: month, day: day };
+                logDebug('Parsed date result', result);
+                return result;
+            }
+        } catch (e) {
+            logDebug('Pattern parsing failed: ' + e.message);
         }
-        if (y < 100) y += 2000;
-        var result = { year: y, month: m + 1, day: d };
-        logDebug('Parsed date result', result);
-        return result;
+
+        return null;
+    }
+
+    // Auto-detect and parse common date formats
+    function autoDetectAndParse(dateStr) {
+        var str = dateStr.trim().split(' ')[0];
+
+        // Try d/MMM/yy format (most common Jira format)
+        var match1 = str.match(/^(\d{1,2})\/([A-Za-z]{3})\/(\d{2,4})$/);
+        if (match1) {
+            var mIdx = GREGORIAN_MONTHS.indexOf(match1[2]);
+            if (mIdx !== -1) {
+                var y = parseInt(match1[3], 10);
+                if (y < 100) y += 2000;
+                return { year: y, month: mIdx + 1, day: parseInt(match1[1], 10) };
+            }
+        }
+
+        // Try yyyy-MM-dd format (ISO)
+        var match2 = str.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+        if (match2) {
+            return { year: parseInt(match2[1], 10), month: parseInt(match2[2], 10), day: parseInt(match2[3], 10) };
+        }
+
+        // Try MM/dd/yyyy format (US)
+        var match3 = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+        if (match3) {
+            return { year: parseInt(match3[3], 10), month: parseInt(match3[1], 10), day: parseInt(match3[2], 10) };
+        }
+
+        // Try dd-MMM-yyyy format
+        var match4 = str.match(/^(\d{1,2})-([A-Za-z]{3})-(\d{2,4})$/);
+        if (match4) {
+            var mIdx2 = GREGORIAN_MONTHS.indexOf(match4[2]);
+            if (mIdx2 !== -1) {
+                var y2 = parseInt(match4[3], 10);
+                if (y2 < 100) y2 += 2000;
+                return { year: y2, month: mIdx2 + 1, day: parseInt(match4[1], 10) };
+            }
+        }
+
+        return null;
     }
 
     function formatJiraDate(year, month, day) {
-        // Format: d/MMM/yy (e.g., 9/Dec/25 or 19/Dec/25)
-        var yy = year % 100;
-        var yyStr = yy < 10 ? '0' + yy : '' + yy;
-        return day + '/' + GREGORIAN_MONTHS[month - 1] + '/' + yyStr;
+        // Use dynamic format from cache, fallback to default
+        return formatDateWithPattern(year, month, day, DATE_FORMAT_CACHE.dateFormat);
     }
 
     function formatJiraDateTime(year, month, day, hour, minute, ampm) {
-        // Format: dd/MMM/yy h:mm a (e.g., 19/Dec/25 6:30 PM)
-        var yy = year % 100;
-        var yyStr = yy < 10 ? '0' + yy : '' + yy;
-        var dayStr = day < 10 ? '0' + day : '' + day;
+        // Format date part using dynamic format
+        var dateFormatPart = DATE_FORMAT_CACHE.dateTimeFormat.split(' ')[0] || 'dd/MMM/yy';
+        var dateStr = formatDateWithPattern(year, month, day, dateFormatPart);
+
+        // Format time part (h:mm a)
         var minStr = minute < 10 ? '0' + minute : '' + minute;
-        return dayStr + '/' + GREGORIAN_MONTHS[month - 1] + '/' + yyStr + ' ' + hour + ':' + minStr + ' ' + ampm;
+        return dateStr + ' ' + hour + ':' + minStr + ' ' + ampm;
     }
 
     function formatPersianDate(jy, jm, jd) {
@@ -362,12 +537,14 @@
         function render() {
             logDebug('Rendering calendar for', { year: viewYear, month: viewMonth });
 
+            // Final layout for v10.4.12:
+            // User requested order from LEFT to RIGHT: << < Title > >>
             var html = '<div class="pc-header">';
-            html += '<button type="button" class="pc-prev-year" title="سال قبل">&laquo;</button>';
-            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&lsaquo;</button>';
+            html += '<button type="button" class="pc-next-year" title="سال بعد">&laquo;</button>';
+            html += '<button type="button" class="pc-next-month" title="ماه بعد">&lsaquo;</button>';
             html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
-            html += '<button type="button" class="pc-next-month" title="ماه بعد">&rsaquo;</button>';
-            html += '<button type="button" class="pc-next-year" title="سال بعد">&raquo;</button>';
+            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&rsaquo;</button>';
+            html += '<button type="button" class="pc-prev-year" title="سال قبل">&raquo;</button>';
             html += '</div>';
 
             // Weekday headers: In RTL, grid goes right-to-left
@@ -589,12 +766,18 @@
         function render() {
             logDebug('Rendering DateTime calendar for', { year: viewYear, month: viewMonth });
 
-            var html = '<div class="pc-header">';
+            var html = '<div class="pc-header" style="direction: rtl; display: flex; justify-content: space-between; align-items: center;">';
+            html += '<div style="display:flex;">';
             html += '<button type="button" class="pc-next-year" title="سال بعد">&raquo;</button>';
             html += '<button type="button" class="pc-next-month" title="ماه بعد">&rsaquo;</button>';
+            html += '</div>';
+
             html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
+
+            html += '<div style="display:flex;">';
             html += '<button type="button" class="pc-prev-month" title="ماه قبل">&lsaquo;</button>';
             html += '<button type="button" class="pc-prev-year" title="سال قبل">&laquo;</button>';
+            html += '</div>';
             html += '</div>';
 
             html += '<div class="pc-weekdays">';
@@ -791,7 +974,24 @@
             // Time elements
             '.actionContainer time',
             '.action-details time',
-            '#activitymodule time'
+            '#activitymodule time',
+            // ========== JSM Customer Portal specific selectors ==========
+            // Request details page date fields
+            'dd[data-test-id="duedate"]',
+            'dd[data-test-id*="customfield_"]',
+            'dd[data-test-cv-dummy-text]',
+            '.cv-request-details dd',
+            '.activity-item-request-fields dd',
+            // Request fields in sidebar
+            '.cv-request-current-value',
+            '.cv-request-field-value',
+            // Date display in request lists
+            '.cv-request-list .date',
+            '.cv-request-list time',
+            // General JSM date displays
+            '[data-test-id*="date"] dd',
+            '[data-test-id*="Date"] dd',
+            '.vp-activity-list dd'
         ];
 
         var convertedCount = 0;
@@ -924,7 +1124,14 @@
             '.calendar-icon',
             '[class*="calendar-trigger"]',
             'button[class*="calendar"]',
-            'span[class*="calendar"]'
+            'span[class*="calendar"]',
+            // JSM Customer Portal specific selectors (from DOM inspection)
+            '.sd-calendar-icon',
+            '.trigger-show-date-picker',
+            '.show-date-picker',
+            'button[id*="trigger-"]',
+            '.sd-date-picker-gr',
+            '[class*="date-picker"]'
         ];
 
         // Remove old listener if exists
@@ -958,22 +1165,55 @@
 
             if (!isCalendarButton) return;
 
-            // Check if inside datesmodule (inline edit context)
-            var $datesModule = $btn.closest('#datesmodule');
-            if ($datesModule.length === 0) return;
+            logInfo('Calendar button clicked! Checking context...');
 
-            // Find the associated input field
-            var $container = $btn.closest('.editable-field, .inline-edit-fields, [data-type="date"], [data-type="datetime"]');
-            if ($container.length === 0) {
-                $container = $datesModule.find('.editable-field:visible, .inline-edit-fields:visible').first();
+            // Check if inside datesmodule (Jira Core inline edit) OR JSM Customer Portal date picker
+            var $datesModule = $btn.closest('#datesmodule');
+            var $jsmDatePicker = $btn.closest('.cv-request-create-container, .sd-date-picker, .cp-date-picker, .field-group, [class*="date-picker"], form');
+
+            // Allow either Jira Core (datesmodule) or JSM (various containers)
+            var isJiraCore = $datesModule.length > 0;
+            var isJSM = $jsmDatePicker.length > 0;
+
+            if (!isJiraCore && !isJSM) {
+                logDebug('Not in recognized context (neither Jira Core nor JSM)');
+                return;
             }
 
+            logInfo('Context detected: ' + (isJiraCore ? 'Jira Core' : 'JSM Customer Portal'));
+
+            // Find the associated input field
+            var $container = $btn.closest('.editable-field, .inline-edit-fields, [data-type="date"], [data-type="datetime"], .field-group, .cv-date-picker, .sd-date-picker');
+            if ($container.length === 0) {
+                if (isJiraCore) {
+                    $container = $datesModule.find('.editable-field:visible, .inline-edit-fields:visible').first();
+                } else {
+                    // JSM: find nearby input
+                    $container = $btn.parent();
+                }
+            }
+
+            // Try multiple selectors to find the input
             var $input = $container.find('input.datepicker-input, input[class*="date"], input[type="text"]').first();
+
+            // JSM specific: look for input with id containing duedate or date
+            if ($input.length === 0) {
+                $input = $btn.parent().find('input[type="text"]').first();
+            }
+            if ($input.length === 0) {
+                $input = $btn.siblings('input[type="text"]').first();
+            }
+            if ($input.length === 0) {
+                // Try finding any visible date input in the form
+                $input = $btn.closest('form').find('input[id*="duedate"], input[name*="date"], input.text.date-picker').first();
+            }
 
             if ($input.length === 0) {
                 logDebug('No input found for calendar button');
                 return;
             }
+
+            logInfo('Found input: id=' + $input.attr('id') + ', name=' + $input.attr('name') + ', value=' + $input.val());
 
             logInfo('Intercepting calendar button click (capture phase)');
 
@@ -992,12 +1232,28 @@
             // Detect if this is a DateTime field
             var inputValue = $input.val() || '';
             var placeholder = $input.attr('placeholder') || '';
-            var isDateTime = inputValue.match(/\d{1,2}:\d{2}/) ||
+            var inputClass = $input.attr('class') || '';
+            var dataFormat = $input.attr('data-iformat') || $input.attr('data-format') || '';
+            var dataShowTime = $input.attr('data-showtime') || '';
+            var timeFormat = $input.attr('timeformat') || '';
+
+            // Check multiple ways to detect DateTime
+            var isDateTime =
+                inputValue.match(/\d{1,2}:\d{2}/) ||
                 inputValue.match(/[AP]M/i) ||
                 placeholder.match(/h:mm/i) ||
-                $container.attr('data-type') === 'datetime';
+                placeholder.match(/time/i) ||
+                $container.attr('data-type') === 'datetime' ||
+                // JSM specific checks
+                inputClass.indexOf('datetime') !== -1 ||
+                inputClass.indexOf('time') !== -1 ||
+                dataFormat.indexOf('h') !== -1 ||
+                dataFormat.indexOf('H') !== -1 ||
+                dataFormat.indexOf(':') !== -1 ||
+                dataShowTime === 'true' ||
+                timeFormat.length > 0;
 
-            logDebug('Inline edit calendar: isDateTime=' + !!isDateTime + ', value=' + inputValue);
+            logInfo('DateTime detection: isDateTime=' + !!isDateTime + ', value="' + inputValue + '", class="' + inputClass + '", dataFormat="' + dataFormat + '"');
 
             // Show our Persian calendar
             setTimeout(function () {
@@ -1042,11 +1298,68 @@
         var viewYear = selectedDate ? selectedDate.jy : todayJ.jy;
         var viewMonth = selectedDate ? selectedDate.jm : todayJ.jm;
 
-        // Create overlay
+        // *** CRITICAL: Prevent Jira from closing inline edit when we click on our popup ***
+        // Store the editable field container
+        var $editableField = $input.closest('.editable-field');
+        var $inlineEditFields = $input.closest('.inline-edit-fields');
+
+        // Mark that our popup is active - this helps prevent blur handlers
+        window.pcPopupActive = true;
+
+        // Prevent blur events on the input while our popup is visible
+        var preventBlur = function (e) {
+            if (window.pcPopupActive) {
+                logInfo('Preventing blur event while popup is active');
+                e.stopPropagation();
+                e.preventDefault();
+                return false;
+            }
+        };
+
+        // Prevent focusout which Jira uses to detect when to close inline edit
+        var preventFocusOut = function (e) {
+            if (window.pcPopupActive) {
+                logInfo('Preventing focusout event while popup is active');
+                e.stopPropagation();
+                e.preventDefault();
+                return false;
+            }
+        };
+
+        // Add event listeners to capture and prevent blur/focusout
+        $input[0].addEventListener('blur', preventBlur, true);
+        $input[0].addEventListener('focusout', preventFocusOut, true);
+        if ($editableField.length) {
+            $editableField[0].addEventListener('focusout', preventFocusOut, true);
+        }
+
+        // Store cleanup functions
+        var cleanupBlurPrevention = function () {
+            window.pcPopupActive = false;
+            try {
+                $input[0].removeEventListener('blur', preventBlur, true);
+                $input[0].removeEventListener('focusout', preventFocusOut, true);
+                if ($editableField.length) {
+                    $editableField[0].removeEventListener('focusout', preventFocusOut, true);
+                }
+            } catch (e) { }
+        };
+
+        // Create overlay - clicking it will close the popup but keep inline edit open
         var overlay = $('<div class="pc-overlay"></div>').appendTo('body');
 
         // Create popup
         var popup = $('<div class="pc-popup"></div>').appendTo('body');
+
+        // Prevent mousedown on popup from causing blur
+        popup.on('mousedown', function (e) {
+            e.preventDefault();
+            logInfo('Mousedown on popup - preventing default');
+        });
+
+        overlay.on('mousedown', function (e) {
+            e.preventDefault();
+        });
 
         // Position popup near the button
         var rect = $btn[0].getBoundingClientRect();
@@ -1068,12 +1381,20 @@
         });
 
         function render() {
-            var html = '<div class="pc-header">';
-            html += '<button type="button" class="pc-prev-year" title="سال قبل">&laquo;</button>';
-            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&lsaquo;</button>';
+            // DateTime: RTL arrows requested by user
+            // Visual order RIGHT to LEFT: >> > | Title | < <<
+            var html = '<div class="pc-header" style="direction: rtl; display: flex; justify-content: space-between; align-items: center;">';
+            html += '<div style="display:flex;">';
+            html += '<button type="button" class="pc-prev-year" title="سال قبل">&raquo;</button>';
+            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&rsaquo;</button>';
+            html += '</div>';
+
             html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
-            html += '<button type="button" class="pc-next-month" title="ماه بعد">&rsaquo;</button>';
-            html += '<button type="button" class="pc-next-year" title="سال بعد">&raquo;</button>';
+
+            html += '<div style="display:flex;">';
+            html += '<button type="button" class="pc-next-month" title="ماه بعد">&lsaquo;</button>';
+            html += '<button type="button" class="pc-next-year" title="سال بعد">&laquo;</button>';
+            html += '</div>';
             html += '</div>';
 
             html += '<div class="pc-weekdays">';
@@ -1114,6 +1435,8 @@
         }
 
         function close() {
+            // Cleanup blur prevention before closing
+            cleanupBlurPrevention();
             popup.remove();
             overlay.remove();
         }
@@ -1124,25 +1447,148 @@
         }
 
         function confirm() {
+            logInfo('=== CONFIRM CALLED ===');
+            logInfo('selectedDate: ' + JSON.stringify(selectedDate));
+
             if (selectedDate) {
                 var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
                 logInfo('Converting Shamsi to Gregorian: ' + selectedDate.jy + '/' + selectedDate.jm + '/' + selectedDate.jd + ' -> ' + gDate.gy + '/' + gDate.gm + '/' + gDate.gd);
                 var gregorianStr = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
-                logInfo('Setting inline edit value (Gregorian): ' + gregorianStr);
+                logInfo('Formatted Gregorian string: ' + gregorianStr);
+
+                // Re-find the input field - try multiple strategies
+                var $datesModule = $('#datesmodule');
+                logInfo('datesmodule found: ' + ($datesModule.length > 0));
+
+                var $activeInput = null;
+
+                // Strategy 1: Find input#duedate directly (most reliable)
+                $activeInput = $datesModule.find('input#duedate:visible').first();
+                logInfo('Strategy 1 (input#duedate:visible): found ' + $activeInput.length);
+
+                // Strategy 2: Find any visible text input in the dates module
+                if ($activeInput.length === 0) {
+                    $activeInput = $datesModule.find('input[type="text"]:visible').first();
+                    logInfo('Strategy 2 (input[type="text"]:visible): found ' + $activeInput.length);
+                }
+
+                // Strategy 3: Look in editable-field for any input
+                if ($activeInput.length === 0) {
+                    $activeInput = $datesModule.find('.editable-field input:visible, .inline-edit-fields input:visible').first();
+                    logInfo('Strategy 3 (.editable-field input:visible): found ' + $activeInput.length);
+                }
+
+                // Strategy 4: Use the original $input passed to this function
+                if ($activeInput.length === 0) {
+                    $activeInput = $input;
+                    logInfo('Strategy 4 (original $input fallback): found ' + ($activeInput ? $activeInput.length : 0));
+                }
+
+                if (!$activeInput || $activeInput.length === 0) {
+                    logError('NO INPUT FOUND! Cannot set value.');
+                    close();
+                    return;
+                }
+
+                logInfo('Found active input: id=' + $activeInput.attr('id') + ', name=' + $activeInput.attr('name') + ', class=' + $activeInput.attr('class'));
+                logInfo('Current input value before change: ' + $activeInput.val());
 
                 // Set value using multiple methods to ensure it works
-                $input.val(gregorianStr);
-                $input[0].value = gregorianStr;
+                $activeInput.val(gregorianStr);
+                if ($activeInput[0]) {
+                    $activeInput[0].value = gregorianStr;
+                    // Set the value attribute too
+                    $activeInput.attr('value', gregorianStr);
+                    // Also set using native setter
+                    var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
+                    nativeInputValueSetter.call($activeInput[0], gregorianStr);
+                }
 
-                // Trigger various events to notify Jira
-                $input.trigger('change').trigger('input').trigger('blur');
+                logInfo('Input value after setting: ' + $activeInput.val());
 
-                // Also dispatch native events
-                var inputEl = $input[0];
-                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                // Define inputEl for event dispatching
+                var inputEl = $activeInput[0];
+
+                try {
+                    var nativeInputEvent = new InputEvent('input', {
+                        bubbles: true,
+                        cancelable: true,
+                        data: gregorianStr
+                    });
+                    inputEl.dispatchEvent(nativeInputEvent);
+                } catch (e) {
+                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+
                 inputEl.dispatchEvent(new Event('change', { bubbles: true }));
 
-                logInfo('Value set successfully: ' + $input.val());
+                // Also trigger jQuery events
+                $activeInput.trigger('input').trigger('change');
+
+                logInfo('Value set and events dispatched: ' + $activeInput.val());
+
+                // Find and click Jira's inline edit submit button (the checkmark icon)
+                var $form = $activeInput.closest('form');
+                var $editableField = $activeInput.closest('.editable-field');
+
+                // Look for the submit/save button - Jira uses various patterns
+                var $submitBtn = null;
+
+                // Try to find submit button in form first
+                if ($form.length > 0) {
+                    $submitBtn = $form.find('button[type="submit"], input[type="submit"], .aui-button.submit, button.submit').first();
+                }
+
+                // Try editable field container
+                if ((!$submitBtn || $submitBtn.length === 0) && $editableField.length > 0) {
+                    $submitBtn = $editableField.find('button[type="submit"], .aui-button.submit, .inline-edit-save, .save').first();
+                }
+
+                // Try the icons container (Jira often uses icon buttons)
+                if (!$submitBtn || $submitBtn.length === 0) {
+                    $submitBtn = $datesModule.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                }
+
+                if ($submitBtn && $submitBtn.length > 0) {
+                    logInfo('Found submit button: ' + $submitBtn.attr('class') + ', clicking to save');
+                    setTimeout(function () {
+                        $submitBtn.click();
+                        $submitBtn.trigger('click');
+                    }, 50);
+                } else {
+                    // Trigger Enter key as fallback - this often submits inline edit forms
+                    logInfo('No submit button found, triggering Enter key on input');
+                    setTimeout(function () {
+                        // Focus the input first
+                        inputEl.focus();
+
+                        // Simulate pressing Enter
+                        var enterEvent = new KeyboardEvent('keydown', {
+                            key: 'Enter',
+                            code: 'Enter',
+                            keyCode: 13,
+                            which: 13,
+                            bubbles: true,
+                            cancelable: true
+                        });
+                        inputEl.dispatchEvent(enterEvent);
+
+                        var enterUp = new KeyboardEvent('keyup', {
+                            key: 'Enter',
+                            code: 'Enter',
+                            keyCode: 13,
+                            which: 13,
+                            bubbles: true
+                        });
+                        inputEl.dispatchEvent(enterUp);
+
+                        // Also trigger blur which sometimes triggers save
+                        setTimeout(function () {
+                            $activeInput.trigger('blur');
+                            inputEl.blur();
+                        }, 50);
+                    }, 50);
+                }
             }
             close();
         }
@@ -1205,9 +1651,66 @@
         var selectedMinute = currentMinute;
         var selectedAmPm = currentAmPm;
 
+        // *** CRITICAL: Prevent Jira from closing inline edit when we click on our popup ***
+        // Store the editable field container
+        var $editableField = $input.closest('.editable-field');
+        var $inlineEditFields = $input.closest('.inline-edit-fields');
+
+        // Mark that our popup is active - this helps prevent blur handlers
+        window.pcPopupActive = true;
+
+        // Prevent blur events on the input while our popup is visible
+        var preventBlur = function (e) {
+            if (window.pcPopupActive) {
+                logInfo('Preventing blur event while DateTime popup is active');
+                e.stopPropagation();
+                e.preventDefault();
+                return false;
+            }
+        };
+
+        // Prevent focusout which Jira uses to detect when to close inline edit
+        var preventFocusOut = function (e) {
+            if (window.pcPopupActive) {
+                logInfo('Preventing focusout event while DateTime popup is active');
+                e.stopPropagation();
+                e.preventDefault();
+                return false;
+            }
+        };
+
+        // Add event listeners to capture and prevent blur/focusout
+        $input[0].addEventListener('blur', preventBlur, true);
+        $input[0].addEventListener('focusout', preventFocusOut, true);
+        if ($editableField.length) {
+            $editableField[0].addEventListener('focusout', preventFocusOut, true);
+        }
+
+        // Store cleanup functions
+        var cleanupBlurPrevention = function () {
+            window.pcPopupActive = false;
+            try {
+                $input[0].removeEventListener('blur', preventBlur, true);
+                $input[0].removeEventListener('focusout', preventFocusOut, true);
+                if ($editableField.length) {
+                    $editableField[0].removeEventListener('focusout', preventFocusOut, true);
+                }
+            } catch (e) { }
+        };
+
         // Create overlay
         var overlay = $('<div class="pc-overlay"></div>').appendTo('body');
         var popup = $('<div class="pc-popup"></div>').appendTo('body');
+
+        // Prevent mousedown on popup from causing blur
+        popup.on('mousedown', function (e) {
+            e.preventDefault();
+            logInfo('Mousedown on DateTime popup - preventing default');
+        });
+
+        overlay.on('mousedown', function (e) {
+            e.preventDefault();
+        });
 
         // Position popup
         var rect = $btn[0].getBoundingClientRect();
@@ -1286,7 +1789,7 @@
             popup.find('.pc-ampm').on('change', function () { selectedAmPm = $(this).val(); });
         }
 
-        function close() { popup.remove(); overlay.remove(); }
+        function close() { cleanupBlurPrevention(); popup.remove(); overlay.remove(); }
 
         function selectDay(day) { selectedDate = { jy: viewYear, jm: viewMonth, jd: day }; render(); }
 
@@ -1297,19 +1800,88 @@
                 var gregorianStr = formatJiraDateTime(gDate.gy, gDate.gm, gDate.gd, selectedHour, selectedMinute, selectedAmPm);
                 logInfo('Setting inline edit DateTime value (Gregorian): ' + gregorianStr);
 
-                // Set value using multiple methods to ensure it works
-                $input.val(gregorianStr);
-                $input[0].value = gregorianStr;
+                // Re-find the input field in case DOM has changed
+                var $datesModule = $('#datesmodule');
+                var $activeInput = $datesModule.find('.editable-field.active input[type="text"]:visible, .inline-edit-fields input[type="text"]:visible').first();
 
-                // Trigger various events to notify Jira
-                $input.trigger('change').trigger('input').trigger('blur');
+                if ($activeInput.length === 0) {
+                    $activeInput = $datesModule.find('input.datepicker-input:visible, input[class*="date"]:visible').first();
+                }
 
-                // Also dispatch native events
-                var inputEl = $input[0];
-                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                if ($activeInput.length === 0) {
+                    $activeInput = $input;
+                }
+
+                logInfo('Found active input for DateTime: ' + $activeInput.attr('id') + ' / ' + $activeInput.attr('class'));
+
+                // Set value using multiple methods
+                $activeInput.val(gregorianStr);
+                if ($activeInput[0]) {
+                    $activeInput[0].value = gregorianStr;
+                    $activeInput.attr('value', gregorianStr);
+                }
+
+                // Trigger events
+                var inputEl = $activeInput[0];
+                try {
+                    var nativeInputEvent = new InputEvent('input', {
+                        bubbles: true,
+                        cancelable: true,
+                        data: gregorianStr
+                    });
+                    inputEl.dispatchEvent(nativeInputEvent);
+                } catch (e) {
+                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+
                 inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+                $activeInput.trigger('input').trigger('change');
 
-                logInfo('DateTime value set successfully: ' + $input.val());
+                logInfo('DateTime value set: ' + $activeInput.val());
+
+                // Find submit button
+                var $form = $activeInput.closest('form');
+                var $editableField = $activeInput.closest('.editable-field');
+                var $submitBtn = null;
+
+                if ($form.length > 0) {
+                    $submitBtn = $form.find('button[type="submit"], input[type="submit"], .aui-button.submit').first();
+                }
+
+                if ((!$submitBtn || $submitBtn.length === 0) && $editableField.length > 0) {
+                    $submitBtn = $editableField.find('button[type="submit"], .aui-button.submit, .inline-edit-save').first();
+                }
+
+                if (!$submitBtn || $submitBtn.length === 0) {
+                    $submitBtn = $datesModule.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                }
+
+                if ($submitBtn && $submitBtn.length > 0) {
+                    logInfo('Found submit button for DateTime, clicking');
+                    setTimeout(function () {
+                        $submitBtn.click();
+                        $submitBtn.trigger('click');
+                    }, 50);
+                } else {
+                    logInfo('No submit button found for DateTime, triggering Enter');
+                    setTimeout(function () {
+                        inputEl.focus();
+                        var enterEvent = new KeyboardEvent('keydown', {
+                            key: 'Enter',
+                            code: 'Enter',
+                            keyCode: 13,
+                            which: 13,
+                            bubbles: true,
+                            cancelable: true
+                        });
+                        inputEl.dispatchEvent(enterEvent);
+
+                        setTimeout(function () {
+                            $activeInput.trigger('blur');
+                            inputEl.blur();
+                        }, 50);
+                    }, 50);
+                }
             }
             close();
         }
@@ -1622,6 +2194,9 @@
         logInfo('Persian Calendar Plugin v' + PC_VERSION + ' Starting');
         logInfo('========================================');
 
+        // Fetch date format settings from REST API first
+        fetchDateFormatSettings();
+
         // Analyze page first
         analyzePageForDateElements();
 
@@ -1644,31 +2219,536 @@
                 }, 200);
             });
         } else {
-            logWarn('JIRA framework not detected');
+            logWarn('JIRA framework not detected - using fallback for JSM Customer Portal');
+
+            // For JSM Customer Portal: run conversion multiple times with delays
+            // since content loads dynamically
+            var jsmConversionDelays = [1000, 2000, 3000, 5000];
+            jsmConversionDelays.forEach(function (delay) {
+                setTimeout(function () {
+                    logDebug('JSM delayed conversion at ' + delay + 'ms');
+                    convertViewPageDates($);
+                }, delay);
+            });
         }
 
         // Also observe DOM changes
         var observer = new MutationObserver(function (mutations) {
             var shouldInit = false;
+            var shouldConvertDates = false;
+
             mutations.forEach(function (mutation) {
                 if (mutation.addedNodes.length > 0) {
                     for (var i = 0; i < mutation.addedNodes.length; i++) {
                         var node = mutation.addedNodes[i];
-                        if (node.nodeType === 1 && (node.id === 'duedate' || (node.querySelector && node.querySelector('#duedate, [name="duedate"]')))) {
-                            logDebug('MutationObserver: Found duedate element in DOM change');
-                            shouldInit = true;
-                            break;
+                        if (node.nodeType === 1) {
+                            // Jira Core patterns
+                            if (node.id === 'duedate' || (node.querySelector && node.querySelector('#duedate, [name="duedate"]'))) {
+                                logDebug('MutationObserver: Found duedate element in DOM change');
+                                shouldInit = true;
+                            }
+                            // JSM Customer Portal patterns
+                            if (node.querySelector && node.querySelector('[data-test-cv-dummy-text], .cv-request-details, .activity-item-request-fields')) {
+                                logDebug('MutationObserver: Found JSM date element in DOM change');
+                                shouldConvertDates = true;
+                            }
+                            // Also check if the node itself has date-related content
+                            if (node.hasAttribute && (node.hasAttribute('data-test-cv-dummy-text') ||
+                                (node.textContent && node.textContent.match(/\d{1,2}\/[A-Z][a-z]{2}\/\d{2}/)))) {
+                                shouldConvertDates = true;
+                            }
                         }
                     }
                 }
             });
+
             if (shouldInit) {
                 setTimeout(function () { initPersianCalendar($); }, 100);
+            }
+            if (shouldConvertDates) {
+                setTimeout(function () { convertViewPageDates($); }, 100);
             }
         });
 
         observer.observe(document.body, { childList: true, subtree: true });
         logInfo('MutationObserver attached');
+
+        // ========== JXL SUPPORT ==========
+        try {
+            logInfo('Starting JXL Support initialization...');
+            initJXLSupport($);
+        } catch (jxlError) {
+            logError('JXL Support initialization failed', { error: jxlError.message, stack: jxlError.stack });
+        }
     });
+
+    // ========== JXL (Jira eXtensible List) SUPPORT ==========
+    function initJXLSupport($) {
+        logInfo('JXL: initJXLSupport function called');
+
+        // English month names for parsing
+        var ENGLISH_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        var ENGLISH_MONTHS_FULL = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+
+        // Track converted elements to avoid re-conversion
+        var convertedElements = new WeakSet();
+
+        // Date patterns that JXL might use
+        var DATE_PATTERNS = [
+            // Dec 23, 2025
+            /^([A-Z][a-z]{2})\s+(\d{1,2}),?\s+(\d{4})$/,
+            // December 23, 2025
+            /^([A-Z][a-z]+)\s+(\d{1,2}),?\s+(\d{4})$/,
+            // 23 Dec 2025
+            /^(\d{1,2})\s+([A-Z][a-z]{2})\s+(\d{4})$/,
+            // 2025-12-23
+            /^(\d{4})-(\d{2})-(\d{2})$/,
+            // 12/23/2025
+            /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/
+        ];
+
+        function parseEnglishMonth(monthStr) {
+            var idx = ENGLISH_MONTHS.indexOf(monthStr);
+            if (idx === -1) {
+                idx = ENGLISH_MONTHS_FULL.indexOf(monthStr);
+            }
+            return idx !== -1 ? idx + 1 : null;
+        }
+
+        function parseJXLDate(text) {
+            if (!text || typeof text !== 'string') return null;
+            text = text.trim();
+
+            var match;
+            // Common time regex part: optional HH:MM and optional AM/PM
+            // Matches: 10:30, 10:30 PM, 10:30PM, 22:30
+            var timeRegex = /(?:\s+(\d{1,2}):(\d{2})(?:\s*([APap][Mm]))?)?$/;
+
+            // Helper to extract time from match result
+            // assumes time groups are at indices: yearIdx+1, yearIdx+2, yearIdx+3
+            function extractTime(m, yearIdx) {
+                if (m[yearIdx + 1]) {
+                    return {
+                        hour: parseInt(m[yearIdx + 1]),
+                        minute: parseInt(m[yearIdx + 2]),
+                        ampm: m[yearIdx + 3] ? m[yearIdx + 3].toUpperCase() : null
+                    };
+                }
+                return null;
+            }
+
+            // Pattern 1: Dec 23, 2025 [10:30 PM]
+            // Groups: 1=Month, 2=Day, 3=Year, 4=Hour, 5=Min, 6=AM/PM
+            match = text.match(new RegExp('^([A-Z][a-z]{2,})\\s+(\\d{1,2}),?\\s+(\\d{4})' + timeRegex.source));
+            if (match) {
+                var month = parseEnglishMonth(match[1]);
+                if (month) {
+                    var result = { year: parseInt(match[3]), month: month, day: parseInt(match[2]) };
+                    var time = extractTime(match, 3);
+                    if (time) Object.assign(result, time);
+                    return result;
+                }
+            }
+
+            // Pattern 2: 23 Dec 2025 [10:30 PM]
+            // Groups: 1=Day, 2=Month, 3=Year, 4=Hour, 5=Min, 6=AM/PM
+            match = text.match(new RegExp('^(\\d{1,2})\\s+([A-Z][a-z]{2,})\\s+(\\d{4})' + timeRegex.source));
+            if (match) {
+                var month = parseEnglishMonth(match[2]);
+                if (month) {
+                    var result = { year: parseInt(match[3]), month: month, day: parseInt(match[1]) };
+                    var time = extractTime(match, 3);
+                    if (time) Object.assign(result, time);
+                    return result;
+                }
+            }
+
+            // Pattern 3: 2025-12-23 [10:30]
+            // Groups: 1=Year, 2=Month, 3=Day, 4=Hour, 5=Min, 6=AM/PM
+            match = text.match(new RegExp('^(\\d{4})-(\\d{2})-(\\d{2})' + timeRegex.source));
+            if (match) {
+                var result = { year: parseInt(match[1]), month: parseInt(match[2]), day: parseInt(match[3]) };
+                var time = extractTime(match, 3);
+                if (time) Object.assign(result, time);
+                return result;
+            }
+
+            // Pattern 4: 12/23/2025 [10:30 PM]
+            // Groups: 1=Month, 2=Day, 3=Year, 4=Hour, 5=Min, 6=AM/PM
+            match = text.match(new RegExp('^(\\d{1,2})\\/(\\d{1,2})\\/(\\d{4})' + timeRegex.source));
+            if (match) {
+                var result = { year: parseInt(match[3]), month: parseInt(match[1]), day: parseInt(match[2]) };
+                var time = extractTime(match, 3);
+                if (time) Object.assign(result, time);
+                return result;
+            }
+
+            return null;
+        }
+
+        function convertDateTextToPersian(text) {
+            var parsed = parseJXLDate(text);
+            if (!parsed) return null;
+
+            try {
+                var persian = toJalaali(parsed.year, parsed.month, parsed.day);
+                var dateStr = persian.jy + '/' + persian.jm + '/' + persian.jd;
+
+                if (parsed.hour !== undefined) {
+                    var timeStr = parsed.hour + ':' + (parsed.minute < 10 ? '0' + parsed.minute : parsed.minute);
+                    if (parsed.ampm) {
+                        timeStr += ' ' + parsed.ampm;
+                    }
+                    return dateStr + ' ' + timeStr;
+                }
+
+                return dateStr;
+            } catch (e) {
+                logError('Error converting date to Persian', { text: text, error: e.message });
+                return null;
+            }
+        }
+
+        function processJXLIframe(iframe) {
+            try {
+                var iframeDoc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+                if (!iframeDoc) {
+                    logDebug('JXL: Cannot access iframe document (cross-origin?)');
+                    return;
+                }
+
+                logInfo('JXL: Processing iframe content');
+                convertJXLDates(iframeDoc);
+                observeJXLChanges(iframeDoc, iframe);
+                interceptJXLCalendar(iframeDoc, iframe);
+
+            } catch (e) {
+                logError('JXL: Error processing iframe', { error: e.message });
+            }
+        }
+
+        function convertJXLDates(doc) {
+            if (!doc || !doc.body) return;
+
+            var converted = 0;
+
+            // Find all text nodes that might contain dates
+            var walker = doc.createTreeWalker(
+                doc.body,
+                NodeFilter.SHOW_TEXT,
+                null,
+                false
+            );
+
+            var nodesToProcess = [];
+            while (walker.nextNode()) {
+                var node = walker.currentNode;
+                var text = node.textContent.trim();
+
+                // Skip if already converted or empty
+                if (!text || text.length < 6 || text.length > 30) continue;
+                if (text.indexOf('/') !== -1 && text.match(/^\d{4}\/\d{1,2}\/\d{1,2}$/)) continue; // Already Persian
+
+                var parsed = parseJXLDate(text);
+                if (parsed) {
+                    nodesToProcess.push({ node: node, text: text });
+                }
+            }
+
+            // Process found date nodes
+            nodesToProcess.forEach(function (item) {
+                var parent = item.node.parentElement;
+                if (!parent || convertedElements.has(parent)) return;
+
+                var persian = convertDateTextToPersian(item.text);
+                if (persian) {
+                    item.node.textContent = persian;
+                    convertedElements.add(parent);
+                    converted++;
+
+                    // Style the parent for RTL
+                    parent.style.direction = 'ltr';
+                    parent.style.fontFamily = 'Tahoma, Arial, sans-serif';
+                }
+            });
+
+            if (converted > 0) {
+                logInfo('JXL: Converted ' + converted + ' dates to Persian');
+            }
+        }
+
+        function observeJXLChanges(iframeDoc, iframe) {
+            if (!iframeDoc || !iframeDoc.body) return;
+
+            var jxlObserver = new MutationObserver(function (mutations) {
+                var hasNewContent = false;
+                mutations.forEach(function (mutation) {
+                    if (mutation.addedNodes.length > 0) {
+                        hasNewContent = true;
+                    }
+                });
+
+                if (hasNewContent) {
+                    // Debounce conversion
+                    clearTimeout(iframe._jxlConvertTimeout);
+                    iframe._jxlConvertTimeout = setTimeout(function () {
+                        convertJXLDates(iframeDoc);
+                    }, 200);
+                }
+            });
+
+            jxlObserver.observe(iframeDoc.body, {
+                childList: true,
+                subtree: true,
+                characterData: true
+            });
+
+            logDebug('JXL: MutationObserver attached to iframe');
+        }
+
+        function interceptJXLCalendar(iframeDoc, iframe) {
+            if (!iframeDoc || !iframeDoc.body) return;
+
+            // Listen for clicks on date cells to debug specific structure
+            iframeDoc.body.addEventListener('click', function (e) {
+                var target = e.target;
+
+                // Log what was clicked to understand structure
+                logInfo('JXL Debug: Click intercepted', { tagName: target.tagName, className: target.className });
+
+                // Check behavior: Does an input appear after a short delay?
+                setTimeout(function () {
+                    var inputs = iframeDoc.body.querySelectorAll('input:not([type="hidden"]), textarea, [contenteditable="true"]');
+                    logInfo('JXL Debug: Inputs found', { count: inputs.length });
+                    // logDebug('JXL: Visible inputs after click', { count: inputs.length });
+
+                    if (inputs.length > 0) {
+                        inputs.forEach(function (input) {
+                            // If this input looks like a date/time picker (has specific class or value matches date)
+                            var val = input.value;
+                            // logInfo('JXL: Input found', { value: val, className: input.className });
+
+                            // Attach Persian Calendar if not already attached
+                            if (!input.dataset.pcAttached) {
+                                input.dataset.pcAttached = 'true';
+                                // Determine if it needs time
+                                var isDateTime = val.indexOf(':') !== -1;
+
+                                input.addEventListener('click', function (ev) {
+                                    ev.preventDefault();
+                                    ev.stopPropagation();
+                                    if (isDateTime) {
+                                        showPersianDateTimePicker(jQuery(input), jQuery(input), function (date) {
+                                            // Format back to JXL expectation? JXL likely expects Gregorian string
+                                            // But for display we might want Persian? 
+                                            // Actually best is to just set the value and trigger events
+                                            // input.value = ...
+                                            // input.dispatchEvent(new Event('change', { bubbles: true }));
+                                        });
+                                    } else {
+                                        showPersianCalendar(jQuery(input), jQuery(input), function (date) {
+                                            // ...
+                                        });
+                                    }
+                                });
+                            }
+                        });
+                    }
+                }, 300);
+
+            }, true);
+
+            function setJXLInputValue(input, value) {
+                if (input.tagName === 'INPUT' || input.tagName === 'TEXTAREA') {
+                    input.value = value;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+                } else {
+                    input.innerText = value;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            }
+
+            // ... MutationObserver for calendar popup ...
+
+
+            // Intercept native calendar if it appears
+            var calendarObserver = new MutationObserver(function (mutations) {
+                mutations.forEach(function (mutation) {
+                    if (mutation.addedNodes.length > 0) {
+                        mutation.addedNodes.forEach(function (node) {
+                            if (node.nodeType === 1) { // Element
+                                var className = (node.className || '').toLowerCase();
+                                var nodeHtml = node.innerHTML || '';
+                                logInfo('JXL Debug: Node added', { tagName: node.tagName, className: className.substring(0, 50) });
+
+                                // Heuristic detection:
+                                // 1. Standard class names
+                                var isCalendar =
+                                    className.indexOf('calendar') !== -1 ||
+                                    className.indexOf('datepicker') !== -1 ||
+                                    className.indexOf('date-picker') !== -1 ||
+                                    node.querySelector('.calendar, .datepicker, .DayPicker, [class*="calendar"]');
+
+                                // 2. ARIA / Role checks (Atlaskit often uses these)
+                                if (!isCalendar) {
+                                    var role = node.getAttribute('role');
+                                    var ariaLabel = node.getAttribute('aria-label');
+                                    if ((role === 'dialog' || role === 'application' || role === 'presentation') &&
+                                        (nodeHtml.indexOf('Sun') !== -1 || nodeHtml.indexOf('Mon') !== -1 || nodeHtml.indexOf('202') !== -1)) {
+                                        isCalendar = true;
+                                        logInfo('JXL: Inferred calendar from structure/content');
+                                    }
+                                }
+
+                                // 3. Aggressive check: ANY div added shortly after a click if we can't find specific classes
+                                // (This relies on the fact that we just clicked a cell)
+                                // We'll verify if it contains a table-like structure
+                                if (!isCalendar && node.tagName === 'DIV' && (nodeHtml.indexOf('<table') !== -1 || nodeHtml.indexOf('grid') !== -1)) {
+                                    // Check for month names
+                                    if (nodeHtml.match(/(January|February|March|April|May|June|July|August|September|October|November|December)/)) {
+                                        isCalendar = true;
+                                        logInfo('JXL: Inferred calendar from month names');
+                                    }
+                                }
+
+                                if (isCalendar) {
+                                    logInfo('JXL: Detected calendar popup, attempting to replace with Persian');
+
+                                    // Try to identify the active input
+                                    var activeInput = iframeDoc.activeElement;
+                                    logInfo('JXL: Active element is', { tagName: activeInput ? activeInput.tagName : 'null' });
+
+                                    // If no active input, try to find one related to the popup? 
+                                    // Often the input is the LAST focused element.
+                                    var inputs = iframeDoc.querySelectorAll('input:not([type="hidden"]), textarea');
+                                    if (!activeInput || activeInput.tagName === 'BODY') {
+                                        // Fallback: assume the last added input is the one
+                                        if (inputs.length > 0) activeInput = inputs[inputs.length - 1];
+                                    }
+
+                                    if (activeInput && (activeInput.tagName === 'INPUT' || activeInput.tagName === 'TEXTAREA' || activeInput.getAttribute('contenteditable') === 'true')) {
+
+                                        // Hide native popup immediately
+                                        node.style.display = 'none';
+                                        node.style.visibility = 'hidden';
+                                        node.setAttribute('hidden', 'true');
+
+                                        // Show Persian Calendar
+                                        var val = (activeInput.value || activeInput.innerText || '').trim();
+                                        var isDateTime = val.indexOf(':') !== -1;
+
+                                        logInfo('JXL: Force-showing Persian calendar on active input', { isDateTime: isDateTime });
+
+                                        if (isDateTime) {
+                                            showPersianDateTimePicker(jQuery(activeInput), jQuery(activeInput), function (date) {
+                                                var gDate = toGregorian(date.jy, date.jm, date.jd);
+                                                var dateStr = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
+                                                var timeStr = date.hour + ':' + (date.minute < 10 ? '0' + date.minute : date.minute) + ' ' + date.ampm;
+                                                var finalStr = dateStr + ' ' + timeStr;
+                                                setJXLInputValue(activeInput, finalStr);
+                                            });
+                                        } else {
+                                            showPersianCalendar(jQuery(activeInput), jQuery(activeInput), function (date) {
+                                                var gDate = toGregorian(date.jy, date.jm, date.jd);
+                                                var dateStr = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
+                                                setJXLInputValue(activeInput, dateStr);
+                                            });
+                                        }
+                                    } else {
+                                        logInfo('JXL: No active input found, converting popup content instead');
+                                        convertJXLDates(node);
+                                    }
+                                }
+                            }
+                        });
+                    }
+                });
+            });
+
+            calendarObserver.observe(iframeDoc.body, { childList: true, subtree: true });
+            logDebug('JXL: Calendar interceptor attached');
+        }
+
+        function findAndProcessJXLIframes() {
+            // Look for JXL iframes
+            var selectors = [
+                'iframe[data-src*="app.jxl"]',
+                'iframe[src*="app.jxl"]',
+                'iframe[data-src*="jxl"]',
+                'iframe[src*="jxl"]',
+                'iframe[class*="jxl"]',
+                'iframe[id*="jxl"]',
+                // Also try generic iframe in JXL containers
+                '.itsfine-sconnect-layout iframe',
+                '[data-project-key] iframe'
+            ];
+
+            var foundIframes = [];
+            selectors.forEach(function (selector) {
+                try {
+                    var iframes = document.querySelectorAll(selector);
+                    iframes.forEach(function (iframe) {
+                        if (foundIframes.indexOf(iframe) === -1) {
+                            foundIframes.push(iframe);
+                        }
+                    });
+                } catch (e) { }
+            });
+
+            if (foundIframes.length > 0) {
+                logInfo('JXL: Found ' + foundIframes.length + ' JXL iframe(s)');
+                foundIframes.forEach(function (iframe) {
+                    // Process immediately if loaded
+                    if (iframe.contentDocument && iframe.contentDocument.readyState === 'complete') {
+                        processJXLIframe(iframe);
+                    }
+
+                    // Also listen for load event
+                    iframe.addEventListener('load', function () {
+                        logDebug('JXL: iframe loaded');
+                        setTimeout(function () {
+                            processJXLIframe(iframe);
+                        }, 500);
+                    });
+                });
+            }
+        }
+
+        // Initial scan for JXL iframes
+        setTimeout(findAndProcessJXLIframes, 1000);
+
+        // Also watch for dynamically added iframes
+        var iframeObserver = new MutationObserver(function (mutations) {
+            var foundNewIframe = false;
+            mutations.forEach(function (mutation) {
+                mutation.addedNodes.forEach(function (node) {
+                    if (node.nodeType === 1) {
+                        if (node.tagName === 'IFRAME') {
+                            var src = node.getAttribute('src') || node.getAttribute('data-src') || '';
+                            if (src.toLowerCase().indexOf('jxl') !== -1) {
+                                foundNewIframe = true;
+                            }
+                        }
+                        // Also check children
+                        if (node.querySelector) {
+                            var childIframes = node.querySelectorAll('iframe[src*="jxl"], iframe[data-src*="jxl"]');
+                            if (childIframes.length > 0) {
+                                foundNewIframe = true;
+                            }
+                        }
+                    }
+                });
+            });
+
+            if (foundNewIframe) {
+                setTimeout(findAndProcessJXLIframes, 500);
+            }
+        });
+
+        iframeObserver.observe(document.body, { childList: true, subtree: true });
+        logInfo('JXL: Iframe observer attached');
+    }
 
 })();
