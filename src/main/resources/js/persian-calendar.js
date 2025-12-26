@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.5.11';
+    var PC_VERSION = '10.5.14';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -768,15 +768,15 @@
 
             var html = '<div class="pc-header" style="direction: rtl; display: flex; justify-content: space-between; align-items: center;">';
             html += '<div style="display:flex;">';
-            html += '<button type="button" class="pc-next-year" title="سال بعد">&raquo;</button>';
-            html += '<button type="button" class="pc-next-month" title="ماه بعد">&rsaquo;</button>';
+            html += '<button type="button" class="pc-prev-year" title="سال قبل">&raquo;</button>';
+            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&rsaquo;</button>';
             html += '</div>';
 
             html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
 
             html += '<div style="display:flex;">';
-            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&lsaquo;</button>';
-            html += '<button type="button" class="pc-prev-year" title="سال قبل">&laquo;</button>';
+            html += '<button type="button" class="pc-next-month" title="ماه بعد">&lsaquo;</button>';
+            html += '<button type="button" class="pc-next-year" title="سال بعد">&laquo;</button>';
             html += '</div>';
             html += '</div>';
 
@@ -1385,15 +1385,15 @@
             // Visual order RIGHT to LEFT: >> > | Title | < <<
             var html = '<div class="pc-header" style="direction: rtl; display: flex; justify-content: space-between; align-items: center;">';
             html += '<div style="display:flex;">';
-            html += '<button type="button" class="pc-next-year" title="سال بعد">&raquo;</button>';
-            html += '<button type="button" class="pc-next-month" title="ماه بعد">&rsaquo;</button>';
+            html += '<button type="button" class="pc-prev-year" title="سال قبل">&raquo;</button>';
+            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&rsaquo;</button>';
             html += '</div>';
 
             html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
 
             html += '<div style="display:flex;">';
-            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&lsaquo;</button>';
-            html += '<button type="button" class="pc-prev-year" title="سال قبل">&laquo;</button>';
+            html += '<button type="button" class="pc-next-month" title="ماه بعد">&lsaquo;</button>';
+            html += '<button type="button" class="pc-next-year" title="سال بعد">&laquo;</button>';
             html += '</div>';
             html += '</div>';
 
@@ -2576,34 +2576,59 @@
             // Intercept native calendar if it appears
             var calendarObserver = new MutationObserver(function (mutations) {
                 mutations.forEach(function (mutation) {
-                    mutation.addedNodes.forEach(function (node) {
-                        if (node.nodeType === 1) {
-                            // Look for calendar popup elements
-                            var isCalendar = false;
-                            if (node.classList) {
-                                var classList = Array.from(node.classList).join(' ').toLowerCase();
-                                if (classList.indexOf('calendar') !== -1 ||
-                                    classList.indexOf('datepicker') !== -1 ||
-                                    classList.indexOf('date-picker') !== -1) {
-                                    isCalendar = true;
+                    if (mutation.addedNodes.length > 0) {
+                        mutation.addedNodes.forEach(function (node) {
+                            if (node.nodeType === 1) { // Element
+                                var className = (node.className || '').toLowerCase();
+                                var isCalendar =
+                                    className.indexOf('calendar') !== -1 ||
+                                    className.indexOf('datepicker') !== -1 ||
+                                    className.indexOf('date-picker') !== -1 ||
+                                    node.querySelector('.calendar, .datepicker, .DayPicker, [class*="calendar"]');
+
+                                if (isCalendar) {
+                                    logInfo('JXL: Detected calendar popup, attempting to replace with Persian');
+
+                                    // Try to identify the active input
+                                    var activeInput = iframeDoc.activeElement;
+                                    logInfo('JXL: Active element is', { tagName: activeInput ? activeInput.tagName : 'null' });
+
+                                    if (activeInput && (activeInput.tagName === 'INPUT' || activeInput.tagName === 'TEXTAREA' || activeInput.getAttribute('contenteditable') === 'true')) {
+
+                                        // Hide native popup immediately
+                                        node.style.display = 'none';
+                                        node.style.visibility = 'hidden';
+                                        node.setAttribute('hidden', 'true');
+
+                                        // Show Persian Calendar
+                                        var val = (activeInput.value || activeInput.innerText || '').trim();
+                                        var isDateTime = val.indexOf(':') !== -1;
+
+                                        logInfo('JXL: Force-showing Persian calendar on active input', { isDateTime: isDateTime });
+
+                                        if (isDateTime) {
+                                            showPersianDateTimePicker(jQuery(activeInput), jQuery(activeInput), function (date) {
+                                                var gDate = toGregorian(date.jy, date.jm, date.jd);
+                                                var dateStr = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
+                                                var timeStr = date.hour + ':' + (date.minute < 10 ? '0' + date.minute : date.minute) + ' ' + date.ampm;
+                                                var finalStr = dateStr + ' ' + timeStr;
+                                                setJXLInputValue(activeInput, finalStr);
+                                            });
+                                        } else {
+                                            showPersianCalendar(jQuery(activeInput), jQuery(activeInput), function (date) {
+                                                var gDate = toGregorian(date.jy, date.jm, date.jd);
+                                                var dateStr = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
+                                                setJXLInputValue(activeInput, dateStr);
+                                            });
+                                        }
+                                    } else {
+                                        logInfo('JXL: No active input found, converting popup content instead');
+                                        convertJXLDates(node);
+                                    }
                                 }
                             }
-
-                            // Also check for calendar-like structure
-                            if (!isCalendar && node.querySelector) {
-                                var hasDays = node.querySelectorAll('[class*="day"], [role="gridcell"]');
-                                if (hasDays.length > 7) {
-                                    isCalendar = true;
-                                }
-                            }
-
-                            if (isCalendar) {
-                                logInfo('JXL: Detected calendar popup, may replace with Persian');
-                                // For now, just convert any dates inside it
-                                convertJXLDates(node);
-                            }
-                        }
-                    });
+                        });
+                    }
                 });
             });
 
