@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.5.15';
+    var PC_VERSION = '10.5.16';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -2580,11 +2580,38 @@
                         mutation.addedNodes.forEach(function (node) {
                             if (node.nodeType === 1) { // Element
                                 var className = (node.className || '').toLowerCase();
+                                var nodeHtml = node.innerHTML || '';
+                                logInfo('JXL Debug: Node added', { tagName: node.tagName, className: className.substring(0, 50) });
+
+                                // Heuristic detection:
+                                // 1. Standard class names
                                 var isCalendar =
                                     className.indexOf('calendar') !== -1 ||
                                     className.indexOf('datepicker') !== -1 ||
                                     className.indexOf('date-picker') !== -1 ||
                                     node.querySelector('.calendar, .datepicker, .DayPicker, [class*="calendar"]');
+
+                                // 2. ARIA / Role checks (Atlaskit often uses these)
+                                if (!isCalendar) {
+                                    var role = node.getAttribute('role');
+                                    var ariaLabel = node.getAttribute('aria-label');
+                                    if ((role === 'dialog' || role === 'application' || role === 'presentation') &&
+                                        (nodeHtml.indexOf('Sun') !== -1 || nodeHtml.indexOf('Mon') !== -1 || nodeHtml.indexOf('202') !== -1)) {
+                                        isCalendar = true;
+                                        logInfo('JXL: Inferred calendar from structure/content');
+                                    }
+                                }
+
+                                // 3. Aggressive check: ANY div added shortly after a click if we can't find specific classes
+                                // (This relies on the fact that we just clicked a cell)
+                                // We'll verify if it contains a table-like structure
+                                if (!isCalendar && node.tagName === 'DIV' && (nodeHtml.indexOf('<table') !== -1 || nodeHtml.indexOf('grid') !== -1)) {
+                                    // Check for month names
+                                    if (nodeHtml.match(/(January|February|March|April|May|June|July|August|September|October|November|December)/)) {
+                                        isCalendar = true;
+                                        logInfo('JXL: Inferred calendar from month names');
+                                    }
+                                }
 
                                 if (isCalendar) {
                                     logInfo('JXL: Detected calendar popup, attempting to replace with Persian');
@@ -2592,6 +2619,14 @@
                                     // Try to identify the active input
                                     var activeInput = iframeDoc.activeElement;
                                     logInfo('JXL: Active element is', { tagName: activeInput ? activeInput.tagName : 'null' });
+
+                                    // If no active input, try to find one related to the popup? 
+                                    // Often the input is the LAST focused element.
+                                    var inputs = iframeDoc.querySelectorAll('input:not([type="hidden"]), textarea');
+                                    if (!activeInput || activeInput.tagName === 'BODY') {
+                                        // Fallback: assume the last added input is the one
+                                        if (inputs.length > 0) activeInput = inputs[inputs.length - 1];
+                                    }
 
                                     if (activeInput && (activeInput.tagName === 'INPUT' || activeInput.tagName === 'TEXTAREA' || activeInput.getAttribute('contenteditable') === 'true')) {
 
