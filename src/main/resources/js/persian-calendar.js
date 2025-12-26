@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.5.6';
+    var PC_VERSION = '10.5.7';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -2556,6 +2556,18 @@
                 }, 100);
 
             }, true);
+
+            function setJXLInputValue(input, value) {
+                if (input.tagName === 'INPUT' || input.tagName === 'TEXTAREA') {
+                    input.value = value;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                    input.dispatchEvent(new Event('change', { bubbles: true }));
+                    input.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+                } else {
+                    input.innerText = value;
+                    input.dispatchEvent(new Event('input', { bubbles: true }));
+                }
+            }
 
             // ... MutationObserver for calendar popup ...
 
