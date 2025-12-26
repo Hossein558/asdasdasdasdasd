@@ -41,6 +41,92 @@
     function logWarn(msg, data) { return pcLog('WARN', msg, data); }
     function logError(msg, data) { return pcLog('ERROR', msg, data); }
 
+    // ========== LICENSE SYSTEM ==========
+    var LICENSE_CACHE = {
+        checked: false,
+        enabled: true,
+        status: 'UNKNOWN',
+        message: '',
+        daysRemaining: 0
+    };
+
+    function checkLicenseStatus(callback) {
+        if (LICENSE_CACHE.checked) {
+            callback(LICENSE_CACHE);
+            return;
+        }
+
+        var baseUrl = AJS && AJS.contextPath ? AJS.contextPath() : '';
+        var apiUrl = baseUrl + '/rest/persian-calendar/1.0/license/status';
+
+        logInfo('Checking license status...');
+
+        try {
+            var xhr = new XMLHttpRequest();
+            xhr.open('GET', apiUrl, true);
+            xhr.onreadystatechange = function () {
+                if (xhr.readyState === 4) {
+                    if (xhr.status === 200) {
+                        try {
+                            var data = JSON.parse(xhr.responseText);
+                            LICENSE_CACHE.checked = true;
+                            LICENSE_CACHE.enabled = data.enabled !== false;
+                            LICENSE_CACHE.status = data.status || 'UNKNOWN';
+                            LICENSE_CACHE.message = data.message || '';
+                            LICENSE_CACHE.daysRemaining = data.daysRemaining || 0;
+                            logInfo('License status: ' + LICENSE_CACHE.status, LICENSE_CACHE);
+                        } catch (e) {
+                            logWarn('Failed to parse license response');
+                            LICENSE_CACHE.checked = true;
+                            LICENSE_CACHE.enabled = true; // Fail open for parse errors
+                        }
+                    } else {
+                        logWarn('License check failed (status ' + xhr.status + ')');
+                        LICENSE_CACHE.checked = true;
+                        LICENSE_CACHE.enabled = true; // Fail open for network errors
+                    }
+                    callback(LICENSE_CACHE);
+                }
+            };
+            xhr.send();
+        } catch (e) {
+            logError('License check error: ' + e.message);
+            LICENSE_CACHE.checked = true;
+            LICENSE_CACHE.enabled = true;
+            callback(LICENSE_CACHE);
+        }
+    }
+
+    function showLicenseExpiredMessage() {
+        var overlay = document.createElement('div');
+        overlay.className = 'pc-overlay';
+        overlay.style.background = 'rgba(0,0,0,0.5)';
+        document.body.appendChild(overlay);
+
+        var popup = document.createElement('div');
+        popup.className = 'pc-popup';
+        popup.style.textAlign = 'center';
+        popup.style.padding = '30px';
+        popup.innerHTML = '<h3 style="color:#de350b;margin-bottom:15px;">⚠️ لایسنس منقضی شده</h3>' +
+            '<p style="margin-bottom:20px;">' + (LICENSE_CACHE.message || 'لطفاً با پشتیبانی تماس بگیرید.') + '</p>' +
+            '<button type="button" class="pc-close-btn" style="background:#0052cc;color:#fff;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;">بستن</button>';
+        document.body.appendChild(popup);
+
+        var rect = document.body.getBoundingClientRect();
+        popup.style.top = '50%';
+        popup.style.left = '50%';
+        popup.style.transform = 'translate(-50%, -50%)';
+
+        popup.querySelector('.pc-close-btn').addEventListener('click', function () {
+            popup.remove();
+            overlay.remove();
+        });
+        overlay.addEventListener('click', function () {
+            popup.remove();
+            overlay.remove();
+        });
+    }
+
     // ========== DOM ANALYSIS ==========
     function analyzePageForDateElements() {
         logInfo('=== Starting Page Analysis ===');
@@ -462,6 +548,17 @@
 
     // Create and show Persian calendar popup
     function showPersianCalendar($input, $originalInput, onSelect) {
+        // Check license before showing calendar
+        checkLicenseStatus(function (license) {
+            if (!license.enabled) {
+                showLicenseExpiredMessage();
+                return;
+            }
+            _showPersianCalendarImpl($input, $originalInput, onSelect);
+        });
+    }
+
+    function _showPersianCalendarImpl($input, $originalInput, onSelect) {
         logInfo('Opening Persian calendar popup');
 
         var $existing = document.querySelector('.pc-popup');
@@ -667,6 +764,17 @@
 
     // Create and show Persian DateTime picker popup (Date + Time)
     function showPersianDateTimePicker($input, $originalInput, onSelect) {
+        // Check license before showing calendar
+        checkLicenseStatus(function (license) {
+            if (!license.enabled) {
+                showLicenseExpiredMessage();
+                return;
+            }
+            _showPersianDateTimePickerImpl($input, $originalInput, onSelect);
+        });
+    }
+
+    function _showPersianDateTimePickerImpl($input, $originalInput, onSelect) {
         logInfo('Opening Persian DateTime picker popup');
 
         var $existing = document.querySelector('.pc-popup');

@@ -1,1 +1,6 @@
+ir\atlassian\jira\plugins\license\LicenseManager$LicenseStatus.class
+ir\atlassian\jira\plugins\license\LicenseManager.class
+ir\atlassian\jira\plugins\rest\LicenseResource.class
+ir\atlassian\jira\plugins\license\LicenseManager$LicenseType.class
 ir\atlassian\jira\plugins\rest\DateFormatResource.class
+ir\atlassian\jira\plugins\license\LicenseManager$LicenseInfo.class

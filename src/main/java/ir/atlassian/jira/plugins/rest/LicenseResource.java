@@ -1,0 +1,124 @@
+package ir.atlassian.jira.plugins.rest;
+
+import com.atlassian.plugins.rest.common.security.AnonymousAllowed;
+import com.atlassian.sal.api.pluginsettings.PluginSettingsFactory;
+import ir.atlassian.jira.plugins.license.LicenseManager;
+import ir.atlassian.jira.plugins.license.LicenseManager.LicenseInfo;
+
+import javax.inject.Inject;
+import javax.ws.rs.*;
+import javax.ws.rs.core.MediaType;
+import javax.ws.rs.core.Response;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * REST API for License Management
+ */
+@Path("/license")
+public class LicenseResource {
+
+    private final LicenseManager licenseManager;
+
+    @Inject
+    public LicenseResource(PluginSettingsFactory pluginSettingsFactory) {
+        this.licenseManager = new LicenseManager(pluginSettingsFactory);
+    }
+
+    /**
+     * Get license status (called by frontend)
+     */
+    @GET
+    @Path("/status")
+    @AnonymousAllowed
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getLicenseStatus() {
+        LicenseInfo info = licenseManager.validateLicense();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("status", info.getStatus().name());
+        response.put("enabled", info.isCalendarEnabled());
+        response.put("message", info.getMessage());
+        response.put("daysRemaining", info.getDaysRemaining());
+
+        if (info.getType() != null) {
+            response.put("type", info.getType().name());
+        }
+        if (info.getExpiryDate() != null) {
+            response.put("expiryDate", info.getExpiryDate().toString());
+        }
+        if (info.getGraceDaysRemaining() > 0) {
+            response.put("graceDaysRemaining", info.getGraceDaysRemaining());
+        }
+
+        return Response.ok(response).build();
+    }
+
+    /**
+     * Get Server ID hash (for license generation)
+     */
+    @GET
+    @Path("/server-id")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getServerId() {
+        Map<String, String> response = new HashMap<>();
+        response.put("serverId", licenseManager.getServerIdHash());
+        return Response.ok(response).build();
+    }
+
+    /**
+     * Set license key (admin only)
+     */
+    @POST
+    @Path("/activate")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response activateLicense(Map<String, String> request) {
+        String licenseKey = request.get("licenseKey");
+
+        if (licenseKey == null || licenseKey.trim().isEmpty()) {
+            return Response.status(Response.Status.BAD_REQUEST)
+                    .entity(Map.of("error", "لایسنس نمی‌تواند خالی باشد"))
+                    .build();
+        }
+
+        // Store the license
+        licenseManager.setLicenseKey(licenseKey.trim().toUpperCase());
+
+        // Validate and return status
+        LicenseInfo info = licenseManager.validateLicense();
+
+        Map<String, Object> response = new HashMap<>();
+        response.put("success", info.getStatus() == LicenseManager.LicenseStatus.VALID ||
+                info.getStatus() == LicenseManager.LicenseStatus.EXPIRED_IN_GRACE);
+        response.put("status", info.getStatus().name());
+        response.put("message", info.getMessage());
+
+        return Response.ok(response).build();
+    }
+
+    /**
+     * Get current license key (masked)
+     */
+    @GET
+    @Path("/current")
+    @Produces(MediaType.APPLICATION_JSON)
+    public Response getCurrentLicense() {
+        String licenseKey = licenseManager.getLicenseKey();
+
+        Map<String, Object> response = new HashMap<>();
+        if (licenseKey != null && !licenseKey.isEmpty()) {
+            // Mask the license key for display
+            if (licenseKey.length() > 8) {
+                response.put("licenseKey", licenseKey.substring(0, 4) + "-****-****-" +
+                        licenseKey.substring(licenseKey.length() - 4));
+            } else {
+                response.put("licenseKey", "****");
+            }
+        } else {
+            response.put("licenseKey", null);
+        }
+
+        return Response.ok(response).build();
+    }
+}
