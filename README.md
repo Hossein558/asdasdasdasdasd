@@ -17,6 +17,7 @@ This is a custom Jira plugin designed to integrate a **Persian (Jalali/Shamsi) C
     *   **Display**: Converts Gregorian dates from the database to Persian for the user.
     *   **Save**: Converts selected Persian dates back to Gregorian format before submitting to Jira.
 *   **Jalaali Library**: Uses a lightweight JavaScript implementation for accurate date conversions.
+*   **JXL Support**: Compatible with **JXL (Jira Excel-like Issue Editor)** plugin.
 *   **Unified Arrow Layout**: Consistent navigation arrows in both Date and DateTime pickers:
     *   `<<` سال قبل | `<` ماه قبل | عنوان | `>` ماه بعد | `>>` سال بعد
 
@@ -93,6 +94,8 @@ This will generate a JAR file in the `target/` directory (e.g., `persian-calenda
 
 ## 📝 Version History
 
+*   **v10.5.17**: Swapped functionality of Next/Prev buttons (Right button now goes to Previous, Left goes to Next) as per request.
+*   **v10.5.17**: Confirmed compatibility with JXL (Jira Excel-like Issue Editor).
 *   **v10.4.12**: Fixed unified arrow layout for both Date and DateTime pickers (سال قبل → ماه قبل → عنوان → ماه بعد → سال بعد).
 *   **v10.4.1**: Added smart date parser with multi-format support.
 *   **v10.4.0**: Added REST API for dynamic date format detection.
