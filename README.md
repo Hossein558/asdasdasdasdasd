@@ -203,6 +203,33 @@ JOIN propertystring ps ON pe.id = ps.id
 WHERE pe.property_key LIKE '%persian-calendar%';
 ```
 
+### Security Architecture (v11.2.3+)
+
+Server ID is calculated using multiple unique factors:
+
+```
+Server ID = SHA256(jira.home + hostname + OS + InstallationUUID)
+```
+
+| Component | Source | Description |
+|:---|:---|:---|
+| `jira.home` | System Property | Jira installation path |
+| `hostname` | InetAddress | Server hostname |
+| `OS` | System Property | Operating system + architecture |
+| `InstallationUUID` | Database | **16-char UUID generated once per installation** |
+
+**Why this is secure:**
+- Even if two servers have identical hostnames, their InstallationUUID will be different
+- InstallationUUID is stored in `ir...persian-calendar-plugin.installation.id`
+- License validation happens **every time** the calendar is opened (no caching)
+
+**Validation Flow:**
+1. User clicks on date field
+2. JavaScript calls REST API `/rest/persian-calendar/1.0/license/status`
+3. Server calculates current Server ID (runtime)
+4. Server compares with Server ID in license key
+5. If match + valid signature + not expired → Calendar enabled
+
 ---
 
 ## 📝 Version History
