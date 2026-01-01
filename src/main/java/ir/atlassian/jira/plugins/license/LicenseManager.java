@@ -65,18 +65,53 @@ public class LicenseManager {
         private long graceDaysRemaining;
         private String message;
 
-        public LicenseStatus getStatus() { return status; }
-        public void setStatus(LicenseStatus status) { this.status = status; }
-        public LicenseType getType() { return type; }
-        public void setType(LicenseType type) { this.type = type; }
-        public LocalDate getExpiryDate() { return expiryDate; }
-        public void setExpiryDate(LocalDate expiryDate) { this.expiryDate = expiryDate; }
-        public long getDaysRemaining() { return daysRemaining; }
-        public void setDaysRemaining(long daysRemaining) { this.daysRemaining = daysRemaining; }
-        public long getGraceDaysRemaining() { return graceDaysRemaining; }
-        public void setGraceDaysRemaining(long graceDaysRemaining) { this.graceDaysRemaining = graceDaysRemaining; }
-        public String getMessage() { return message; }
-        public void setMessage(String message) { this.message = message; }
+        public LicenseStatus getStatus() {
+            return status;
+        }
+
+        public void setStatus(LicenseStatus status) {
+            this.status = status;
+        }
+
+        public LicenseType getType() {
+            return type;
+        }
+
+        public void setType(LicenseType type) {
+            this.type = type;
+        }
+
+        public LocalDate getExpiryDate() {
+            return expiryDate;
+        }
+
+        public void setExpiryDate(LocalDate expiryDate) {
+            this.expiryDate = expiryDate;
+        }
+
+        public long getDaysRemaining() {
+            return daysRemaining;
+        }
+
+        public void setDaysRemaining(long daysRemaining) {
+            this.daysRemaining = daysRemaining;
+        }
+
+        public long getGraceDaysRemaining() {
+            return graceDaysRemaining;
+        }
+
+        public void setGraceDaysRemaining(long graceDaysRemaining) {
+            this.graceDaysRemaining = graceDaysRemaining;
+        }
+
+        public String getMessage() {
+            return message;
+        }
+
+        public void setMessage(String message) {
+            this.message = message;
+        }
 
         public boolean isCalendarEnabled() {
             return status == LicenseStatus.VALID || status == LicenseStatus.EXPIRED_IN_GRACE;
@@ -98,17 +133,18 @@ public class LicenseManager {
             String jiraHome = System.getProperty("jira.home", "");
             String hostname = java.net.InetAddress.getLocalHost().getHostName();
             String osInfo = System.getProperty("os.name") + System.getProperty("os.arch");
-            
+
             String combined = jiraHome + "|" + hostname + "|" + osInfo;
-            
+
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] hash = md.digest(combined.getBytes(StandardCharsets.UTF_8));
-            
+
             // Return first 8 characters of hex string
             StringBuilder hexString = new StringBuilder();
             for (int i = 0; i < 4; i++) {
                 String hex = Integer.toHexString(0xff & hash[i]);
-                if (hex.length() == 1) hexString.append('0');
+                if (hex.length() == 1)
+                    hexString.append('0');
                 hexString.append(hex);
             }
             return hexString.toString().toUpperCase();
@@ -122,7 +158,7 @@ public class LicenseManager {
      */
     public LicenseInfo validateLicense() {
         LicenseInfo info = new LicenseInfo();
-        
+
         String licenseKey = getLicenseKey();
         if (licenseKey == null || licenseKey.trim().isEmpty()) {
             info.setStatus(LicenseStatus.NOT_FOUND);
@@ -185,20 +221,29 @@ public class LicenseManager {
 
         if (daysUntilExpiry >= 0) {
             info.setStatus(LicenseStatus.VALID);
-            info.setMessage(type == LicenseType.TRIAL ? 
-                "لایسنس آزمایشی - " + daysUntilExpiry + " روز باقیمانده" :
-                "لایسنس معتبر - " + daysUntilExpiry + " روز باقیمانده");
+            info.setMessage(type == LicenseType.TRIAL ? "لایسنس آزمایشی - " + daysUntilExpiry + " روز باقیمانده"
+                    : "لایسنس معتبر - " + daysUntilExpiry + " روز باقیمانده");
         } else {
+            // License has expired
             long daysSinceExpiry = Math.abs(daysUntilExpiry);
-            long graceDaysRemaining = GRACE_PERIOD_DAYS - daysSinceExpiry;
-            info.setGraceDaysRemaining(graceDaysRemaining);
 
-            if (graceDaysRemaining > 0) {
-                info.setStatus(LicenseStatus.EXPIRED_IN_GRACE);
-                info.setMessage("لایسنس منقضی شده - " + graceDaysRemaining + " روز مهلت باقیمانده");
+            // Grace period ONLY for FULL licenses, NOT for Trial
+            if (type == LicenseType.FULL) {
+                long graceDaysRemaining = GRACE_PERIOD_DAYS - daysSinceExpiry;
+                info.setGraceDaysRemaining(graceDaysRemaining);
+
+                if (graceDaysRemaining > 0) {
+                    info.setStatus(LicenseStatus.EXPIRED_IN_GRACE);
+                    info.setMessage("لایسنس منقضی شده - " + graceDaysRemaining + " روز مهلت باقیمانده");
+                } else {
+                    info.setStatus(LicenseStatus.EXPIRED);
+                    info.setMessage("لایسنس منقضی شده است. لطفاً تمدید کنید.");
+                }
             } else {
+                // Trial license - NO grace period
+                info.setGraceDaysRemaining(0);
                 info.setStatus(LicenseStatus.EXPIRED);
-                info.setMessage("لایسنس منقضی شده است. لطفاً تمدید کنید.");
+                info.setMessage("لایسنس آزمایشی منقضی شده است. لطفاً لایسنس کامل تهیه کنید.");
             }
         }
 
@@ -215,12 +260,13 @@ public class LicenseManager {
             SecretKeySpec keySpec = new SecretKeySpec(SECRET_KEY.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
             hmac.init(keySpec);
             byte[] hash = hmac.doFinal(data.getBytes(StandardCharsets.UTF_8));
-            
+
             // Return first 8 characters of hex
             StringBuilder hexString = new StringBuilder();
             for (int i = 0; i < 4; i++) {
                 String hex = Integer.toHexString(0xff & hash[i]);
-                if (hex.length() == 1) hexString.append('0');
+                if (hex.length() == 1)
+                    hexString.append('0');
                 hexString.append(hex);
             }
             return hexString.toString().toUpperCase();
@@ -252,7 +298,7 @@ public class LicenseManager {
     public static String generateLicenseKey(LicenseType type, String serverHash, LocalDate expiryDate) {
         String typeCode = type.getCode();
         String expiryStr = expiryDate.format(DATE_FORMAT);
-        
+
         // Generate signature
         try {
             String data = typeCode + "-" + serverHash + "-" + expiryStr;
@@ -260,15 +306,16 @@ public class LicenseManager {
             SecretKeySpec keySpec = new SecretKeySpec(SECRET_KEY.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
             hmac.init(keySpec);
             byte[] hash = hmac.doFinal(data.getBytes(StandardCharsets.UTF_8));
-            
+
             StringBuilder hexString = new StringBuilder();
             for (int i = 0; i < 4; i++) {
                 String hex = Integer.toHexString(0xff & hash[i]);
-                if (hex.length() == 1) hexString.append('0');
+                if (hex.length() == 1)
+                    hexString.append('0');
                 hexString.append(hex);
             }
             String signature = hexString.toString().toUpperCase();
-            
+
             return typeCode + "-" + serverHash + "-" + expiryStr + "-" + signature;
         } catch (Exception e) {
             return null;

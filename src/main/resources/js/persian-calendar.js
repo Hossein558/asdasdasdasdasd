@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '11.2.0';
+    var PC_VERSION = '11.2.1';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -51,11 +51,7 @@
     };
 
     function checkLicenseStatus(callback) {
-        if (LICENSE_CACHE.checked) {
-            callback(LICENSE_CACHE);
-            return;
-        }
-
+        // Always check fresh (no cache) - ensures license changes take effect immediately
         var baseUrl = AJS && AJS.contextPath ? AJS.contextPath() : '';
         var apiUrl = baseUrl + '/rest/persian-calendar/1.0/license/status';
 
