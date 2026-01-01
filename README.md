@@ -203,43 +203,43 @@ JOIN propertystring ps ON pe.id = ps.id
 WHERE pe.property_key LIKE '%persian-calendar%';
 ```
 
-### Security Architecture (v11.2.3+)
+### Security Architecture (v11.3.x+)
 
-Server ID is calculated using multiple unique factors:
+The plugin employs a multi-layered security approach:
 
+#### 1. Unique Server Identification
+Server ID is calculated using multiple factors including a **unique installation UUID**:
 ```
 Server ID = SHA256(jira.home + hostname + OS + InstallationUUID)
 ```
+- **InstallationUUID**: A 16-char unique ID generated once per installation and stored in the database.
+- Prevents license copying between servers even with identical hostnames.
 
-| Component | Source | Description |
+#### 2. Defense-in-Depth
+| Layer | Mechanism | Protection Against |
 |:---|:---|:---|
-| `jira.home` | System Property | Jira installation path |
-| `hostname` | InetAddress | Server hostname |
-| `OS` | System Property | Operating system + architecture |
-| `InstallationUUID` | Database | **16-char UUID generated once per installation** |
+| **Build-Time** | **JavaScript Obfuscation** | Reverse engineering & understanding code logic |
+| **Runtime (JS)** | **Integrity Check** | Tampering with client-side code (`persian-calendar.js`) |
+| **Runtime (Java)** | **IntegrityChecker.java** | Tampering with plugin JAR files |
+| **License** | **Digital Signature** | Forging license keys |
 
-**Why this is secure:**
-- Even if two servers have identical hostnames, their InstallationUUID will be different
-- InstallationUUID is stored in `ir...persian-calendar-plugin.installation.id`
-- License validation happens **every time** the calendar is opened (no caching)
-
-**Validation Flow:**
-1. User clicks on date field
-2. JavaScript calls REST API `/rest/persian-calendar/1.0/license/status`
-3. Server calculates current Server ID (runtime)
-4. Server compares with Server ID in license key
-5. If match + valid signature + not expired → Calendar enabled
+#### 3. Obfuscation & Hardening
+- **JavaScript**: Obfuscated during build using `javascript-obfuscator` (variables renamed, control flow flattened, strings encoded).
+- **Java**: Self-verification code embedded to detect class modification.
 
 ---
 
 ## 📝 Version History
 
+*   **v11.3.1**: **Security Hardening** - Added **Build-time JavaScript Obfuscation**. JS files are now obfuscated inside the JAR to prevent reverse engineering.
+*   **v11.3.0**: **Integrity Checks** - Added `IntegrityChecker` for Java (self-verification) and JavaScript (runtime integrity check).
+*   **v11.2.3**: **Enhanced Server ID** - Added unique **Installation UUID** to Server ID calculation to prevent license cloning.
+*   **v11.2.2**: **REST API Fix** - Use `ComponentAccessor` for `PluginSettingsFactory` to fix license status check.
+*   **v11.2.1**: **Grace Period Fix** - Trial licenses expire immediately (no grace period). Removed license cache for immediate updates.
+*   **v11.2.0**: **License Enforcement** - Plugin now fails-closed (disabled) if no valid license is present.
 *   **v11.1.0**: Added **License Admin Panel** - Customers can view Server ID and activate licenses via `/plugins/servlet/persian-calendar/license`.
 *   **v11.0.0**: **Rebranding to DesktopCenter.ir** - Updated vendor info, added premium orange plugin icon.
 *   **v10.6.9**: Unified Orange UI - All buttons now use vibrant orange theme, fixed header layout for long months.
-*   **v10.6.8**: Modern Orange UI Redesign with premium aesthetics.
-*   **v10.6.7**: UI Readability hotfix - Darker colors, high-contrast text.
-*   **v10.6.6**: Initial UI Colorization with themed buttons.
 *   **v10.6.5**: Advanced Holidays - Occasions, tooltips, data extended to 1407.
 *   **v10.6.2**: Replaced navigation arrows with text labels ("سال قبل", "ماه قبل", etc.) for better usability in all pickers.
 *   **v10.6.1**: Fixed DateTime detection regression in Jira Search (Basic Search). Improved detection of Created/Updated/Resolved fields.
