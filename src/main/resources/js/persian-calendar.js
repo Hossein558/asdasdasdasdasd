@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '11.2.3';
+    var PC_VERSION = '11.3.0';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -42,15 +42,40 @@
     function logError(msg, data) { return pcLog('ERROR', msg, data); }
 
     // ========== LICENSE SYSTEM ==========
+    // Security: Obfuscated integrity verification
+    var _0x4f2a = ['\x65\x6e\x61\x62\x6c\x65\x64', '\x73\x74\x61\x74\x75\x73'];
+    var _pcv = function () { return String.fromCharCode(80, 67, 50, 48, 50, 52); };
+    var _chk = function () { return _pcv() === 'PC2024'; };
+
     var LICENSE_CACHE = {
         checked: false,
         enabled: false,  // Default to disabled (fail-closed)
         status: 'UNKNOWN',
         message: 'در حال بررسی وضعیت لایسنس...',
-        daysRemaining: 0
+        daysRemaining: 0,
+        _v: _chk  // Hidden verification function
     };
 
+    // Integrity check function (obfuscated)
+    function _pcIntegrity() {
+        try {
+            if (typeof LICENSE_CACHE._v !== 'function') return false;
+            if (!LICENSE_CACHE._v()) return false;
+            if (_0x4f2a.length !== 2) return false;
+            return true;
+        } catch (e) { return false; }
+    }
+
     function checkLicenseStatus(callback) {
+        // Security: Verify code integrity first
+        if (!_pcIntegrity()) {
+            LICENSE_CACHE.checked = true;
+            LICENSE_CACHE.enabled = false;
+            LICENSE_CACHE.message = 'خطای امنیتی: کد دستکاری شده';
+            callback(LICENSE_CACHE);
+            return;
+        }
+
         // Always check fresh (no cache) - ensures license changes take effect immediately
         var baseUrl = AJS && AJS.contextPath ? AJS.contextPath() : '';
         var apiUrl = baseUrl + '/rest/persian-calendar/1.0/license/status';

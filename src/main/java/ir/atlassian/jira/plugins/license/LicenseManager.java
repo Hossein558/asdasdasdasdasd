@@ -184,6 +184,13 @@ public class LicenseManager {
     public LicenseInfo validateLicense() {
         LicenseInfo info = new LicenseInfo();
 
+        // Security: Check plugin integrity first
+        if (!ir.atlassian.jira.plugins.security.IntegrityChecker.verifyIntegrity()) {
+            info.setStatus(LicenseStatus.INVALID);
+            info.setMessage("خطای امنیتی: فایل‌های پلاگین دستکاری شده‌اند");
+            return info;
+        }
+
         String licenseKey = getLicenseKey();
         if (licenseKey == null || licenseKey.trim().isEmpty()) {
             info.setStatus(LicenseStatus.NOT_FOUND);
