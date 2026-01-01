@@ -160,8 +160,48 @@ Features:
 - **Status Display**: Shows current license status (Active/Inactive/Expired)
 
 ### Grace Period
-- When a license expires, there is a **10-day grace period** before the calendar is disabled
+- When a **Full license** expires, there is a **10-day grace period** before the calendar is disabled
+- **Trial licenses have NO grace period** - they are disabled immediately upon expiration
 - During grace period, a warning message is shown to the user
+
+### REST API Endpoints
+
+| Endpoint | Method | Description |
+|:---|:---|:---|
+| `/rest/persian-calendar/1.0/license/status` | GET | Get license status (used by JavaScript) |
+| `/rest/persian-calendar/1.0/license/server-id` | GET | Get Server ID hash |
+| `/rest/persian-calendar/1.0/license/activate` | POST | Activate a license key |
+| `/rest/persian-calendar/1.0/license/current` | GET | Get current license (masked) |
+
+**Example Response from `/license/status`:**
+```json
+{
+  "status": "VALID",
+  "enabled": true,
+  "message": "لایسنس آزمایشی - 30 روز باقیمانده",
+  "daysRemaining": 30,
+  "type": "TRIAL",
+  "expiryDate": "2026-02-01"
+}
+```
+
+### Database Storage
+
+License data is stored in Jira's property tables. To query:
+
+```sql
+-- Find license key
+SELECT pe.id, pe.property_key, ps.propertyvalue 
+FROM propertyentry pe
+JOIN propertystring ps ON pe.id = ps.id
+WHERE pe.property_key LIKE '%persian-calendar%license%';
+
+-- Find all plugin settings
+SELECT pe.id, pe.property_key, ps.propertyvalue 
+FROM propertyentry pe
+JOIN propertystring ps ON pe.id = ps.id
+WHERE pe.property_key LIKE '%persian-calendar%';
+```
 
 ---
 
