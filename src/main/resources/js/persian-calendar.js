@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.6.1';
+    var PC_VERSION = '10.6.2';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -514,8 +514,8 @@
         var css = [
             '.pc-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9998; }',
             '.pc-popup { position: absolute; z-index: 9999; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); width: 300px; padding: 12px; direction: rtl; font-family: Tahoma, Arial, sans-serif; }',
-            '.pc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee; }',
-            '.pc-header button { background: #f4f5f7; border: 1px solid #ddd; border-radius: 4px; padding: 6px 10px; cursor: pointer; font-size: 14px; }',
+            '.pc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee; gap: 4px; }',
+            '.pc-header button { background: #f4f5f7; border: 1px solid #ddd; border-radius: 4px; padding: 4px 6px; cursor: pointer; font-size: 11px; white-space: nowrap; min-width: 50px; }',
             '.pc-header button:hover { background: #e4e5e7; }',
             '.pc-title { font-weight: bold; font-size: 15px; color: #172b4d; }',
             '.pc-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; margin-bottom: 6px; }',
@@ -637,11 +637,11 @@
             // Final layout for v10.4.12:
             // User requested order from LEFT to RIGHT: << < Title > >>
             var html = '<div class="pc-header">';
-            html += '<button type="button" class="pc-next-year" title="سال بعد">&laquo;</button>';
-            html += '<button type="button" class="pc-next-month" title="ماه بعد">&lsaquo;</button>';
+            html += '<button type="button" class="pc-prev-year" title="سال قبل">سال قبل</button>';
+            html += '<button type="button" class="pc-prev-month" title="ماه قبل">ماه قبل</button>';
             html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
-            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&rsaquo;</button>';
-            html += '<button type="button" class="pc-prev-year" title="سال قبل">&raquo;</button>';
+            html += '<button type="button" class="pc-next-month" title="ماه بعد">ماه بعد</button>';
+            html += '<button type="button" class="pc-next-year" title="سال بعد">سال بعد</button>';
             html += '</div>';
 
             // Weekday headers: In RTL, grid goes right-to-left
@@ -874,18 +874,12 @@
         function render() {
             logDebug('Rendering DateTime calendar for', { year: viewYear, month: viewMonth });
 
-            var html = '<div class="pc-header" style="direction: rtl; display: flex; justify-content: space-between; align-items: center;">';
-            html += '<div style="display:flex;">';
-            html += '<button type="button" class="pc-next-year" title="سال بعد">&raquo;</button>';
-            html += '<button type="button" class="pc-next-month" title="ماه بعد">&rsaquo;</button>';
-            html += '</div>';
-
+            var html = '<div class="pc-header" style="justify-content:space-between; align-items:center;">';
+            html += '<button type="button" class="pc-prev-year" title="سال قبل">سال قبل</button>';
+            html += '<button type="button" class="pc-prev-month" title="ماه قبل">ماه قبل</button>';
             html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
-
-            html += '<div style="display:flex;">';
-            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&lsaquo;</button>';
-            html += '<button type="button" class="pc-prev-year" title="سال قبل">&laquo;</button>';
-            html += '</div>';
+            html += '<button type="button" class="pc-next-month" title="ماه بعد">ماه بعد</button>';
+            html += '<button type="button" class="pc-next-year" title="سال بعد">سال بعد</button>';
             html += '</div>';
 
             html += '<div class="pc-weekdays">';
@@ -1491,18 +1485,12 @@
         function render() {
             // DateTime: RTL arrows requested by user
             // Visual order RIGHT to LEFT: >> > | Title | < <<
-            var html = '<div class="pc-header" style="direction: rtl; display: flex; justify-content: space-between; align-items: center;">';
-            html += '<div style="display:flex;">';
-            html += '<button type="button" class="pc-prev-year" title="سال قبل">&raquo;</button>';
-            html += '<button type="button" class="pc-prev-month" title="ماه قبل">&rsaquo;</button>';
-            html += '</div>';
-
+            var html = '<div class="pc-header">';
+            html += '<button type="button" class="pc-prev-year" title="سال قبل">سال قبل</button>';
+            html += '<button type="button" class="pc-prev-month" title="ماه قبل">ماه قبل</button>';
             html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
-
-            html += '<div style="display:flex;">';
-            html += '<button type="button" class="pc-next-month" title="ماه بعد">&lsaquo;</button>';
-            html += '<button type="button" class="pc-next-year" title="سال بعد">&laquo;</button>';
-            html += '</div>';
+            html += '<button type="button" class="pc-next-month" title="ماه بعد">ماه بعد</button>';
+            html += '<button type="button" class="pc-next-year" title="سال بعد">سال بعد</button>';
             html += '</div>';
 
             html += '<div class="pc-weekdays">';
@@ -1834,12 +1822,12 @@
         popup.css({ position: 'absolute', top: topPos + 'px', left: leftPos + 'px', zIndex: 9999 });
 
         function render() {
-            var html = '<div class="pc-header">';
-            html += '<button type="button" class="pc-prev-year">&laquo;</button>';
-            html += '<button type="button" class="pc-prev-month">&lsaquo;</button>';
+            var html = '<div class="pc-header" style="justify-content:space-between; align-items:center;">';
+            html += '<button type="button" class="pc-prev-year" title="سال قبل">سال قبل</button>';
+            html += '<button type="button" class="pc-prev-month" title="ماه قبل">ماه قبل</button>';
             html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
-            html += '<button type="button" class="pc-next-month">&rsaquo;</button>';
-            html += '<button type="button" class="pc-next-year">&raquo;</button>';
+            html += '<button type="button" class="pc-next-month" title="ماه بعد">ماه بعد</button>';
+            html += '<button type="button" class="pc-next-year" title="سال بعد">سال بعد</button>';
             html += '</div>';
 
             html += '<div class="pc-weekdays">';

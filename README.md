@@ -94,6 +94,7 @@ This will generate a JAR file in the `target/` directory (e.g., `persian-calenda
 
 ## 📝 Version History
 
+*   **v10.6.2**: Replaced navigation arrows with text labels ("سال قبل", "ماه قبل", etc.) for better usability in all pickers.
 *   **v10.6.1**: Fixed DateTime detection regression in Jira Search (Basic Search). Improved detection of Created/Updated/Resolved fields.
 *   **v10.6.0**: Added **Custom License System** with HMAC-SHA256 validation, Server ID binding, and 10-day grace period.
 *   **v10.5.17**: Swapped functionality of Next/Prev buttons (Right button now goes to Previous, Left goes to Next) as per request.
