@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.6.3';
+    var PC_VERSION = '10.6.4';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -213,6 +213,42 @@
     var PERSIAN_MONTHS = ['فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور', 'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'];
     var PERSIAN_WEEKDAYS = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
     var GREGORIAN_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+
+    // Official Iranian Holidays (1403, 1404, 1405)
+    // Format: 'YYYY-MM-DD' (Shamsi)
+    var IRAN_HOLIDAYS = {
+        // 1403
+        '1403-1-1': 1, '1403-1-2': 1, '1403-1-3': 1, '1403-1-4': 1, '1403-1-12': 1, '1403-1-13': 1, '1403-1-22': 1, '1403-1-23': 1,
+        '1403-2-15': 1,
+        '1403-3-14': 1, '1403-3-15': 1, '1403-3-28': 1,
+        '1403-4-5': 1, '1403-4-25': 1, '1403-4-26': 1,
+        '1403-6-4': 1, '1403-6-12': 1, '1403-6-14': 1, '1403-6-22': 1,
+        '1403-9-15': 1,
+        '1403-10-25': 1,
+        '1403-11-9': 1, '1403-11-22': 1, '1403-11-26': 1,
+        '1403-12-29': 1,
+        // 1404
+        '1404-1-1': 1, '1404-1-2': 1, '1404-1-3': 1, '1404-1-4': 1, '1404-1-11': 1, '1404-1-12': 1, '1404-1-13': 1,
+        '1404-2-4': 1,
+        '1404-3-14': 1, '1404-3-15': 1, '1404-3-16': 1, '1404-3-24': 1,
+        '1404-4-14': 1, '1404-4-15': 1,
+        '1404-5-23': 1, '1404-5-31': 1,
+        '1404-6-2': 1, '1404-6-10': 1, '1404-6-19': 1,
+        '1404-9-3': 1,
+        '1404-10-13': 1, '1404-10-27': 1,
+        '1404-11-15': 1, '1404-11-22': 1,
+        '1404-12-20': 1, '1404-12-29': 1,
+        // 1405
+        '1405-1-1': 1, '1405-1-2': 1, '1405-1-3': 1, '1405-1-4': 1, '1405-1-12': 1, '1405-1-13': 1, '1405-1-25': 1,
+        '1405-3-6': 1, '1405-3-14': 1, '1405-3-15': 1,
+        '1405-4-3': 1, '1405-4-4': 1,
+        '1405-5-13': 1, '1405-5-21': 1, '1405-5-22': 1, '1405-5-30': 1,
+        '1405-6-8': 1,
+        '1405-8-22': 1,
+        '1405-10-2': 1, '1405-10-16': 1,
+        '1405-11-4': 1, '1405-11-22': 1,
+        '1405-12-9': 1, '1405-12-19': 1, '1405-12-20': 1
+    };
 
     // ========== DATE FORMAT SETTINGS ==========
     // Cache for date format settings (loaded from Jira settings)
@@ -513,17 +549,18 @@
 
         var css = [
             '.pc-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9998; }',
-            '.pc-popup { position: absolute; z-index: 9999; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); width: 300px; padding: 12px; direction: rtl; font-family: Tahoma, Arial, sans-serif; }',
+            '.pc-popup { position: absolute; z-index: 9999; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); width: 340px; padding: 12px; direction: rtl; font-family: Tahoma, Arial, sans-serif; }',
             '.pc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee; gap: 4px; }',
-            '.pc-header button { background: #f4f5f7; border: 1px solid #ddd; border-radius: 4px; padding: 4px 6px; cursor: pointer; font-size: 11px; white-space: nowrap; min-width: 50px; }',
+            '.pc-header button { background: #f4f5f7; border: 1px solid #ddd; border-radius: 4px; padding: 4px 6px; cursor: pointer; font-size: 11px; white-space: nowrap; min-width: 60px; text-align: center; }',
             '.pc-header button:hover { background: #e4e5e7; }',
-            '.pc-title { font-weight: bold; font-size: 15px; color: #172b4d; }',
+            '.pc-title { font-weight: bold; font-size: 15px; color: #172b4d; flex-grow: 1; text-align: center; min-width: 80px; }',
             '.pc-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; margin-bottom: 6px; }',
             '.pc-weekdays span { font-size: 12px; color: #6b778c; padding: 6px 0; font-weight: bold; }',
             '.pc-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }',
             '.pc-day { text-align: center; padding: 10px 4px; cursor: pointer; border-radius: 4px; font-size: 14px; transition: all 0.1s; }',
             '.pc-day:not(.empty):hover { background: #deebff; }',
             '.pc-day.empty { cursor: default; }',
+            '.pc-day.holiday, .pc-day.friday { color: #d04437 !important; font-weight: bold; }',
             '.pc-day.today { background: #e3fcef; color: #006644; font-weight: bold; border: 1px solid #79f2c0; }',
             '.pc-day.selected { background: #0052cc !important; color: #fff !important; }',
             '.pc-footer { display: flex; justify-content: space-between; margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee; }',
@@ -678,9 +715,19 @@
             for (var d = 1; d <= daysInMonth; d++) {
                 var isSelected = selectedDate && (d === selectedDate.jd && viewMonth === selectedDate.jm && viewYear === selectedDate.jy);
                 var isToday = (d === todayJ.jd && viewMonth === todayJ.jm && viewYear === todayJ.jy);
+
+                // Highlight Fridays and Holidays
+                var weekdayIdx = (persianFirstDay + d - 1) % 7;
+                var holidayKey = viewYear + '-' + viewMonth + '-' + d;
+                var isFriday = (weekdayIdx === 6);
+                var isHoliday = IRAN_HOLIDAYS[holidayKey];
+
                 var classes = 'pc-day';
                 if (isSelected) classes += ' selected';
                 if (isToday) classes += ' today';
+                if (isFriday) classes += ' friday';
+                if (isHoliday) classes += ' holiday';
+
                 html += '<span class="' + classes + '" data-day="' + d + '">' + d + '</span>';
             }
 
@@ -899,13 +946,21 @@
 
             var daysInMonth = jalaaliMonthLength(viewYear, viewMonth);
             for (var d = 1; d <= daysInMonth; d++) {
+                var isSelected = selectedDate && (d === selectedDate.jd && viewMonth === selectedDate.jm && viewYear === selectedDate.jy);
+                var isToday = (d === todayJ.jd && viewMonth === todayJ.jm && viewYear === todayJ.jy);
+
+                // Highlight Fridays and Holidays
+                var weekdayIdx = (persianFirstDay + d - 1) % 7;
+                var holidayKey = viewYear + '-' + viewMonth + '-' + d;
+                var isFriday = (weekdayIdx === 6);
+                var isHoliday = IRAN_HOLIDAYS[holidayKey];
+
                 var cls = 'pc-day';
-                if (d === todayJ.jd && viewMonth === todayJ.jm && viewYear === todayJ.jy) {
-                    cls += ' today';
-                }
-                if (selectedDate && d === selectedDate.jd && viewMonth === selectedDate.jm && viewYear === selectedDate.jy) {
-                    cls += ' selected';
-                }
+                if (isSelected) cls += ' selected';
+                if (isToday) cls += ' today';
+                if (isFriday) cls += ' friday';
+                if (isHoliday) cls += ' holiday';
+
                 html += '<span class="' + cls + '" data-day="' + d + '">' + d + '</span>';
             }
 
@@ -1514,9 +1569,19 @@
             for (var d = 1; d <= daysInMonth; d++) {
                 var isSelected = selectedDate && (d === selectedDate.jd && viewMonth === selectedDate.jm && viewYear === selectedDate.jy);
                 var isToday = (d === todayJ.jd && viewMonth === todayJ.jm && viewYear === todayJ.jy);
+
+                // Highlight Fridays and Holidays
+                var weekdayIdx = (persianFirstDay + d - 1) % 7;
+                var holidayKey = viewYear + '-' + viewMonth + '-' + d;
+                var isFriday = (weekdayIdx === 6);
+                var isHoliday = IRAN_HOLIDAYS[holidayKey];
+
                 var classes = 'pc-day';
                 if (isSelected) classes += ' selected';
                 if (isToday) classes += ' today';
+                if (isFriday) classes += ' friday';
+                if (isHoliday) classes += ' holiday';
+
                 html += '<span class="' + classes + '" data-day="' + d + '">' + d + '</span>';
             }
 
@@ -1844,7 +1909,17 @@
             for (var d = 1; d <= daysInMonth; d++) {
                 var isSelected = selectedDate && (d === selectedDate.jd && viewMonth === selectedDate.jm && viewYear === selectedDate.jy);
                 var isToday = (d === todayJ.jd && viewMonth === todayJ.jm && viewYear === todayJ.jy);
+
+                // Highlight Fridays and Holidays
+                var weekdayIdx = (persianFirstDay + d - 1) % 7;
+                var holidayKey = viewYear + '-' + viewMonth + '-' + d;
+                var isFriday = (weekdayIdx === 6);
+                var isHoliday = IRAN_HOLIDAYS[holidayKey];
+
                 var classes = 'pc-day' + (isSelected ? ' selected' : '') + (isToday ? ' today' : '');
+                if (isFriday) classes += ' friday';
+                if (isHoliday) classes += ' holiday';
+
                 html += '<span class="' + classes + '" data-day="' + d + '">' + d + '</span>';
             }
             html += '</div>';
