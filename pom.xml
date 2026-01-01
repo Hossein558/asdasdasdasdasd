@@ -5,7 +5,7 @@
 
     <groupId>ir.atlassian.jira.plugins</groupId>
     <artifactId>persian-calendar-plugin</artifactId>
-    <version>11.3.0</version>
+    <version>11.3.1</version>
     <packaging>atlassian-plugin</packaging>
 
     <name>Persian Calendar for Jira</name>
@@ -23,6 +23,7 @@
         <jira.version>9.12.0</jira.version>
         <amps.version>8.12.4</amps.version>
         <atlassian.plugin.key>${project.groupId}.${project.artifactId}</atlassian.plugin.key>
+        <skipJsObfuscation>false</skipJsObfuscation>
     </properties>
 
     <dependencies>
@@ -104,6 +105,44 @@
                         <Spring-Context>*</Spring-Context>
                     </instructions>
                 </configuration>
+            </plugin>
+            <!-- JavaScript Obfuscator - runs during build -->
+            <plugin>
+                <groupId>org.codehaus.mojo</groupId>
+                <artifactId>exec-maven-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>obfuscate-js</id>
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>exec</goal>
+                        </goals>
+                        <configuration>
+                            <executable>npx</executable>
+                            <workingDirectory>${project.build.outputDirectory}/js</workingDirectory>
+                            <arguments>
+                                <argument>javascript-obfuscator</argument>
+                                <argument>persian-calendar.js</argument>
+                                <argument>--output</argument>
+                                <argument>persian-calendar.js</argument>
+                                <argument>--compact</argument>
+                                <argument>true</argument>
+                                <argument>--control-flow-flattening</argument>
+                                <argument>true</argument>
+                                <argument>--dead-code-injection</argument>
+                                <argument>true</argument>
+                                <argument>--string-array</argument>
+                                <argument>true</argument>
+                                <argument>--string-array-encoding</argument>
+                                <argument>base64</argument>
+                                <argument>--rename-globals</argument>
+                                <argument>false</argument>
+                            </arguments>
+                            <skip>${skipJsObfuscation}</skip>
+                        </configuration>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
     </build>
