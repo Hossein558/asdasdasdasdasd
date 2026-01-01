@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.6.5';
+    var PC_VERSION = '10.6.6';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -561,9 +561,12 @@
             '.pc-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9998; }',
             '.pc-popup { position: absolute; z-index: 9999; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); width: 340px; padding: 12px; direction: rtl; font-family: Tahoma, Arial, sans-serif; }',
             '.pc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee; gap: 4px; }',
-            '.pc-header button { background: #f4f5f7; border: 1px solid #ddd; border-radius: 4px; padding: 4px 6px; cursor: pointer; font-size: 11px; white-space: nowrap; min-width: 60px; text-align: center; }',
-            '.pc-header button:hover { background: #e4e5e7; }',
-            '.pc-title { font-weight: bold; font-size: 15px; color: #172b4d; flex-grow: 1; text-align: center; min-width: 80px; }',
+            '.pc-header button { color: #fff; border: none; border-radius: 4px; padding: 6px 8px; cursor: pointer; font-size: 11px; white-space: nowrap; min-width: 65px; text-align: center; transition: all 0.2s; font-weight: bold; }',
+            '.pc-next-year, .pc-next-month { background: #0052cc; }',
+            '.pc-next-year:hover, .pc-next-month:hover { background: #0065ff; box-shadow: 0 2px 4px rgba(0,82,204,0.3); }',
+            '.pc-prev-year, .pc-prev-month { background: #008da6; }',
+            '.pc-prev-year:hover, .pc-prev-month:hover { background: #00a3bf; box-shadow: 0 2px 4px rgba(0,141,166,0.3); }',
+            '.pc-title { font-weight: bold; font-size: 16px; color: #172b4d; flex-grow: 1; text-align: center; min-width: 100px; }',
             '.pc-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; margin-bottom: 6px; }',
             '.pc-weekdays span { font-size: 12px; color: #6b778c; padding: 6px 0; font-weight: bold; }',
             '.pc-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }',
@@ -574,15 +577,18 @@
             '.pc-day.holiday:hover, .pc-day.friday:hover { background: #feebeb; }',
             '.pc-day.today { background: #e3fcef; color: #006644; font-weight: bold; border: 1px solid #79f2c0; }',
             '.pc-day.selected { background: #0052cc !important; color: #fff !important; }',
-            '.pc-footer { display: flex; justify-content: space-between; margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee; }',
-            '.pc-footer button { background: #f4f5f7; border: 1px solid #ddd; border-radius: 4px; padding: 8px 14px; cursor: pointer; font-size: 13px; font-family: inherit; }',
-            '.pc-footer button:hover { background: #e4e5e7; }',
-            '.pc-footer button.primary { background: #0052cc; color: #fff; border-color: #0052cc; }',
-            '.pc-footer button.primary:hover { background: #0065ff; }',
-            // Time picker styles
-            '.pc-time-picker { display: flex; align-items: center; justify-content: center; gap: 8px; margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee; direction: ltr; }',
-            '.pc-time-picker label { font-size: 13px; color: #5e6c84; margin-left: 8px; }',
-            '.pc-time-picker input { width: 50px; text-align: center; padding: 6px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; }',
+            '.pc-footer { display: flex; justify-content: space-between; margin-top: 12px; padding-top: 10px; border-top: 1px solid #eee; gap: 8px; }',
+            '.pc-footer button { flex: 1; padding: 8px 5px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; color: #fff; transition: all 0.2s; }',
+            '.pc-confirm { background: #0052cc; box-shadow: 0 2px 4px rgba(0,82,204,0.2); }',
+            '.pc-confirm:hover { background: #0065ff; }',
+            '.pc-today { background: #36b37e; box-shadow: 0 2px 4px rgba(54,179,126,0.2); }',
+            '.pc-today:hover { background: #4ec491; }',
+            '.pc-clear { background: #ff5630; box-shadow: 0 2px 4px rgba(255,86,48,0.2); }',
+            '.pc-clear:hover { background: #ff7452; }',
+            '.pc-time-picker { display: flex; align-items: center; justify-content: center; margin-top: 12px; padding: 10px; background: #f4f5f7; border-radius: 6px; gap: 6px; border: 1px solid #ebecf0; }',
+            '.pc-time-picker label { font-size: 12px; font-weight: bold; color: #172b4d; margin-left: 4px; }',
+            '.pc-time-picker select { padding: 4px; border: 1px solid #dfe1e6; border-radius: 3px; font-size: 13px; background: #fff; color: #172b4d; cursor: pointer; }',
+            '.pc-time-picker select:focus { border-color: #4c9aff; outline: none; }',
             '.pc-time-picker select { padding: 6px 10px; border: 1px solid #ddd; border-radius: 4px; font-size: 14px; background: #fff; cursor: pointer; }',
             '.pc-time-picker span { font-size: 16px; font-weight: bold; color: #5e6c84; }'
         ].join('\n');
@@ -752,7 +758,7 @@
             html += '</div>';
 
             html += '<div class="pc-footer">';
-            html += '<button type="button" class="pc-confirm primary">تأیید</button>';
+            html += '<button type="button" class="pc-confirm">تأیید</button>';
             html += '<button type="button" class="pc-today">امروز</button>';
             html += '<button type="button" class="pc-clear">پاک کردن</button>';
             html += '</div>';
@@ -1014,7 +1020,7 @@
             html += '</div>';
 
             html += '<div class="pc-footer">';
-            html += '<button type="button" class="pc-confirm primary">تأیید</button>';
+            html += '<button type="button" class="pc-confirm">تأیید</button>';
             html += '<button type="button" class="pc-today">الان</button>';
             html += '<button type="button" class="pc-clear">پاک کردن</button>';
             html += '</div>';
@@ -1616,7 +1622,7 @@
             }
             html += '</div>';
             html += '<div class="pc-footer">';
-            html += '<button type="button" class="pc-confirm primary">تأیید</button>';
+            html += '<button type="button" class="pc-confirm">تأیید</button>';
             html += '<button type="button" class="pc-today">امروز</button>';
             html += '<button type="button" class="pc-clear">پاک کردن</button>';
             html += '</div>';
@@ -1983,7 +1989,7 @@
             html += '</div>';
 
             html += '<div class="pc-footer">';
-            html += '<button type="button" class="pc-confirm primary">تأیید</button>';
+            html += '<button type="button" class="pc-confirm">تأیید</button>';
             html += '<button type="button" class="pc-today">الان</button>';
             html += '<button type="button" class="pc-clear">پاک کردن</button>';
             html += '</div>';
