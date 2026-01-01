@@ -126,6 +126,7 @@ public class LicenseManager {
 
     /**
      * Get the current Server ID hash (custom method, not Atlassian's)
+     * Includes a unique installation ID to prevent license copying
      */
     public String getServerIdHash() {
         try {
@@ -134,7 +135,10 @@ public class LicenseManager {
             String hostname = java.net.InetAddress.getLocalHost().getHostName();
             String osInfo = System.getProperty("os.name") + System.getProperty("os.arch");
 
-            String combined = jiraHome + "|" + hostname + "|" + osInfo;
+            // Get or create unique installation ID (stored in database, generated once)
+            String installationId = getOrCreateInstallationId();
+
+            String combined = jiraHome + "|" + hostname + "|" + osInfo + "|" + installationId;
 
             MessageDigest md = MessageDigest.getInstance("SHA-256");
             byte[] hash = md.digest(combined.getBytes(StandardCharsets.UTF_8));
@@ -151,6 +155,27 @@ public class LicenseManager {
         } catch (Exception e) {
             return "00000000";
         }
+    }
+
+    /**
+     * Get or create a unique installation ID
+     * This ID is generated once per Jira installation and stored in the database
+     * It prevents license copying between servers with identical hostnames
+     */
+    private String getOrCreateInstallationId() {
+        PluginSettings settings = pluginSettingsFactory.createGlobalSettings();
+        String installationIdKey = PLUGIN_KEY + ".installation.id";
+
+        Object existingId = settings.get(installationIdKey);
+        if (existingId != null && !existingId.toString().isEmpty()) {
+            return existingId.toString();
+        }
+
+        // Generate a new unique ID (UUID)
+        String newId = java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase();
+        settings.put(installationIdKey, newId);
+
+        return newId;
     }
 
     /**
