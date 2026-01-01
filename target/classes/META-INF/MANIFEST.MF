@@ -1,7 +1,7 @@
 Manifest-Version: 1.0
-Atlassian-Build-Date: 2026-01-01T16:32:37+0330
+Atlassian-Build-Date: 2026-01-01T16:42:42+0330
 Atlassian-Plugin-Key: ir.atlassian.jira.plugins.persian-calendar-plugin
-Bnd-LastModified: 1767272558291
+Bnd-LastModified: 1767273163002
 Build-Jdk: 20.0.1
 Built-By: Hossein
 Bundle-Description: Displays Due Date field with Persian/Shamsi calendar
@@ -11,7 +11,7 @@ Bundle-ManifestVersion: 2
 Bundle-Name: Persian Calendar for Jira
 Bundle-SymbolicName: ir.atlassian.jira.plugins.persian-calendar-plugin
 Bundle-Vendor: Atlassian Jira IR
-Bundle-Version: 10.6.8
+Bundle-Version: 10.6.9
 Created-By: Apache Maven Bundle Plugin
 Import-Package: com.atlassian.jira.component;resolution:=optional,com.at
  lassian.jira.config.properties;resolution:=optional,com.atlassian.plugi

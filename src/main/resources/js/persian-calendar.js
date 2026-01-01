@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.6.8';
+    var PC_VERSION = '10.6.9';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -560,10 +560,10 @@
         var css = [
             '.pc-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9998; }',
             '.pc-popup { position: absolute; z-index: 9999; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); width: 340px; padding: 12px; direction: rtl; font-family: Tahoma, Arial, sans-serif; }',
-            '.pc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee; gap: 4px; }',
-            '.pc-header button { color: #fff !important; border: none; border-radius: 4px; padding: 6px 4px; cursor: pointer; font-size: 11px; white-space: nowrap; min-width: 62px; text-align: center; transition: all 0.2s; font-weight: bold; background: #f39c12; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }',
-            '.pc-header button:hover { background: #e67e22; box-shadow: 0 3px 6px rgba(0,0,0,0.16); transform: translateY(-1px); }',
-            '.pc-title { font-weight: bold; font-size: 16px; color: #172b4d; flex-grow: 1; text-align: center; min-width: 90px; }',
+            '.pc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee; gap: 2px; }',
+            '.pc-header button { color: #fff !important; border: none; border-radius: 4px; padding: 6px 2px; cursor: pointer; font-size: 11px; white-space: nowrap; min-width: 55px; text-align: center; transition: all 0.2s; font-weight: bold; background: #f39c12 !important; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }',
+            '.pc-header button:hover { background: #e67e22 !important; box-shadow: 0 3px 6px rgba(0,0,0,0.16); transform: translateY(-1px); }',
+            '.pc-title { font-weight: bold; font-size: 16px; color: #172b4d; flex-grow: 1; text-align: center; min-width: 80px; }',
             '.pc-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); text-align: center; margin-bottom: 6px; }',
             '.pc-weekdays span { font-size: 12px; color: #6b778c; padding: 6px 0; font-weight: bold; }',
             '.pc-days { display: grid; grid-template-columns: repeat(7, 1fr); gap: 3px; }',
@@ -575,13 +575,8 @@
             '.pc-day.today { background: #fff3e0; color: #e65100; font-weight: bold; border: 1px solid #ffcc80; }',
             '.pc-day.selected { background: #f39c12 !important; color: #fff !important; }',
             '.pc-footer { display: flex; justify-content: space-between; margin-top: 12px; padding-top: 10px; border-top: 1px solid #eee; gap: 8px; }',
-            '.pc-footer button { flex: 1; padding: 8px 5px; border: none; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; color: #fff !important; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }',
-            '.pc-confirm { background: #d35400; }',
-            '.pc-confirm:hover { background: #e67e22; box-shadow: 0 3px 8px rgba(211,84,0,0.3); transform: translateY(-1px); }',
-            '.pc-today { background: #f1c40f; }',
-            '.pc-today:hover { background: #f39c12; box-shadow: 0 3px 8px rgba(241,196,15,0.3); transform: translateY(-1px); }',
-            '.pc-clear { background: #c0392b; }',
-            '.pc-clear:hover { background: #e74c3c; box-shadow: 0 3px 8px rgba(192,57,43,0.3); transform: translateY(-1px); }',
+            '.pc-footer button { flex: 1; padding: 8px 5px; border: none !important; border-radius: 4px; cursor: pointer; font-weight: bold; font-size: 12px; color: #fff !important; background: #f39c12 !important; transition: all 0.2s; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }',
+            '.pc-footer button:hover { background: #e67e22 !important; box-shadow: 0 3px 8px rgba(243,156,18,0.3); transform: translateY(-1px); }',
             '.pc-time-picker { display: flex; align-items: center; justify-content: center; margin-top: 12px; padding: 10px; background: #fff8e1; border-radius: 6px; gap: 6px; border: 1px solid #ffe082; }',
             '.pc-time-picker label { font-size: 12px; font-weight: bold; color: #e65100; margin-left: 4px; }',
             '.pc-time-picker select { padding: 4px; border: 1px solid #ffcc80; border-radius: 3px; font-size: 13px; background: #fff; color: #5d4037; cursor: pointer; }',
