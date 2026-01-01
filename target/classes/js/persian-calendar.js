@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '11.1.0';
+    var PC_VERSION = '11.2.0';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -44,9 +44,9 @@
     // ========== LICENSE SYSTEM ==========
     var LICENSE_CACHE = {
         checked: false,
-        enabled: true,
+        enabled: false,  // Default to disabled (fail-closed)
         status: 'UNKNOWN',
-        message: '',
+        message: 'در حال بررسی وضعیت لایسنس...',
         daysRemaining: 0
     };
 
@@ -78,12 +78,12 @@
                         } catch (e) {
                             logWarn('Failed to parse license response');
                             LICENSE_CACHE.checked = true;
-                            LICENSE_CACHE.enabled = true; // Fail open for parse errors
+                            LICENSE_CACHE.enabled = false; // Fail-closed for parse errors
                         }
                     } else {
                         logWarn('License check failed (status ' + xhr.status + ')');
                         LICENSE_CACHE.checked = true;
-                        LICENSE_CACHE.enabled = true; // Fail open for network errors
+                        LICENSE_CACHE.enabled = false; // Fail-closed for network errors
                     }
                     callback(LICENSE_CACHE);
                 }
@@ -92,7 +92,7 @@
         } catch (e) {
             logError('License check error: ' + e.message);
             LICENSE_CACHE.checked = true;
-            LICENSE_CACHE.enabled = true;
+            LICENSE_CACHE.enabled = false; // Fail-closed for errors
             callback(LICENSE_CACHE);
         }
     }
@@ -1435,13 +1435,19 @@
 
             logInfo('DateTime detection: isDateTime=' + !!isDateTime + ', value="' + inputValue + '", class="' + inputClass + '", dataFormat="' + dataFormat + '"');
 
-            // Show our Persian calendar
+            // Show our Persian calendar (with license check)
             setTimeout(function () {
-                if (isDateTime) {
-                    showPersianDateTimePickerForInlineEdit($, $btn, $input);
-                } else {
-                    showPersianCalendarForInlineEdit($, $btn, $input);
-                }
+                checkLicenseStatus(function (license) {
+                    if (!license.enabled) {
+                        showLicenseExpiredMessage();
+                        return;
+                    }
+                    if (isDateTime) {
+                        showPersianDateTimePickerForInlineEdit($, $btn, $input);
+                    } else {
+                        showPersianCalendarForInlineEdit($, $btn, $input);
+                    }
+                });
             }, 0);
         };
 
