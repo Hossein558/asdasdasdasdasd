@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.6.4';
+    var PC_VERSION = '10.6.5';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -214,40 +214,50 @@
     var PERSIAN_WEEKDAYS = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
     var GREGORIAN_MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 
-    // Official Iranian Holidays (1403, 1404, 1405)
-    // Format: 'YYYY-MM-DD' (Shamsi)
+    // Official Iranian Holidays (1403 - 1407)
+    // Format: 'YYYY-MM-DD': 'Occasion Name'
     var IRAN_HOLIDAYS = {
         // 1403
-        '1403-1-1': 1, '1403-1-2': 1, '1403-1-3': 1, '1403-1-4': 1, '1403-1-12': 1, '1403-1-13': 1, '1403-1-22': 1, '1403-1-23': 1,
-        '1403-2-15': 1,
-        '1403-3-14': 1, '1403-3-15': 1, '1403-3-28': 1,
-        '1403-4-5': 1, '1403-4-25': 1, '1403-4-26': 1,
-        '1403-6-4': 1, '1403-6-12': 1, '1403-6-14': 1, '1403-6-22': 1,
-        '1403-9-15': 1,
-        '1403-10-25': 1,
-        '1403-11-9': 1, '1403-11-22': 1, '1403-11-26': 1,
-        '1403-12-29': 1,
+        '1403-1-1': 'عید نوروز', '1403-1-2': 'عید نوروز', '1403-1-3': 'عید نوروز', '1403-1-4': 'عید نوروز', '1403-1-12': 'روز جمهوری اسلامی', '1403-1-13': 'شهادت حضرت علی (ع) و روز طبیعت', '1403-1-22': 'عید سعید فطر', '1403-1-23': 'تعطیل به مناسبت عید سعید فطر',
+        '1403-2-15': 'شهادت امام جعفر صادق (ع)',
+        '1403-3-14': 'رحلت حضرت امام خمینی (ره)', '1403-3-15': 'قیام خونین ۱۵ خرداد', '1403-3-28': 'عید سعید قربان',
+        '1403-4-5': 'عید سعید غدیر خم', '1403-4-25': 'تاسوعای حسینی', '1403-4-26': 'عاشورای حسینی',
+        '1403-6-4': 'اربعین حسینی', '1403-6-12': 'رحلت حضرت رسول اکرم (ص) و شهادت حضرت امام حسن مجتبی (ع)', '1403-6-14': 'شهادت امام رضا (ع)', '1403-6-22': 'شهادت امام حسن عسکری (ع)',
+        '1403-9-15': 'شهادت حضرت فاطمه زهرا (س)',
+        '1403-10-25': 'ولادت حضرت امام علی (ع) و روز پدر',
+        '1403-11-9': 'مبعث رسول اکرم (ص)', '1403-11-22': 'پیروزی انقلاب اسلامی', '1403-11-26': 'ولادت حضرت ولی عصر (عج)',
+        '1403-12-29': 'روز ملی شدن صنعت نفت ایران',
         // 1404
-        '1404-1-1': 1, '1404-1-2': 1, '1404-1-3': 1, '1404-1-4': 1, '1404-1-11': 1, '1404-1-12': 1, '1404-1-13': 1,
-        '1404-2-4': 1,
-        '1404-3-14': 1, '1404-3-15': 1, '1404-3-16': 1, '1404-3-24': 1,
-        '1404-4-14': 1, '1404-4-15': 1,
-        '1404-5-23': 1, '1404-5-31': 1,
-        '1404-6-2': 1, '1404-6-10': 1, '1404-6-19': 1,
-        '1404-9-3': 1,
-        '1404-10-13': 1, '1404-10-27': 1,
-        '1404-11-15': 1, '1404-11-22': 1,
-        '1404-12-20': 1, '1404-12-29': 1,
+        '1404-1-1': 'عید نوروز', '1404-1-2': 'عید نوروز و شهادت حضرت علی (ع)', '1404-1-3': 'عید نوروز', '1404-1-4': 'عید نوروز', '1404-1-11': 'عید سعید فطر', '1404-1-12': 'تعطیل به مناسبت عید فطر و روز جمهوری اسلامی', '1404-1-13': 'روز طبیعت',
+        '1404-2-4': 'شهادت امام جعفر صادق (ع)',
+        '1404-3-14': 'رحلت حضرت امام خمینی (ره)', '1404-3-15': 'قیام ۱۵ خرداد', '1404-3-16': 'عید سعید قربان', '1404-3-24': 'عید سعید غدیر خم',
+        '1404-4-14': 'تاسوعای حسینی', '1404-4-15': 'عاشورای حسینی',
+        '1404-5-23': 'اربعین حسینی', '1404-5-31': 'رحلت حضرت رسول اکرم (ص) و شهادت امام حسن مجتبی (ع)',
+        '1404-6-2': 'شهادت امام رضا (ع)', '1404-6-10': 'شهادت امام حسن عسکری (ع)', '1404-6-19': 'میلاد رسول اکرم (ص) و امام جعفر صادق (ع)',
+        '1404-9-3': 'شهادت حضرت فاطمه (س)',
+        '1404-10-13': 'ولادت حضرت امام علی (ع) و روز پدر', '1404-10-27': 'مبعث حضرت رسول اکرم (ص)',
+        '1404-11-15': 'ولادت حضرت قائم (عج) و جشن نیمه شعبان', '1404-11-22': 'پیروزی انقلاب اسلامی ایران',
+        '1404-12-20': 'شهادت حضرت علی (ع)', '1404-12-29': 'روز ملی شدن صنعت نفت ایران',
         // 1405
-        '1405-1-1': 1, '1405-1-2': 1, '1405-1-3': 1, '1405-1-4': 1, '1405-1-12': 1, '1405-1-13': 1, '1405-1-25': 1,
-        '1405-3-6': 1, '1405-3-14': 1, '1405-3-15': 1,
-        '1405-4-3': 1, '1405-4-4': 1,
-        '1405-5-13': 1, '1405-5-21': 1, '1405-5-22': 1, '1405-5-30': 1,
-        '1405-6-8': 1,
-        '1405-8-22': 1,
-        '1405-10-2': 1, '1405-10-16': 1,
-        '1405-11-4': 1, '1405-11-22': 1,
-        '1405-12-9': 1, '1405-12-19': 1, '1405-12-20': 1
+        '1405-1-1': 'عید نوروز و عید سعید فطر', '1405-1-2': 'عید نوروز و تعطیل به مناسبت عید فطر', '1405-1-3': 'عید نوروز', '1405-1-4': 'عید نوروز', '1405-1-12': 'روز جمهوری اسلامی ایران', '1405-1-13': 'روز طبیعت', '1405-1-25': 'شهادت امام جعفر صادق (ع)',
+        '1405-3-6': 'عید سعید قربان', '1405-3-14': 'عید غدیر خم و رحلت حضرت امام خمینی (ره)', '1405-3-15': 'قیام ۱۵ خرداد',
+        '1405-4-3': 'تاسوعای حسینی', '1405-4-4': 'عاشورای حسینی',
+        '1405-5-13': 'اربعین حسینی', '1405-5-21': 'رحلت رسول اکرم (ص) و شهادت امام حسن مجتبی (ع)', '1405-5-22': 'شهادت امام رضا (ع)', '1405-5-30': 'شهادت امام حسن عسکری (ع)',
+        '1405-6-8': 'میلاد رسول اکرم (ص) و امام جعفر صادق (ع)',
+        '1405-8-22': 'شهادت حضرت زهرا (س)',
+        '1405-10-2': 'ولادت امام علی (ع) و روز پدر', '1405-10-16': 'مبعث حضرت رسول اکرم (ص)',
+        '1405-11-4': 'ولادت حضرت قائم (عج) و جشن نیمه شعبان', '1405-11-22': 'پیروزی انقلاب اسلامی',
+        '1405-12-9': 'شهادت حضرت علی (ع)', '1405-12-19': 'عید سعید فطر', '1405-12-20': 'تعطیل به مناسبت عید فطر',
+        // 1406
+        '1406-1-1': 'عید نوروز', '1406-1-2': 'عید نوروز', '1406-1-3': 'عید نوروز', '1406-1-4': 'عید نوروز', '1406-1-12': 'روز جمهوری اسلامی ایران', '1406-1-13': 'روز طبیعت', '1406-1-14': 'شهادت امام جعفر صادق (ع)',
+        '1406-3-4': 'عید سعید غدیر خم', '1406-3-14': 'رحلت حضرت امام خمینی (ره)', '1406-3-15': 'قیام خونین ۱۵ خرداد', '1406-3-25': 'تاسوعای حسینی', '1406-3-26': 'عاشورای حسینی',
+        '1406-11-22': 'پیروزی انقلاب اسلامی', '1406-11-29': 'شهادت حضرت علی (ع)',
+        '1406-12-8': 'عید سعید فطر', '1406-12-9': 'تعطیل به مناسبت عید فطر', '1406-12-29': 'روز ملی شدن صنعت نفت ایران',
+        // 1407
+        '1407-1-1': 'عید نوروز', '1407-1-2': 'عید نوروز', '1407-1-3': 'عید نوروز', '1407-1-4': 'عید نوروز', '1407-1-12': 'روز جمهوری اسلامی ایران', '1407-1-13': 'روز طبیعت',
+        '1407-3-14': 'رحلت حضرت امام خمینی (ره)', '1407-3-15': 'قیام خونین ۱۵ خرداد',
+        '1407-11-22': 'پیروزی انقلاب اسلامی',
+        '1407-12-29': 'روز ملی شدن صنعت نفت ایران'
     };
 
     // ========== DATE FORMAT SETTINGS ==========
@@ -560,7 +570,8 @@
             '.pc-day { text-align: center; padding: 10px 4px; cursor: pointer; border-radius: 4px; font-size: 14px; transition: all 0.1s; }',
             '.pc-day:not(.empty):hover { background: #deebff; }',
             '.pc-day.empty { cursor: default; }',
-            '.pc-day.holiday, .pc-day.friday { color: #d04437 !important; font-weight: bold; }',
+            '.pc-day.holiday, .pc-day.friday { color: #d04437 !important; font-weight: bold; background: #fff5f5; }',
+            '.pc-day.holiday:hover, .pc-day.friday:hover { background: #feebeb; }',
             '.pc-day.today { background: #e3fcef; color: #006644; font-weight: bold; border: 1px solid #79f2c0; }',
             '.pc-day.selected { background: #0052cc !important; color: #fff !important; }',
             '.pc-footer { display: flex; justify-content: space-between; margin-top: 12px; padding-top: 8px; border-top: 1px solid #eee; }',
@@ -716,19 +727,26 @@
                 var isSelected = selectedDate && (d === selectedDate.jd && viewMonth === selectedDate.jm && viewYear === selectedDate.jy);
                 var isToday = (d === todayJ.jd && viewMonth === todayJ.jm && viewYear === todayJ.jy);
 
-                // Highlight Fridays and Holidays
+                // Highlight Fridays and Holidays with Occasions
                 var weekdayIdx = (persianFirstDay + d - 1) % 7;
                 var holidayKey = viewYear + '-' + viewMonth + '-' + d;
                 var isFriday = (weekdayIdx === 6);
-                var isHoliday = IRAN_HOLIDAYS[holidayKey];
+                var holidayOccasion = IRAN_HOLIDAYS[holidayKey];
 
                 var classes = 'pc-day';
                 if (isSelected) classes += ' selected';
                 if (isToday) classes += ' today';
-                if (isFriday) classes += ' friday';
-                if (isHoliday) classes += ' holiday';
 
-                html += '<span class="' + classes + '" data-day="' + d + '">' + d + '</span>';
+                var titleAttr = '';
+                if (holidayOccasion) {
+                    classes += ' holiday';
+                    titleAttr = ' title="' + holidayOccasion + '"';
+                } else if (isFriday) {
+                    classes += ' friday';
+                    titleAttr = ' title="جمعه"';
+                }
+
+                html += '<span class="' + classes + '" data-day="' + d + '"' + titleAttr + '>' + d + '</span>';
             }
 
             html += '</div>';
@@ -949,19 +967,26 @@
                 var isSelected = selectedDate && (d === selectedDate.jd && viewMonth === selectedDate.jm && viewYear === selectedDate.jy);
                 var isToday = (d === todayJ.jd && viewMonth === todayJ.jm && viewYear === todayJ.jy);
 
-                // Highlight Fridays and Holidays
+                // Highlight Fridays and Holidays with Occasions
                 var weekdayIdx = (persianFirstDay + d - 1) % 7;
                 var holidayKey = viewYear + '-' + viewMonth + '-' + d;
                 var isFriday = (weekdayIdx === 6);
-                var isHoliday = IRAN_HOLIDAYS[holidayKey];
+                var holidayOccasion = IRAN_HOLIDAYS[holidayKey];
 
                 var cls = 'pc-day';
                 if (isSelected) cls += ' selected';
                 if (isToday) cls += ' today';
-                if (isFriday) cls += ' friday';
-                if (isHoliday) cls += ' holiday';
 
-                html += '<span class="' + cls + '" data-day="' + d + '">' + d + '</span>';
+                var titleAttr = '';
+                if (holidayOccasion) {
+                    cls += ' holiday';
+                    titleAttr = ' title="' + holidayOccasion + '"';
+                } else if (isFriday) {
+                    cls += ' friday';
+                    titleAttr = ' title="جمعه"';
+                }
+
+                html += '<span class="' + cls + '" data-day="' + d + '"' + titleAttr + '>' + d + '</span>';
             }
 
             html += '</div>';
@@ -1570,21 +1595,25 @@
                 var isSelected = selectedDate && (d === selectedDate.jd && viewMonth === selectedDate.jm && viewYear === selectedDate.jy);
                 var isToday = (d === todayJ.jd && viewMonth === todayJ.jm && viewYear === todayJ.jy);
 
-                // Highlight Fridays and Holidays
+                // Highlight Fridays and Holidays with Occasions
                 var weekdayIdx = (persianFirstDay + d - 1) % 7;
                 var holidayKey = viewYear + '-' + viewMonth + '-' + d;
                 var isFriday = (weekdayIdx === 6);
-                var isHoliday = IRAN_HOLIDAYS[holidayKey];
+                var holidayOccasion = IRAN_HOLIDAYS[holidayKey];
 
-                var classes = 'pc-day';
-                if (isSelected) classes += ' selected';
-                if (isToday) classes += ' today';
-                if (isFriday) classes += ' friday';
-                if (isHoliday) classes += ' holiday';
+                var classes = 'pc-day' + (isSelected ? ' selected' : '') + (isToday ? ' today' : '');
 
-                html += '<span class="' + classes + '" data-day="' + d + '">' + d + '</span>';
+                var titleAttr = '';
+                if (holidayOccasion) {
+                    classes += ' holiday';
+                    titleAttr = ' title="' + holidayOccasion + '"';
+                } else if (isFriday) {
+                    classes += ' friday';
+                    titleAttr = ' title="جمعه"';
+                }
+
+                html += '<span class="' + classes + '" data-day="' + d + '"' + titleAttr + '>' + d + '</span>';
             }
-
             html += '</div>';
             html += '<div class="pc-footer">';
             html += '<button type="button" class="pc-confirm primary">تأیید</button>';
@@ -1910,17 +1939,24 @@
                 var isSelected = selectedDate && (d === selectedDate.jd && viewMonth === selectedDate.jm && viewYear === selectedDate.jy);
                 var isToday = (d === todayJ.jd && viewMonth === todayJ.jm && viewYear === todayJ.jy);
 
-                // Highlight Fridays and Holidays
+                // Highlight Fridays and Holidays with Occasions
                 var weekdayIdx = (persianFirstDay + d - 1) % 7;
                 var holidayKey = viewYear + '-' + viewMonth + '-' + d;
                 var isFriday = (weekdayIdx === 6);
-                var isHoliday = IRAN_HOLIDAYS[holidayKey];
+                var holidayOccasion = IRAN_HOLIDAYS[holidayKey];
 
                 var classes = 'pc-day' + (isSelected ? ' selected' : '') + (isToday ? ' today' : '');
-                if (isFriday) classes += ' friday';
-                if (isHoliday) classes += ' holiday';
 
-                html += '<span class="' + classes + '" data-day="' + d + '">' + d + '</span>';
+                var titleAttr = '';
+                if (holidayOccasion) {
+                    classes += ' holiday';
+                    titleAttr = ' title="' + holidayOccasion + '"';
+                } else if (isFriday) {
+                    classes += ' friday';
+                    titleAttr = ' title="جمعه"';
+                }
+
+                html += '<span class="' + classes + '" data-day="' + d + '"' + titleAttr + '>' + d + '</span>';
             }
             html += '</div>';
 
