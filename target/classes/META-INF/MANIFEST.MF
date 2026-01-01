@@ -1,7 +1,7 @@
 Manifest-Version: 1.0
-Atlassian-Build-Date: 2026-01-01T19:58:02+0330
+Atlassian-Build-Date: 2026-01-01T20:13:00+0330
 Atlassian-Plugin-Key: ir.atlassian.jira.plugins.persian-calendar-plugin
-Bnd-LastModified: 1767284883281
+Bnd-LastModified: 1767285780764
 Build-Jdk: 20.0.1
 Built-By: Hossein
 Bundle-Description: Displays Due Date field with Persian/Shamsi calendar
@@ -11,16 +11,15 @@ Bundle-ManifestVersion: 2
 Bundle-Name: Persian Calendar for Jira
 Bundle-SymbolicName: ir.atlassian.jira.plugins.persian-calendar-plugin
 Bundle-Vendor: Atlassian Jira IR
-Bundle-Version: 11.2.1
+Bundle-Version: 11.2.2
 Created-By: Apache Maven Bundle Plugin
 Import-Package: com.atlassian.jira.component;resolution:=optional,com.at
  lassian.jira.config.properties;resolution:=optional,com.atlassian.jira.
  security;resolution:=optional,com.atlassian.jira.user;resolution:=optio
  nal,com.atlassian.plugins.rest.common.security;resolution:=optional,com
  .atlassian.sal.api.pluginsettings;resolution:=optional,javax.crypto;res
- olution:=optional,javax.crypto.spec;resolution:=optional,javax.inject;r
- esolution:=optional,javax.servlet;resolution:=optional,javax.servlet.ht
- tp;resolution:=optional,javax.ws.rs;resolution:=optional,javax.ws.rs.co
- re;resolution:=optional
+ olution:=optional,javax.crypto.spec;resolution:=optional,javax.servlet;
+ resolution:=optional,javax.servlet.http;resolution:=optional,javax.ws.r
+ s;resolution:=optional,javax.ws.rs.core;resolution:=optional
 Spring-Context: *
 Tool: Bnd-3.5.0.201709291849
