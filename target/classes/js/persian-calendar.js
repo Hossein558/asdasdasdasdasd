@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '10.5.16';
+    var PC_VERSION = '10.6.1';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -2106,11 +2106,20 @@
             var hasTimeInDescription = descriptionText.match(/h:mm/i) || descriptionText.match(/time/i) || descriptionText.match(/\d{1,2}:\d{2}/);
 
             // Check specific known DateTime field IDs/names
+            var id = $original.attr('id') || '';
+            var name = $original.attr('name') || '';
+
             var isKnownDateTimeField =
-                $original.attr('id') === 'log-work-form-date-logged-date-picker' ||
-                $original.attr('id') === 'log-work-date-logged-date-picker' ||
-                $original.attr('name') === 'startDate' ||
-                $original.attr('name') === 'worklog_startDate';
+                id === 'log-work-form-date-logged-date-picker' ||
+                id === 'log-work-date-logged-date-picker' ||
+                id.indexOf('created') !== -1 ||
+                id.indexOf('updated') !== -1 ||
+                id.indexOf('resolved') !== -1 ||
+                id.indexOf('resolutiondate') !== -1 ||
+                name === 'startDate' ||
+                name === 'worklog_startDate' ||
+                name.indexOf('created') !== -1 ||
+                name.indexOf('updated') !== -1;
 
             // Combine all checks
             var isDateTimeField = hasTimeInValue || hasTimeInPlaceholder || hasTimeInDescription || isKnownDateTimeField;
@@ -2174,16 +2183,33 @@
                     e.preventDefault();
                     e.stopPropagation();
 
-                    showPersianCalendar($btn, $original, function (selectedDate) {
-                        if (selectedDate) {
-                            var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
-                            var formattedDate = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
-                            $original.val(formattedDate);
-                            $persianDisplay.text(formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
-                            logInfo('Search date set: ' + formattedDate + ' / ' + formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
-                            $original.trigger('change').trigger('input').trigger('blur');
-                        }
-                    });
+                    if (isDateTimeField) {
+                        showPersianDateTimePicker($btn, $original, function (selectedDateTime) {
+                            if (selectedDateTime) {
+                                var minStr = selectedDateTime.minute < 10 ? '0' + selectedDateTime.minute : '' + selectedDateTime.minute;
+                                var timeStr = selectedDateTime.hour + ':' + minStr + ' ' + selectedDateTime.ampm;
+                                var pDisplay = formatPersianDate(selectedDateTime.jy, selectedDateTime.jm, selectedDateTime.jd) + ' ' + timeStr;
+                                $persianDisplay.text(pDisplay);
+
+                                var gDate = toGregorian(selectedDateTime.jy, selectedDateTime.jm, selectedDateTime.jd);
+                                var formattedDate = formatJiraDateTime(gDate.gy, gDate.gm, gDate.gd, selectedDateTime.hour, selectedDateTime.minute, selectedDateTime.ampm);
+                                $original.val(formattedDate);
+                                logInfo('Search DateTime set: ' + formattedDate);
+                                $original.trigger('change').trigger('input').trigger('blur');
+                            }
+                        });
+                    } else {
+                        showPersianCalendar($btn, $original, function (selectedDate) {
+                            if (selectedDate) {
+                                var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
+                                var formattedDate = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
+                                $original.val(formattedDate);
+                                $persianDisplay.text(formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
+                                logInfo('Search date set: ' + formattedDate + ' / ' + formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
+                                $original.trigger('change').trigger('input').trigger('blur');
+                            }
+                        });
+                    }
                 });
             } else {
                 // CREATE/EDIT PAGE: Replace the input completely
