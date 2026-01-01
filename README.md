@@ -92,23 +92,98 @@ This will generate a JAR file in the `target/` directory (e.g., `persian-calenda
     /opt/atlassian/jira/bin/start-jira.sh
     ```
 
+## 🔐 License System
+
+The plugin uses a custom license system to validate usage. Customers must obtain a license key to activate the plugin.
+
+### License Format
+```
+[TYPE]-[SERVER_ID]-[EXPIRY_DATE]-[SIGNATURE]
+```
+Example: `F-A1B2C3D4-20261231-8F3E2A1B`
+
+| Part | Description |
+|:---|:---|
+| **TYPE** | `F` = Full License, `T` = Trial License |
+| **SERVER_ID** | Unique 8-character ID from customer's Jira installation |
+| **EXPIRY_DATE** | Format: `YYYYMMDD` |
+| **SIGNATURE** | HMAC-SHA256 signature (first 8 hex chars) |
+
+### Customer Flow
+
+1. **Customer gets Server ID**: Navigate to `https://<jira-host>/plugins/servlet/persian-calendar/license`
+2. **Customer sends Server ID**: The customer sends the 8-character Server ID to you
+3. **You generate license**: Use the License Generator tool (see below)
+4. **Customer activates**: Customer enters the license key in the same page and clicks "Activate"
+
+### Generating a License
+
+Use the `LicenseGenerator.java` tool in the `tools/` directory:
+
+```bash
+# Compile the generator
+cd tools
+javac LicenseGenerator.java
+
+# Run the generator
+java LicenseGenerator
+```
+
+Interactive prompts:
+```
+╔══════════════════════════════════════════╗
+║   Persian Calendar License Generator     ║
+╚══════════════════════════════════════════╝
+
+Enter Server ID (8 chars, e.g., A1B2C3D4): A1B2C3D4
+License Type (F=Full, T=Trial): F
+Expiry Date (YYYY-MM-DD): 2026-12-31
+
+════════════════════════════════════════════
+Generated License Key:
+
+  F-A1B2C3D4-20261231-8F3E2A1B
+
+════════════════════════════════════════════
+```
+
+### License Admin Panel
+
+Customers access the license panel at:
+```
+/plugins/servlet/persian-calendar/license
+```
+
+Features:
+- **Server ID Display**: Shows the unique Server ID for the installation
+- **License Activation Form**: Enter and activate license keys
+- **Status Display**: Shows current license status (Active/Inactive/Expired)
+
+### Grace Period
+- When a license expires, there is a **10-day grace period** before the calendar is disabled
+- During grace period, a warning message is shown to the user
+
+---
+
 ## 📝 Version History
 
+*   **v11.1.0**: Added **License Admin Panel** - Customers can view Server ID and activate licenses via `/plugins/servlet/persian-calendar/license`.
+*   **v11.0.0**: **Rebranding to DesktopCenter.ir** - Updated vendor info, added premium orange plugin icon.
+*   **v10.6.9**: Unified Orange UI - All buttons now use vibrant orange theme, fixed header layout for long months.
+*   **v10.6.8**: Modern Orange UI Redesign with premium aesthetics.
+*   **v10.6.7**: UI Readability hotfix - Darker colors, high-contrast text.
+*   **v10.6.6**: Initial UI Colorization with themed buttons.
+*   **v10.6.5**: Advanced Holidays - Occasions, tooltips, data extended to 1407.
 *   **v10.6.2**: Replaced navigation arrows with text labels ("سال قبل", "ماه قبل", etc.) for better usability in all pickers.
 *   **v10.6.1**: Fixed DateTime detection regression in Jira Search (Basic Search). Improved detection of Created/Updated/Resolved fields.
 *   **v10.6.0**: Added **Custom License System** with HMAC-SHA256 validation, Server ID binding, and 10-day grace period.
 *   **v10.5.17**: Swapped functionality of Next/Prev buttons (Right button now goes to Previous, Left goes to Next) as per request.
-*   **v10.5.17**: Confirmed compatibility with JXL (Jira Excel-like Issue Editor).
-*   **v10.4.12**: Fixed unified arrow layout for both Date and DateTime pickers (سال قبل → ماه قبل → عنوان → ماه بعد → سال بعد).
-*   **v10.4.1**: Added smart date parser with multi-format support.
-*   **v10.4.0**: Added REST API for dynamic date format detection.
-*   **v10.3.34**: Added JSM Customer Portal support.
-*   **v10.3.28**: Fixed inline edit blur prevention for DateTime fields.
-*   **v10.3.24**: Merged inline edit features to master.
-*   **v10.3.23**: Fixed date format output to match Jira's expected Gregorian format.
-*   **v10.3.21**: Implemented capture phase event listeners for inline edit interception.
 
 ## 🤝 Contributing
 1.  Use the `master` branch for the latest stable code.
 2.  Create feature branches for new developments.
 3.  Ensure `pom.xml` version is updated before merging.
+
+## 📜 License
+
+This plugin is commercial software provided by [DesktopCenter.ir](https://desktopcenter.ir/).
