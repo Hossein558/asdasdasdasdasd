@@ -1,3 +1,4 @@
+ir\atlassian\jira\plugins\servlet\LicenseServlet.class
 ir\atlassian\jira\plugins\license\LicenseManager$LicenseStatus.class
 ir\atlassian\jira\plugins\license\LicenseManager.class
 ir\atlassian\jira\plugins\rest\LicenseResource.class

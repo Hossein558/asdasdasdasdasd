@@ -2,7 +2,7 @@
 <applicationDocs targetNamespace="http://wadl.dev.java.net/2009/02">
 
     <doc xml:lang="en" title="REST Resources Provided By: Persian Calendar Plugin">
-        Displays Due Date field with Persian/Shamsi calendar while storing dates in Gregorian format
+        Persian/Shamsi calendar for Jira - Provided by DesktopCenter.ir
     </doc>
 
 </applicationDocs>

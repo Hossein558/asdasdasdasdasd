@@ -1,0 +1,176 @@
+package ir.atlassian.jira.plugins.servlet;
+
+import com.atlassian.jira.component.ComponentAccessor;
+import com.atlassian.jira.security.JiraAuthenticationContext;
+import com.atlassian.jira.user.ApplicationUser;
+import com.atlassian.sal.api.pluginsettings.PluginSettingsFactory;
+import ir.atlassian.jira.plugins.license.LicenseManager;
+import ir.atlassian.jira.plugins.license.LicenseManager.LicenseInfo;
+
+import javax.servlet.ServletException;
+import javax.servlet.http.HttpServlet;
+import javax.servlet.http.HttpServletRequest;
+import javax.servlet.http.HttpServletResponse;
+import java.io.IOException;
+import java.io.PrintWriter;
+
+/**
+ * License Administration Servlet
+ * Provides UI for viewing Server ID and activating license
+ */
+public class LicenseServlet extends HttpServlet {
+
+    private LicenseManager getLicenseManager() {
+        PluginSettingsFactory psf = ComponentAccessor.getOSGiComponentInstanceOfType(PluginSettingsFactory.class);
+        return new LicenseManager(psf);
+    }
+
+    @Override
+    protected void doGet(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        // Check if user is logged in
+        JiraAuthenticationContext authContext = ComponentAccessor.getJiraAuthenticationContext();
+        ApplicationUser user = authContext.getLoggedInUser();
+
+        if (user == null) {
+            response.sendRedirect(request.getContextPath() + "/login.jsp");
+            return;
+        }
+
+        LicenseManager licenseManager = getLicenseManager();
+        String serverId = licenseManager.getServerIdHash();
+        LicenseInfo licenseInfo = licenseManager.validateLicense();
+        String message = request.getParameter("message");
+        String messageType = request.getParameter("type");
+
+        response.setContentType("text/html;charset=UTF-8");
+        PrintWriter out = response.getWriter();
+
+        out.println("<!DOCTYPE html>");
+        out.println("<html dir='rtl' lang='fa'>");
+        out.println("<head>");
+        out.println("<meta charset='UTF-8'>");
+        out.println("<title>مدیریت لایسنس - تقویم فارسی</title>");
+        out.println("<style>");
+        out.println(
+                ".license-container { max-width: 600px; margin: 30px auto; padding: 25px; background: #fff; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); font-family: Tahoma, Arial, sans-serif; }");
+        out.println(
+                ".license-header { text-align: center; margin-bottom: 25px; padding-bottom: 15px; border-bottom: 2px solid #f39c12; }");
+        out.println(".license-header h1 { color: #333; font-size: 24px; margin: 0; }");
+        out.println(
+                ".section { margin-bottom: 25px; padding: 20px; background: #f9f9f9; border-radius: 6px; border-right: 4px solid #f39c12; }");
+        out.println(".section-title { font-weight: bold; color: #333; margin-bottom: 12px; font-size: 16px; }");
+        out.println(
+                ".server-id { padding: 12px 15px; background: #fff; border: 2px solid #ddd; border-radius: 5px; font-family: monospace; font-size: 18px; font-weight: bold; color: #e67e22; letter-spacing: 2px; display: inline-block; }");
+        out.println(
+                ".license-input { width: 100%; padding: 12px 15px; border: 2px solid #ddd; border-radius: 5px; font-size: 14px; font-family: monospace; margin-bottom: 15px; box-sizing: border-box; direction: ltr; text-align: left; }");
+        out.println(
+                ".activate-btn { width: 100%; padding: 14px; background: #27ae60; color: #fff; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 16px; }");
+        out.println(".activate-btn:hover { background: #2ecc71; }");
+        out.println(".status-box { padding: 15px; border-radius: 5px; text-align: center; }");
+        out.println(".status-valid { background: #d4edda; color: #155724; border: 1px solid #c3e6cb; }");
+        out.println(".status-invalid { background: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }");
+        out.println(".status-none { background: #e2e3e5; color: #383d41; border: 1px solid #d6d8db; }");
+        out.println(
+                ".message-success { background: #d4edda; color: #155724; padding: 12px; border-radius: 5px; margin-bottom: 20px; text-align: center; }");
+        out.println(
+                ".message-error { background: #f8d7da; color: #721c24; padding: 12px; border-radius: 5px; margin-bottom: 20px; text-align: center; }");
+        out.println(".hint { margin-top: 10px; color: #666; font-size: 13px; }");
+        out.println(
+                ".footer-link { text-align: center; margin-top: 20px; padding-top: 15px; border-top: 1px solid #eee; }");
+        out.println(".footer-link a { color: #f39c12; text-decoration: none; }");
+        out.println("</style>");
+        out.println("</head>");
+        out.println("<body style='background: #f5f5f5;'>");
+        out.println("<div class='license-container'>");
+        out.println("<div class='license-header'>");
+        out.println("<div style='font-size: 48px;'>📅</div>");
+        out.println("<h1>تقویم فارسی - مدیریت لایسنس</h1>");
+        out.println("</div>");
+
+        // Message
+        if (message != null && !message.isEmpty()) {
+            out.println("<div class='message-" + (messageType != null ? messageType : "success") + "'>" + message
+                    + "</div>");
+        }
+
+        // Server ID Section
+        out.println("<div class='section'>");
+        out.println("<div class='section-title'>🔑 شناسه سرور (Server ID)</div>");
+        out.println("<div class='server-id'>" + serverId + "</div>");
+        out.println("<div class='hint'>⚠️ این شناسه را برای دریافت لایسنس به فروشنده ارسال کنید</div>");
+        out.println("</div>");
+
+        // License Input Section
+        out.println("<div class='section'>");
+        out.println("<div class='section-title'>🔐 فعال‌سازی لایسنس</div>");
+        out.println("<form method='POST'>");
+        out.println(
+                "<input type='text' name='licenseKey' class='license-input' placeholder='کلید لایسنس (مثال: F-A1B2C3D4-20261231-8F3E2A1B)'>");
+        out.println("<button type='submit' class='activate-btn'>🔓 فعال‌سازی لایسنس</button>");
+        out.println("</form>");
+        out.println("</div>");
+
+        // Status Section
+        out.println("<div class='section'>");
+        out.println("<div class='section-title'>📊 وضعیت لایسنس</div>");
+        String statusClass = licenseInfo.isCalendarEnabled() ? "status-valid"
+                : (licenseInfo.getStatus().name().equals("NO_LICENSE") ? "status-none" : "status-invalid");
+        String statusIcon = licenseInfo.isCalendarEnabled() ? "✅"
+                : (licenseInfo.getStatus().name().equals("NO_LICENSE") ? "⚪" : "❌");
+        String statusText = licenseInfo.isCalendarEnabled() ? "فعال"
+                : (licenseInfo.getStatus().name().equals("NO_LICENSE") ? "بدون لایسنس" : "غیرفعال");
+        out.println("<div class='status-box " + statusClass + "'>");
+        out.println("<div style='font-size: 24px;'>" + statusIcon + "</div>");
+        out.println("<div style='font-weight: bold; font-size: 16px;'>" + statusText + "</div>");
+        out.println("<div style='margin-top: 8px; font-size: 14px;'>" + licenseInfo.getMessage() + "</div>");
+        out.println("</div>");
+        out.println("</div>");
+
+        // Footer
+        out.println("<div class='footer-link'>");
+        out.println("<a href='https://desktopcenter.ir/' target='_blank'>🌐 خرید لایسنس از DesktopCenter.ir</a>");
+        out.println("</div>");
+        out.println("</div>");
+        out.println("</body>");
+        out.println("</html>");
+    }
+
+    @Override
+    protected void doPost(HttpServletRequest request, HttpServletResponse response)
+            throws ServletException, IOException {
+        // Check if user is logged in
+        JiraAuthenticationContext authContext = ComponentAccessor.getJiraAuthenticationContext();
+        ApplicationUser user = authContext.getLoggedInUser();
+
+        if (user == null) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
+
+        String licenseKey = request.getParameter("licenseKey");
+        String message;
+        String messageType;
+
+        LicenseManager licenseManager = getLicenseManager();
+
+        if (licenseKey != null && !licenseKey.trim().isEmpty()) {
+            licenseManager.setLicenseKey(licenseKey.trim().toUpperCase());
+            LicenseInfo info = licenseManager.validateLicense();
+
+            if (info.isCalendarEnabled()) {
+                message = "✅ لایسنس با موفقیت فعال شد!";
+                messageType = "success";
+            } else {
+                message = "❌ " + info.getMessage();
+                messageType = "error";
+            }
+        } else {
+            message = "❌ لطفاً کلید لایسنس را وارد کنید";
+            messageType = "error";
+        }
+
+        response.sendRedirect(request.getRequestURI() + "?message=" +
+                java.net.URLEncoder.encode(message, "UTF-8") + "&type=" + messageType);
+    }
+}

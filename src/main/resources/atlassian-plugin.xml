@@ -1,7 +1,7 @@
 <atlassian-plugin key="ir.atlassian.jira.plugins.persian-calendar-plugin" name="Persian Calendar Plugin" plugins-version="2">
     <plugin-info>
         <description>Persian/Shamsi calendar for Jira - Provided by DesktopCenter.ir</description>
-        <version>11.0.0</version>
+        <version>11.1.0</version>
         <vendor name="DesktopCenter" url="https://desktopcenter.ir/" />
         <param name="plugin-icon">images/pluginIcon.png</param>
         <param name="plugin-logo">images/pluginLogo.png</param>
@@ -40,6 +40,19 @@
         <description>Initializes Persian Calendar</description>
         <resource name="view" type="velocity" location="/templates/persian-calendar-init.vm"/>
     </web-panel>
+
+    <!-- License Admin Servlet -->
+    <servlet key="license-servlet" name="Persian Calendar License Admin" class="ir.atlassian.jira.plugins.servlet.LicenseServlet">
+        <description>License management page for Persian Calendar</description>
+        <url-pattern>/persian-calendar/license</url-pattern>
+    </servlet>
+
+    <!-- Admin Menu Link -->
+    <web-item key="persian-calendar-license-link" name="Persian Calendar License" section="system.admin/system" weight="100">
+        <description>Link to Persian Calendar license management</description>
+        <label>لایسنس تقویم فارسی</label>
+        <link>/plugins/servlet/persian-calendar/license</link>
+    </web-item>
 
     <!-- REST API for Date Format Settings -->
     <rest key="persian-calendar-rest" path="/persian-calendar" version="1.0">

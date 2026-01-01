@@ -1,21 +1,25 @@
-<repository lastmodified='20260101044243.268'>
-  <resource id='ir.atlassian.jira.plugins.persian-calendar-plugin/10.6.9' symbolicname='ir.atlassian.jira.plugins.persian-calendar-plugin' presentationname='Persian Calendar for Jira' uri='persian-calendar-plugin-10.6.9.jar' version='10.6.9'>
+<repository lastmodified='20260101062521.912'>
+  <resource id='ir.atlassian.jira.plugins.persian-calendar-plugin/11.1.0' symbolicname='ir.atlassian.jira.plugins.persian-calendar-plugin' presentationname='Persian Calendar for Jira' uri='persian-calendar-plugin-11.1.0.jar' version='11.1.0'>
     <description>Displays Due Date field with Persian/Shamsi calendar while storing in Gregorian format</description>
-    <size>97732</size>
+    <size>902538</size>
     <documentation>https://atlassian-jira.ir/</documentation>
     <capability name='bundle'>
       <p n='symbolicname' v='ir.atlassian.jira.plugins.persian-calendar-plugin'/>
       <p n='presentationname' v='Persian Calendar for Jira'/>
-      <p n='version' t='version' v='10.6.9'/>
+      <p n='version' t='version' v='11.1.0'/>
       <p n='manifestversion' v='2'/>
     </capability>
     <require name='package' filter='(&amp;(package=com.atlassian.jira.component))' extend='false' multiple='false' optional='true'>Import package com.atlassian.jira.component;resolution:=optional</require>
     <require name='package' filter='(&amp;(package=com.atlassian.jira.config.properties))' extend='false' multiple='false' optional='true'>Import package com.atlassian.jira.config.properties;resolution:=optional</require>
+    <require name='package' filter='(&amp;(package=com.atlassian.jira.security))' extend='false' multiple='false' optional='true'>Import package com.atlassian.jira.security;resolution:=optional</require>
+    <require name='package' filter='(&amp;(package=com.atlassian.jira.user))' extend='false' multiple='false' optional='true'>Import package com.atlassian.jira.user;resolution:=optional</require>
     <require name='package' filter='(&amp;(package=com.atlassian.plugins.rest.common.security))' extend='false' multiple='false' optional='true'>Import package com.atlassian.plugins.rest.common.security;resolution:=optional</require>
     <require name='package' filter='(&amp;(package=com.atlassian.sal.api.pluginsettings))' extend='false' multiple='false' optional='true'>Import package com.atlassian.sal.api.pluginsettings;resolution:=optional</require>
     <require name='package' filter='(&amp;(package=javax.crypto))' extend='false' multiple='false' optional='true'>Import package javax.crypto;resolution:=optional</require>
     <require name='package' filter='(&amp;(package=javax.crypto.spec))' extend='false' multiple='false' optional='true'>Import package javax.crypto.spec;resolution:=optional</require>
     <require name='package' filter='(&amp;(package=javax.inject))' extend='false' multiple='false' optional='true'>Import package javax.inject;resolution:=optional</require>
+    <require name='package' filter='(&amp;(package=javax.servlet))' extend='false' multiple='false' optional='true'>Import package javax.servlet;resolution:=optional</require>
+    <require name='package' filter='(&amp;(package=javax.servlet.http))' extend='false' multiple='false' optional='true'>Import package javax.servlet.http;resolution:=optional</require>
     <require name='package' filter='(&amp;(package=javax.ws.rs))' extend='false' multiple='false' optional='true'>Import package javax.ws.rs;resolution:=optional</require>
     <require name='package' filter='(&amp;(package=javax.ws.rs.core))' extend='false' multiple='false' optional='true'>Import package javax.ws.rs.core;resolution:=optional</require>
   </resource>
