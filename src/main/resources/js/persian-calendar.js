@@ -384,6 +384,63 @@
         return null; // Could not convert
     }
 
+    // Convert duration text to Persian (e.g., "15 minutes" -> "۱۵ دقیقه", "2 hours" -> "۲ ساعت", "15m", "1h 30m")
+    function convertDurationToPersian(text) {
+        if (!text) return text;
+        var original = text.trim().toLowerCase();
+
+        // Pattern: "X unit" or "Xu" (e.g., "15 minutes", "15m", "2 hours", "2h")
+        // Matches: 15m, 15 m, 15 minutes, 15 minute
+        var singleUnitMatch = original.match(/^(\d+)\s*(second|minute|hour|day|week|month|year|s|m|h|d|w|y)s?$/i);
+        if (singleUnitMatch) {
+            var num = singleUnitMatch[1];
+            var unit = singleUnitMatch[2].toLowerCase();
+            var persianNum = toPersianNumerals(num);
+
+            // Map short units to long names
+            var unitMap = {
+                's': 'second', 'sec': 'second',
+                'm': 'minute', 'min': 'minute',
+                'h': 'hour',
+                'd': 'day',
+                'w': 'week',
+                'y': 'year'
+            };
+
+            var normalizedUnit = unitMap[unit] || unit;
+
+            var persianUnits = {
+                'second': 'ثانیه',
+                'minute': 'دقیقه',
+                'hour': 'ساعت',
+                'day': 'روز',
+                'week': 'هفته',
+                'month': 'ماه',
+                'year': 'سال'
+            };
+            return persianNum + ' ' + (persianUnits[normalizedUnit] || normalizedUnit);
+        }
+
+        // Pattern: "Xh Ym" or "X hours Y minutes"
+        // Matches: 1h 30m, 1h30m, 1 hour 30 minutes
+        var hoursMinutesMatch = original.match(/(\d+)\s*(?:h|hours?)\s*(\d+)\s*(?:m|minutes?)/i);
+        if (hoursMinutesMatch) {
+            var hours = hoursMinutesMatch[1];
+            var mins = hoursMinutesMatch[2];
+            return toPersianNumerals(hours) + ' ساعت ' + toPersianNumerals(mins) + ' دقیقه';
+        }
+
+        // Pattern: "Xd Yh" (Days and Hours)
+        var daysHoursMatch = original.match(/(\d+)\s*(?:d|days?)\s*(\d+)\s*(?:h|hours?)/i);
+        if (daysHoursMatch) {
+            var days = daysHoursMatch[1];
+            var hours = daysHoursMatch[2];
+            return toPersianNumerals(days) + ' روز ' + toPersianNumerals(hours) + ' ساعت';
+        }
+
+        return null;
+    }
+
     // Convert Activity Stream timestamps to Persian
     function convertActivityStreamTime($) {
         logInfo('=== Converting Activity Stream Timestamps ===');
@@ -405,20 +462,60 @@
             '.activity-stream-issue-item time',
             '.activity-stream-issue-item .date',
             '.gadget-activity-stream time',
-            '.gadget-activity-stream .livestamp'
+            '.gadget-activity-stream .livestamp',
+            // Issue Detail Page Activity (v11.4.0)
+            '#activitymodule .activity-item time',
+            '#activitymodule time.livestamp',
+            '#activitymodule .livestamp',
+            '#activitymodule time',
+            '.issue-activity-stream time',
+            '.issue-activity-stream .livestamp',
+            '#issue-tabs-container time',
+            '#issue-tabs-container .livestamp',
+            // Activity tab
+            '#activity-stream-issue-tab time',
+            '#activity-stream-issue-tab .livestamp',
+            // Work log timestamps
+            '#worklog-tabpanel time',
+            '#worklog-tabpanel .livestamp',
+            '.worklog-container time',
+            '.worklog-container .livestamp',
+            // Change history
+            '#changehistory-tabpanel time',
+            '#changehistory-tabpanel .livestamp',
+            // Comments
+            '#comment-tabpanel time',
+            '#comment-tabpanel .livestamp',
+            // Action containers
+            '.actionContainer time',
+            '.actionContainer .livestamp',
+            '.actionContainer .date',
+            '.action-details time',
+            '.action-details .livestamp',
+            // Issue body activity
+            '.issue-body-content time',
+            '.issue-data-block time',
+            '.changehistorydetails time',
+            // All time elements with datetime attribute
+            'time[datetime]'
         ];
 
         var convertedCount = 0;
 
         $(timestampSelectors.join(',')).each(function () {
             var $el = $(this);
+            var text = $el.text().trim();
 
-            // Skip already converted
-            if ($el.data('pc-time-converted')) {
+            // Skip if empty or already Persian
+            if (!text || text.match(/[۰-۹]/) || text.match(/قبل|الان|دیروز|فردا/)) {
                 return;
             }
 
-            var text = $el.text().trim();
+            // Check if text looks like relative time
+            if (!text.match(/ago|now|yesterday|tomorrow|minute|hour|second|day|week|month|year/i)) {
+                return;
+            }
+
             var persianTime = convertRelativeTimeToPersian(text);
 
             if (persianTime) {
@@ -432,6 +529,184 @@
         });
 
         logInfo('Activity Stream times converted: ' + convertedCount);
+
+        // Also do aggressive text-based conversion for any missed elements
+        convertAllRelativeTimesInPage($);
+    }
+
+    // Aggressive text-based conversion - find ALL elements with relative time text
+    function convertAllRelativeTimesInPage($) {
+        logInfo('=== Aggressive Text-Based Relative Time Conversion ===');
+
+        // Pattern to match English relative times
+        var relativeTimePattern = /^(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago$/i;
+        var simplePatterns = ['just now', 'a moment ago', 'yesterday', 'today', 'tomorrow'];
+
+        var convertedCount = 0;
+
+        // Search through all text nodes in Activity-related containers
+        var containers = [
+            '#activitymodule',
+            '.activity-stream',
+            '#activity-stream-issue-tab',
+            '#worklog-tabpanel',
+            '#changehistory-tabpanel',
+            '#comment-tabpanel',
+            '.actionContainer',
+            '.issue-data-block'
+        ];
+
+        containers.forEach(function (containerSel) {
+            $(containerSel).find('*').each(function () {
+                var $el = $(this);
+
+                // Skip if has children (we want leaf nodes)
+                if ($el.children().length > 0) return;
+
+                // Skip already converted
+                if ($el.data('pc-text-converted')) return;
+
+                var text = $el.text().trim();
+
+                // Skip empty or already Persian
+                if (!text || text.match(/[۰-۹]/) || text.match(/قبل|الان|دیروز/)) {
+                    return;
+                }
+
+                var persianTime = convertRelativeTimeToPersian(text);
+
+                if (persianTime) {
+                    $el.attr('title', text);
+                    $el.text(persianTime);
+                    $el.data('pc-text-converted', true);
+                    $el.css('direction', 'rtl');
+                    logInfo('Text-converted: ' + text + ' → ' + persianTime);
+                    convertedCount++;
+                }
+            });
+        });
+
+        logInfo('Text-based conversion completed: ' + convertedCount);
+    }
+
+    // Setup observer specifically for livestamp elements that update dynamically
+    function setupLivestampObserver($) {
+        if (window.pcLivestampObserver) return; // Already setup
+
+        logInfo('Setting up Livestamp Observer for dynamic updates');
+
+        window.pcLivestampObserver = new MutationObserver(function (mutations) {
+            mutations.forEach(function (mutation) {
+                if (mutation.type === 'characterData' || mutation.type === 'childList') {
+                    var target = mutation.target;
+                    var $target = $(target);
+
+                    // For characterData, target is the text node, get parent element
+                    if (mutation.type === 'characterData') {
+                        $target = $(target.parentNode);
+                    }
+
+                    // Check if this is a time/livestamp element
+                    if ($target.is('time, .livestamp, [data-livestamp]') ||
+                        $target.closest('time, .livestamp').length > 0) {
+
+                        var text = $target.text().trim();
+
+                        // Skip if already Persian
+                        if (text.match(/[۰-۹]/) || text.match(/قبل|الان|دیروز/)) {
+                            return;
+                        }
+
+                        var persianTime = convertRelativeTimeToPersian(text);
+
+                        if (persianTime) {
+                            $target.text(persianTime);
+                            $target.css('direction', 'rtl');
+                            logDebug('Livestamp observer converted: ' + text + ' → ' + persianTime);
+                        }
+                    }
+                }
+            });
+        });
+
+        // Observe the entire document for livestamp updates
+        window.pcLivestampObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+            characterData: true
+        });
+
+        logInfo('Livestamp Observer attached');
+    }
+
+    // Convert Time Spent / Duration fields to Persian (e.g., "15 minutes" -> "۱۵ دقیقه")
+    function convertTimeSpentDurations($) {
+        logInfo('=== Converting Time Spent / Durations ===');
+
+        var durationSelectors = [
+            // Time Spent in Issue tables
+            '.issue-table td.timespent',
+            '.issue-table td[data-field-id="timespent"]',
+            'td.timespent',
+            'td[data-field-id="timespent"]',
+            // Time Spent in Issue Detail
+            '#timespent-val',
+            '#timeestimate-val',
+            '#aggregatetimespent-val',
+            '#aggregatetimeestimate-val',
+            // Work log durations
+            '.worklog-duration',
+            '.worklog-time-spent',
+            '#worklog-tabpanel .duration',
+            // Time tracking module
+            '#tt_single_values_orig .tt_inner',
+            '#tt_single_values_remain .tt_inner',
+            '#tt_single_values_spent .tt_inner',
+            '.tt_graph_numbers',
+            // Generic patterns
+            '[id*="timespent"]',
+            '[id*="timeestimate"]',
+            '.time-spent',
+            '.time-logged',
+            // Activity Work Log entries
+            '.worklog-entry .duration',
+            '.worklog-entry .tt',
+            '.actionContainer .worklog-duration',
+            // dd elements (definition descriptions often used for values)
+            'dd#timespent-val',
+            'dd#timeestimate-val'
+        ];
+
+        var convertedCount = 0;
+
+        $(durationSelectors.join(',')).each(function () {
+            var $el = $(this);
+
+            // Skip already converted
+            if ($el.data('pc-duration-converted')) {
+                return;
+            }
+
+            var text = $el.text().trim();
+
+            // Skip empty or already Persian
+            if (!text || text.match(/[۰-۹]/)) {
+                return;
+            }
+
+            var persianDuration = convertDurationToPersian(text);
+
+            if (persianDuration) {
+                $el.attr('title', text);
+                $el.text(persianDuration);
+                $el.data('pc-duration-converted', true);
+                $el.css('direction', 'rtl');
+                logInfo('Converted duration: ' + text + ' → ' + persianDuration);
+                convertedCount++;
+            }
+        });
+
+        logInfo('Time Spent / Durations converted: ' + convertedCount);
     }
 
     // Convert Issue Search/Navigator table dates to Persian format (YYYY/MM/DD)
@@ -1411,6 +1686,11 @@
             '#worklog-tabpanel .date',
             '#worklog-tabpanel span.date',
             '.issue-data-block .date',
+            // History Tab (Original/New values)
+            'td.activity-old-val',
+            'td.activity-new-val',
+            '.activity-old-val',
+            '.activity-new-val',
             // Livestamp elements
             '.activity-container .livestamp',
             '.actionContainer .livestamp',
@@ -1481,24 +1761,33 @@
                 return;
             }
 
-            var text = $el.text().trim();
+            var fullText = $el.text().trim();
 
             // Debug: Log each element found
-            logDebug('Found element with text: "' + text + '" | tag: ' + $el.prop('tagName') + ' | class: ' + $el.attr('class'));
+            logDebug('Found element with text: "' + fullText + '" | tag: ' + $el.prop('tagName') + ' | class: ' + $el.attr('class'));
 
             // Skip relative dates like "17 hours ago", "Just now", etc.
-            if (text.match(/ago|now|yesterday|tomorrow|hours|minutes|seconds/i)) {
-                logDebug('Skipped relative date: ' + text);
+            if (fullText.match(/ago|now|yesterday|tomorrow|hours|minutes|seconds/i)) {
+                logDebug('Skipped relative date: ' + fullText);
                 return;
+            }
+
+            // Handle prefixes like "Original: " or "New: " (Common in History tab)
+            var prefix = '';
+            var textToParse = fullText;
+            var prefixMatch = fullText.match(/^(Original|New|Old Value|New Value):\s*/i);
+            if (prefixMatch) {
+                prefix = prefixMatch[0];
+                textToParse = fullText.substring(prefix.length).trim();
             }
 
             // Try to parse Jira date format (d/MMM/yy or dd/MMM/yy h:mm a)
             // Extract date part first (before any time)
-            var datePart = text.split(/\s+\d{1,2}:/)[0].trim();
+            var datePart = textToParse.split(/\s+\d{1,2}:/)[0].trim();
             var timePart = '';
 
             // Match time with AM/PM format (e.g., "7:11 PM" or "12:30 AM")
-            var timeMatch = text.match(/\s+(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+            var timeMatch = textToParse.match(/\s+(\d{1,2}):(\d{2})\s*(AM|PM)/i);
             if (timeMatch) {
                 var hour = parseInt(timeMatch[1], 10);
                 var minute = timeMatch[2];
@@ -1516,7 +1805,7 @@
                 timePart = ' ' + hour24 + ':' + minute;
             } else {
                 // Try to match time without AM/PM (already 24-hour format)
-                var time24Match = text.match(/\s+(\d{1,2}:\d{2})(?!\s*[AP]M)/i);
+                var time24Match = textToParse.match(/\s+(\d{1,2}:\d{2})(?!\s*[AP]M)/i);
                 if (time24Match) {
                     timePart = ' ' + time24Match[1];
                 }
@@ -1525,18 +1814,25 @@
             var parsed = parseJiraDate(datePart);
             if (parsed) {
                 var jDate = toJalaali(parsed.year, parsed.month, parsed.day);
-                var persianText = formatPersianDate(jDate.jy, jDate.jm, jDate.jd) + timePart;
+                var persianDateStr = formatPersianDate(jDate.jy, jDate.jm, jDate.jd);
+                var persianText = persianDateStr + timePart;
 
                 // Save original for tooltip
-                $el.attr('title', text + ' = ' + persianText);
+                $el.attr('title', fullText + ' = ' + persianText);
 
                 // Use HTML with proper RTL handling to prevent bidirectional text mixing
                 // The LRM (Left-to-Right Mark) character helps separate the time from Persian text
                 var lrm = '\u200E';  // Left-to-Right Mark
                 var rlm = '\u200F';  // Right-to-Left Mark
-                var displayText = formatPersianDate(jDate.jy, jDate.jm, jDate.jd);
+
+                var displayText = persianDateStr;
                 if (timePart) {
                     displayText = displayText + lrm + timePart;
+                }
+
+                // Prepend original prefix if it existed
+                if (prefix) {
+                    displayText = prefix + rlm + ' ' + displayText;
                 }
 
                 $el.text(displayText);
@@ -1546,10 +1842,10 @@
                     'unicode-bidi': 'embed'
                 });
 
-                logInfo('Converted date: ' + text + ' → ' + persianText);
+                logInfo('Converted date: ' + fullText + ' → ' + displayText);
                 convertedCount++;
             } else {
-                logDebug('Could not parse date: "' + text + '" (datePart: "' + datePart + '")');
+                logDebug('Could not parse date: "' + fullText + '" (datePart: "' + datePart + '")');
             }
         });
 
@@ -2708,6 +3004,9 @@
             // v11.4.0: New date display converters
             convertActivityStreamTime($);
             convertIssueSearchDates($);
+            convertTimeSpentDurations($);
+            // Setup livestamp observer for dynamic updates
+            setupLivestampObserver($);
         }, 500);
 
         // Re-run on AJAX content
@@ -2722,6 +3021,7 @@
                     // v11.4.0: New date display converters
                     convertActivityStreamTime($);
                     convertIssueSearchDates($);
+                    convertTimeSpentDurations($);
                 }, 200);
             });
         } else {
@@ -2737,6 +3037,7 @@
                     // v11.4.0: New date display converters
                     convertActivityStreamTime($);
                     convertIssueSearchDates($);
+                    convertTimeSpentDurations($);
                 }, delay);
             });
         }
@@ -2761,10 +3062,23 @@
                                 logDebug('MutationObserver: Found JSM date element in DOM change');
                                 shouldConvertDates = true;
                             }
-                            // Also check if the node itself has date-related content
+                            // Also check if the node itself has date-related content or relevant classes
+                            var content = node.textContent || '';
+                            var className = (node.className && typeof node.className === 'string') ? node.className : '';
+
+                            // Patterns for English durations, relative times, and history fields
+                            var hasTimeContent = content.match(/minute|hour|ago|now|yesterday|tomorrow|Original|New:|Old Value/i);
+                            var hasRelevantClass = className.indexOf('worklog') !== -1 ||
+                                className.indexOf('activity') !== -1 ||
+                                className.indexOf('history') !== -1 ||
+                                className.indexOf('livestamp') !== -1;
+
                             if (node.hasAttribute && (node.hasAttribute('data-test-cv-dummy-text') ||
-                                (node.textContent && node.textContent.match(/\d{1,2}\/[A-Z][a-z]{2}\/\d{2}/)))) {
+                                (content.match(/\d{1,2}\/[A-Z][a-z]{2}\/\d{2}/)) ||
+                                hasTimeContent ||
+                                hasRelevantClass)) {
                                 shouldConvertDates = true;
+                                logDebug('MutationObserver triggered update', { tag: node.tagName, class: className });
                             }
                         }
                     }
@@ -2780,6 +3094,7 @@
                     // v11.4.0: New date display converters
                     convertActivityStreamTime($);
                     convertIssueSearchDates($);
+                    convertTimeSpentDurations($);
                 }, 100);
             }
         });

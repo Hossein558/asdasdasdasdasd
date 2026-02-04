@@ -234,7 +234,12 @@ Server ID = SHA256(jira.home + hostname + OS + InstallationUUID)
 
 ## 📝 Version History
 
-*   **v11.4.0**: **Persian Date Display Enhancement** - Added Persian relative time for Activity Stream (e.g., "۱۵ دقیقه قبل"), Persian date format in Issue Search (`1404/11/05`), and 24-hour DateTime format.
+*   **v11.4.0**: **Persian Date & Time Enhancement** - Added comprehensive Persian display support:
+    *   **Activity Stream**: Converts relative timestamps (e.g., "15 minutes ago" → "۱۵ دقیقه قبل") for comments, worklogs, and history.
+    *   **Issue Search**: Displays dates in Issue Navigator in Persian format `1404/11/05`.
+    *   **Time Spent / Durations**: Converts duration fields (e.g., "1h 30m" → "۱ ساعت ۳۰ دقیقه") in Issue Details and Work Logs.
+    *   **DateTime Format**: Displays DateTime fields in 24-hour format (e.g., `1404/11/05 13:40`).
+    *   **History Tab**: Supports standard Jira history format (handles "Original:" and "New:" prefixes).
 *   **v11.3.1**: **Security Hardening** - Added **Build-time JavaScript Obfuscation**. JS files are now obfuscated inside the JAR to prevent reverse engineering.
 *   **v11.3.0**: **Integrity Checks** - Added `IntegrityChecker` for Java (self-verification) and JavaScript (runtime integrity check).
 *   **v11.2.3**: **Enhanced Server ID** - Added unique **Installation UUID** to Server ID calculation to prevent license cloning.
