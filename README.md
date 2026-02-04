@@ -10,6 +10,9 @@ This is a custom Jira plugin designed to integrate a **Persian (Jalali/Shamsi) C
     *   Prevents Jira's native calendar from opening.
     *   Displays the Persian calendar popup instead.
 *   **DateTime Support**: Handles both **Date-only** fields (e.g., Due Date) and **DateTime** fields (e.g., Time of Start) with a built-in time picker (Hour, Minute, AM/PM).
+*   **Activity Stream Persian Time** *(v11.4.0)*: Converts relative timestamps to Persian (e.g., "15 minutes ago" → "۱۵ دقیقه قبل").
+*   **Issue Search Persian Dates** *(v11.4.0)*: Displays dates in Issue Navigator in Persian format `1404/11/05` (10 characters).
+*   **24-Hour DateTime Format** *(v11.4.0)*: DateTime fields display in 24-hour format like `1404/11/05 13:40`.
 *   **JSM Customer Portal Support**: Works on Jira Service Management customer portal pages.
 *   **Dynamic Date Format Detection**: Automatically reads Jira's configured date format via REST API.
 *   **Smart Date Parser**: Supports multiple date formats including `d/MMM/yy`, `yyyy-MM-dd`, `MM/dd/yyyy`, and more.
@@ -231,6 +234,7 @@ Server ID = SHA256(jira.home + hostname + OS + InstallationUUID)
 
 ## 📝 Version History
 
+*   **v11.4.0**: **Persian Date Display Enhancement** - Added Persian relative time for Activity Stream (e.g., "۱۵ دقیقه قبل"), Persian date format in Issue Search (`1404/11/05`), and 24-hour DateTime format.
 *   **v11.3.1**: **Security Hardening** - Added **Build-time JavaScript Obfuscation**. JS files are now obfuscated inside the JAR to prevent reverse engineering.
 *   **v11.3.0**: **Integrity Checks** - Added `IntegrityChecker` for Java (self-verification) and JavaScript (runtime integrity check).
 *   **v11.2.3**: **Enhanced Server ID** - Added unique **Installation UUID** to Server ID calculation to prevent license cloning.

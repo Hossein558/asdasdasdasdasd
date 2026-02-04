@@ -1,4 +1,4 @@
-package ir.atlassian.jira.plugins.license;
+// package ir.atlassian.jira.plugins.license;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;

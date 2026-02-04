@@ -1,12 +1,12 @@
-<repository lastmodified='20260102122217.078'>
-  <resource id='ir.atlassian.jira.plugins.persian-calendar-plugin/11.3.1' symbolicname='ir.atlassian.jira.plugins.persian-calendar-plugin' presentationname='Persian Calendar for Jira' uri='persian-calendar-plugin-11.3.1.jar' version='11.3.1'>
+<repository lastmodified='20260205014858.718'>
+  <resource id='ir.atlassian.jira.plugins.persian-calendar-plugin/11.4.0' symbolicname='ir.atlassian.jira.plugins.persian-calendar-plugin' presentationname='Persian Calendar for Jira' uri='persian-calendar-plugin-11.4.0.jar' version='11.4.0'>
     <description>Displays Due Date field with Persian/Shamsi calendar while storing in Gregorian format</description>
-    <size>999128</size>
+    <size>911752</size>
     <documentation>https://atlassian-jira.ir/</documentation>
     <capability name='bundle'>
       <p n='symbolicname' v='ir.atlassian.jira.plugins.persian-calendar-plugin'/>
       <p n='presentationname' v='Persian Calendar for Jira'/>
-      <p n='version' t='version' v='11.3.1'/>
+      <p n='version' t='version' v='11.4.0'/>
       <p n='manifestversion' v='2'/>
     </capability>
     <require name='package' filter='(&amp;(package=com.atlassian.jira.component))' extend='false' multiple='false' optional='true'>Import package com.atlassian.jira.component;resolution:=optional</require>

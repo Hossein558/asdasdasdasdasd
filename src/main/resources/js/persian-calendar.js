@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '11.3.1';
+    var PC_VERSION = '11.4.0';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -280,6 +280,248 @@
         '1407-11-22': 'پیروزی انقلاب اسلامی',
         '1407-12-29': 'روز ملی شدن صنعت نفت ایران'
     };
+
+    // ========== PERSIAN NUMERALS & NEW FORMAT FUNCTIONS (v11.4.0) ==========
+
+    // Convert English numerals to Persian numerals
+    var PERSIAN_NUMERALS = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
+
+    function toPersianNumerals(str) {
+        if (!str) return str;
+        return String(str).replace(/[0-9]/g, function (d) {
+            return PERSIAN_NUMERALS[parseInt(d, 10)];
+        });
+    }
+
+    // Format Persian date as YYYY/MM/DD (exactly 10 characters)
+    function formatPersianDateSlash(jy, jm, jd) {
+        var year = String(jy);
+        var month = jm < 10 ? '0' + jm : String(jm);
+        var day = jd < 10 ? '0' + jd : String(jd);
+        return year + '/' + month + '/' + day;
+    }
+
+    // Format Persian DateTime as YYYY/MM/DD HH:MM (24-hour format)
+    function formatPersianDateTime24(jy, jm, jd, hour24, minute) {
+        var dateStr = formatPersianDateSlash(jy, jm, jd);
+        var hourStr = hour24 < 10 ? '0' + hour24 : String(hour24);
+        var minStr = minute < 10 ? '0' + minute : String(minute);
+        return dateStr + ' ' + hourStr + ':' + minStr;
+    }
+
+    // Persian relative time translations
+    var PERSIAN_RELATIVE_TIME = {
+        'just now': 'همین الان',
+        'a moment ago': 'لحظاتی قبل',
+        'a few seconds ago': 'چند ثانیه قبل',
+        'seconds ago': 'ثانیه قبل',
+        'a minute ago': 'یک دقیقه قبل',
+        'minutes ago': 'دقیقه قبل',
+        'an hour ago': 'یک ساعت قبل',
+        'hours ago': 'ساعت قبل',
+        'a day ago': 'یک روز قبل',
+        'days ago': 'روز قبل',
+        'yesterday': 'دیروز',
+        'a week ago': 'یک هفته قبل',
+        'weeks ago': 'هفته قبل',
+        'a month ago': 'یک ماه قبل',
+        'months ago': 'ماه قبل',
+        'a year ago': 'یک سال قبل',
+        'years ago': 'سال قبل',
+        'today': 'امروز',
+        'tomorrow': 'فردا',
+        'in a moment': 'در لحظاتی دیگر',
+        'in': 'در',
+        'ago': 'قبل'
+    };
+
+    // Convert relative time text to Persian (e.g., "15 minutes ago" -> "۱۵ دقیقه قبل")
+    function convertRelativeTimeToPersian(text) {
+        if (!text) return text;
+        var original = text.trim().toLowerCase();
+
+        // Direct translations
+        if (PERSIAN_RELATIVE_TIME[original]) {
+            return PERSIAN_RELATIVE_TIME[original];
+        }
+
+        // Pattern: "X unit ago" (e.g., "15 minutes ago", "2 hours ago")
+        var match = original.match(/^(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago$/i);
+        if (match) {
+            var num = match[1];
+            var unit = match[2].toLowerCase();
+            var persianNum = toPersianNumerals(num);
+            var persianUnits = {
+                'second': 'ثانیه',
+                'minute': 'دقیقه',
+                'hour': 'ساعت',
+                'day': 'روز',
+                'week': 'هفته',
+                'month': 'ماه',
+                'year': 'سال'
+            };
+            return persianNum + ' ' + persianUnits[unit] + ' قبل';
+        }
+
+        // Pattern: "in X unit" (e.g., "in 5 minutes")
+        var futureMatch = original.match(/^in\s+(\d+)\s+(second|minute|hour|day|week|month|year)s?$/i);
+        if (futureMatch) {
+            var num = futureMatch[1];
+            var unit = futureMatch[2].toLowerCase();
+            var persianNum = toPersianNumerals(num);
+            var persianUnits = {
+                'second': 'ثانیه',
+                'minute': 'دقیقه',
+                'hour': 'ساعت',
+                'day': 'روز',
+                'week': 'هفته',
+                'month': 'ماه',
+                'year': 'سال'
+            };
+            return 'در ' + persianNum + ' ' + persianUnits[unit];
+        }
+
+        return null; // Could not convert
+    }
+
+    // Convert Activity Stream timestamps to Persian
+    function convertActivityStreamTime($) {
+        logInfo('=== Converting Activity Stream Timestamps ===');
+
+        var timestampSelectors = [
+            '.livestamp',
+            'time.livestamp',
+            'span.livestamp',
+            '[data-livestamp]',
+            '.activity-stream time',
+            '.activity-stream .livestamp',
+            '.activity-item time',
+            '.activity-item .date',
+            '#activity-stream time',
+            '#activity-stream .livestamp',
+            '.activity-stream-container time',
+            '.activity-stream-container .livestamp',
+            // Dashboard Activity Stream
+            '.activity-stream-issue-item time',
+            '.activity-stream-issue-item .date',
+            '.gadget-activity-stream time',
+            '.gadget-activity-stream .livestamp'
+        ];
+
+        var convertedCount = 0;
+
+        $(timestampSelectors.join(',')).each(function () {
+            var $el = $(this);
+
+            // Skip already converted
+            if ($el.data('pc-time-converted')) {
+                return;
+            }
+
+            var text = $el.text().trim();
+            var persianTime = convertRelativeTimeToPersian(text);
+
+            if (persianTime) {
+                $el.attr('title', text); // Keep original as tooltip
+                $el.text(persianTime);
+                $el.data('pc-time-converted', true);
+                $el.css('direction', 'rtl');
+                logInfo('Converted time: ' + text + ' → ' + persianTime);
+                convertedCount++;
+            }
+        });
+
+        logInfo('Activity Stream times converted: ' + convertedCount);
+    }
+
+    // Convert Issue Search/Navigator table dates to Persian format (YYYY/MM/DD)
+    function convertIssueSearchDates($) {
+        logInfo('=== Converting Issue Search Dates ===');
+
+        var dateColumnSelectors = [
+            // Issue Navigator table cells
+            '.issue-table td.created',
+            '.issue-table td.updated',
+            '.issue-table td.duedate',
+            '.issue-table td.resolutiondate',
+            '.issue-table td[class*="customfield"]',
+            // Navigator content
+            '.navigator-content td.created',
+            '.navigator-content td.updated',
+            '.navigator-content td.duedate',
+            // Issue table wrapper
+            '.issuetable td.created',
+            '.issuetable td.updated',
+            '.issuetable td.duedate',
+            // Data attributes
+            'td[data-field-id="created"]',
+            'td[data-field-id="updated"]',
+            'td[data-field-id="duedate"]',
+            'td[data-field-id="resolutiondate"]',
+            'td[data-field-id*="customfield"]',
+            // Time elements in tables
+            '.issuerow td time',
+            '.issuerow td .date'
+        ];
+
+        var convertedCount = 0;
+
+        $(dateColumnSelectors.join(',')).each(function () {
+            var $el = $(this);
+
+            // Skip already converted
+            if ($el.data('pc-search-converted')) {
+                return;
+            }
+
+            var text = $el.text().trim();
+
+            // Skip empty or relative dates
+            if (!text || text.match(/ago|now|yesterday|tomorrow/i)) {
+                return;
+            }
+
+            // Try to parse the date
+            var parsed = parseJiraDate(text);
+            if (parsed) {
+                var jDate = toJalaali(parsed.year, parsed.month, parsed.day);
+                var persianDateStr = formatPersianDateSlash(jDate.jy, jDate.jm, jDate.jd);
+
+                // Check if there's a time component
+                var timeMatch = text.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+                if (timeMatch) {
+                    var hour = parseInt(timeMatch[1], 10);
+                    var minute = parseInt(timeMatch[2], 10);
+                    var ampm = timeMatch[3];
+
+                    // Convert to 24-hour format
+                    if (ampm) {
+                        if (ampm.toUpperCase() === 'PM' && hour !== 12) {
+                            hour += 12;
+                        } else if (ampm.toUpperCase() === 'AM' && hour === 12) {
+                            hour = 0;
+                        }
+                    }
+
+                    persianDateStr = formatPersianDateTime24(jDate.jy, jDate.jm, jDate.jd, hour, minute);
+                }
+
+                $el.attr('title', text + ' = ' + persianDateStr);
+                $el.text(persianDateStr);
+                $el.data('pc-search-converted', true);
+                $el.css({
+                    'direction': 'ltr',
+                    'unicode-bidi': 'embed',
+                    'font-family': 'Tahoma, Arial, sans-serif'
+                });
+
+                logInfo('Converted search date: ' + text + ' → ' + persianDateStr);
+                convertedCount++;
+            }
+        });
+
+        logInfo('Issue Search dates converted: ' + convertedCount);
+    }
 
     // ========== DATE FORMAT SETTINGS ==========
     // Cache for date format settings (loaded from Jira settings)
@@ -2463,6 +2705,9 @@
             initPersianCalendar($);
             convertViewPageDates($);
             initInlineEditCalendar($);
+            // v11.4.0: New date display converters
+            convertActivityStreamTime($);
+            convertIssueSearchDates($);
         }, 500);
 
         // Re-run on AJAX content
@@ -2474,6 +2719,9 @@
                     analyzePageForDateElements();
                     initPersianCalendar($);
                     convertViewPageDates($);
+                    // v11.4.0: New date display converters
+                    convertActivityStreamTime($);
+                    convertIssueSearchDates($);
                 }, 200);
             });
         } else {
@@ -2486,6 +2734,9 @@
                 setTimeout(function () {
                     logDebug('JSM delayed conversion at ' + delay + 'ms');
                     convertViewPageDates($);
+                    // v11.4.0: New date display converters
+                    convertActivityStreamTime($);
+                    convertIssueSearchDates($);
                 }, delay);
             });
         }
@@ -2524,7 +2775,12 @@
                 setTimeout(function () { initPersianCalendar($); }, 100);
             }
             if (shouldConvertDates) {
-                setTimeout(function () { convertViewPageDates($); }, 100);
+                setTimeout(function () {
+                    convertViewPageDates($);
+                    // v11.4.0: New date display converters
+                    convertActivityStreamTime($);
+                    convertIssueSearchDates($);
+                }, 100);
             }
         });
 
