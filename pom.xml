@@ -5,7 +5,7 @@
 
     <groupId>ir.atlassian.jira.plugins</groupId>
     <artifactId>persian-calendar-plugin</artifactId>
-    <version>11.4.1</version>
+    <version>11.4.4</version>
     <packaging>atlassian-plugin</packaging>
 
     <name>Persian Calendar for Jira</name>
@@ -140,6 +140,40 @@
                                 <argument>false</argument>
                             </arguments>
                             <skip>${skipJsObfuscation}</skip>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
+            <!-- Eclipse Transformer Plugin to generate Jira 10/11 compatible Jakarta artifact -->
+            <plugin>
+                <groupId>org.eclipse.transformer</groupId>
+                <artifactId>transformer-maven-plugin</artifactId>
+                <version>1.0.0</version>
+                <extensions>true</extensions>
+                <configuration>
+                    <rules>
+                        <jakartaDefaults>true</jakartaDefaults>
+                    </rules>
+                    <packagingTypes>
+                        <packagingType>jar</packagingType>
+                        <packagingType>atlassian-plugin</packagingType>
+                    </packagingTypes>
+                </configuration>
+                <executions>
+                    <execution>
+                        <id>transform-to-jakarta</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>jar</goal>
+                        </goals>
+                        <configuration>
+                            <artifact>
+                                <groupId>${project.groupId}</groupId>
+                                <artifactId>${project.artifactId}</artifactId>
+                                <version>${project.version}</version>
+                            </artifact>
+                            <classifier>jakarta</classifier>
                         </configuration>
                     </execution>
                 </executions>

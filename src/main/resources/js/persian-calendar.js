@@ -802,10 +802,10 @@
     // Cache for date format settings (loaded from Jira settings)
     var DATE_FORMAT_CACHE = {
         loaded: false,
-        dateFormat: 'd/MMM/yy',           // Default Jira date format
-        dateTimeFormat: 'dd/MMM/yy h:mm a', // Default Jira datetime format
-        dateFormatJS: '%e/%b/%y',
-        dateTimeFormatJS: '%e/%b/%y %I:%M %p'
+        dateFormat: 'dd/MMM/yyyy',
+        dateTimeFormat: 'dd/MMM/yyyy h:mm a',
+        dateFormatJS: '%e/%b/%Y',
+        dateTimeFormatJS: '%e/%b/%Y %I:%M %p'
     };
 
     // Fetch date format settings from REST API
@@ -849,20 +849,26 @@
         }
     }
 
+    var PC_VERSION = '11.4.4';
+    console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
+
+    // ... (rest of the code)
+
     // Parse date format pattern and format a date accordingly
     function formatDateWithPattern(year, month, day, pattern) {
         // pattern examples: d/MMM/yy, dd/MMM/yyyy, yyyy-MM-dd
-        var yy = year % 100;
         var yyyy = year.toString();
-        var yyStr = (yy < 10 ? '0' : '') + yy;
+        // Force 4-digit year for any year > 1000 to prevent '00xx' database errors
+        var yearValue = (year > 1000) ? yyyy : (year % 100 < 10 ? '0' : '') + (year % 100);
+        
         var MMM = GREGORIAN_MONTHS[month - 1];
         var MM = (month < 10 ? '0' : '') + month;
         var M = month.toString();
         var dd = (day < 10 ? '0' : '') + day;
         var d = day.toString();
 
-        // Use numeric placeholders to avoid any character collisions (y, M, d)
         var result = pattern;
+        // Use NUMERIC placeholders ONLY to avoid any collision with letters (y, M, d, a, h, m)
         result = result.replace(/yyyy/g, '[[1]]');
         result = result.replace(/yy/g, '[[2]]');
         result = result.replace(/MMM/g, '[[3]]');
@@ -871,9 +877,8 @@
         result = result.replace(/dd/g, '[[6]]');
         result = result.replace(/d/g, '[[7]]');
 
-        // Replace placeholders with actual values
         result = result.replace(/\[\[1\]\]/g, yyyy);
-        result = result.replace(/\[\[2\]\]/g, yyStr);
+        result = result.replace(/\[\[2\]\]/g, yearValue);
         result = result.replace(/\[\[3\]\]/g, MMM);
         result = result.replace(/\[\[4\]\]/g, MM);
         result = result.replace(/\[\[5\]\]/g, M);
@@ -1087,7 +1092,7 @@
 
     function formatJiraDateTime(year, month, day, hour, minute, ampm) {
         // Format date part using dynamic format
-        var dateFormatPart = DATE_FORMAT_CACHE.dateTimeFormat.split(' ')[0] || 'dd/MMM/yy';
+        var dateFormatPart = DATE_FORMAT_CACHE.dateTimeFormat.split(' ')[0] || 'dd/MMM/yyyy';
         var dateStr = formatDateWithPattern(year, month, day, dateFormatPart);
 
         // Format time part (h:mm a)
@@ -2962,12 +2967,17 @@
 
                         showPersianDateTimePicker($persian, $original, function (selectedDateTime) {
                             if (selectedDateTime) {
-                                // Format display value (Persian)
+                                // Format display value (Persian) - Use 24-hour format to avoid AM/PM issues
+                                var hour24 = selectedDateTime.hour;
+                                if (selectedDateTime.ampm === 'PM' && hour24 !== 12) hour24 += 12;
+                                if (selectedDateTime.ampm === 'AM' && hour24 === 12) hour24 = 0;
+                                
+                                var hStr = hour24 < 10 ? '0' + hour24 : '' + hour24;
                                 var minStr = selectedDateTime.minute < 10 ? '0' + selectedDateTime.minute : '' + selectedDateTime.minute;
-                                var timeStr = selectedDateTime.hour + ':' + minStr + ' ' + selectedDateTime.ampm;
+                                var timeStr = hStr + ':' + minStr;
                                 $persian.val(formatPersianDate(selectedDateTime.jy, selectedDateTime.jm, selectedDateTime.jd) + ' ' + timeStr);
 
-                                // Format Jira value (Gregorian with time) - dd/MMM/yy h:mm a
+                                // Format Jira value (Gregorian with time) - dd/MMM/yyyy h:mm a
                                 var gDate = toGregorian(selectedDateTime.jy, selectedDateTime.jm, selectedDateTime.jd);
                                 var formattedDate = formatJiraDateTime(gDate.gy, gDate.gm, gDate.gd, selectedDateTime.hour, selectedDateTime.minute, selectedDateTime.ampm);
                                 logInfo('DateTime saved to original input: ' + formattedDate);
