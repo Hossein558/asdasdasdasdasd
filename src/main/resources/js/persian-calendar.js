@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '11.4.0';
+    var PC_VERSION = '11.4.1';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     function pcLog(level, message, data) {
@@ -852,21 +852,33 @@
     // Parse date format pattern and format a date accordingly
     function formatDateWithPattern(year, month, day, pattern) {
         // pattern examples: d/MMM/yy, dd/MMM/yyyy, yyyy-MM-dd
-        var result = pattern;
         var yy = year % 100;
+        var yyyy = year.toString();
+        var yyStr = (yy < 10 ? '0' : '') + yy;
+        var MMM = GREGORIAN_MONTHS[month - 1];
+        var MM = (month < 10 ? '0' : '') + month;
+        var M = month.toString();
+        var dd = (day < 10 ? '0' : '') + day;
+        var d = day.toString();
 
-        // Replace year patterns
-        result = result.replace(/yyyy/g, year.toString());
-        result = result.replace(/yy/g, (yy < 10 ? '0' : '') + yy);
+        // Use numeric placeholders to avoid any character collisions (y, M, d)
+        var result = pattern;
+        result = result.replace(/yyyy/g, '[[1]]');
+        result = result.replace(/yy/g, '[[2]]');
+        result = result.replace(/MMM/g, '[[3]]');
+        result = result.replace(/MM/g, '[[4]]');
+        result = result.replace(/M/g, '[[5]]');
+        result = result.replace(/dd/g, '[[6]]');
+        result = result.replace(/d/g, '[[7]]');
 
-        // Replace month patterns
-        result = result.replace(/MMM/g, GREGORIAN_MONTHS[month - 1]);
-        result = result.replace(/MM/g, (month < 10 ? '0' : '') + month);
-        result = result.replace(/M/g, month.toString());
-
-        // Replace day patterns (careful with order, dd before d)
-        result = result.replace(/dd/g, (day < 10 ? '0' : '') + day);
-        result = result.replace(/d/g, day.toString());
+        // Replace placeholders with actual values
+        result = result.replace(/\[\[1\]\]/g, yyyy);
+        result = result.replace(/\[\[2\]\]/g, yyStr);
+        result = result.replace(/\[\[3\]\]/g, MMM);
+        result = result.replace(/\[\[4\]\]/g, MM);
+        result = result.replace(/\[\[5\]\]/g, M);
+        result = result.replace(/\[\[6\]\]/g, dd);
+        result = result.replace(/\[\[7\]\]/g, d);
 
         return result;
     }
@@ -2681,6 +2693,31 @@
         render();
     }
 
+    // Helper to safely trigger React native events and jQuery events on inputs (Jira 10+ compatibility)
+    function setInputAndTriggerEvents($input, valueStr) {
+        $input.val(valueStr);
+        if ($input[0]) {
+            $input[0].value = valueStr;
+            $input.attr('value', valueStr);
+            
+            // React 16+ overrides the value setter, we need to bypass it to trigger onChange
+            var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
+            if (nativeInputValueSetter && nativeInputValueSetter.set) {
+                nativeInputValueSetter.set.call($input[0], valueStr);
+            }
+
+            var inputEl = $input[0];
+            try {
+                inputEl.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, data: valueStr }));
+            } catch (e) {
+                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+            }
+            inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+            inputEl.dispatchEvent(new Event('blur', { bubbles: true }));
+        }
+        $input.trigger('change').trigger('input').trigger('blur');
+    }
+
     // Initialize Persian calendar for date inputs
     function initPersianCalendar($) {
         logInfo('=== Initializing Persian Calendar ===');
@@ -2855,9 +2892,8 @@
 
                                 var gDate = toGregorian(selectedDateTime.jy, selectedDateTime.jm, selectedDateTime.jd);
                                 var formattedDate = formatJiraDateTime(gDate.gy, gDate.gm, gDate.gd, selectedDateTime.hour, selectedDateTime.minute, selectedDateTime.ampm);
-                                $original.val(formattedDate);
                                 logInfo('Search DateTime set: ' + formattedDate);
-                                $original.trigger('change').trigger('input').trigger('blur');
+                                setInputAndTriggerEvents($original, formattedDate);
                             }
                         });
                     } else {
@@ -2865,10 +2901,9 @@
                             if (selectedDate) {
                                 var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
                                 var formattedDate = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
-                                $original.val(formattedDate);
                                 $persianDisplay.text(formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
                                 logInfo('Search date set: ' + formattedDate + ' / ' + formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
-                                $original.trigger('change').trigger('input').trigger('blur');
+                                setInputAndTriggerEvents($original, formattedDate);
                             }
                         });
                     }
@@ -2935,14 +2970,12 @@
                                 // Format Jira value (Gregorian with time) - dd/MMM/yy h:mm a
                                 var gDate = toGregorian(selectedDateTime.jy, selectedDateTime.jm, selectedDateTime.jd);
                                 var formattedDate = formatJiraDateTime(gDate.gy, gDate.gm, gDate.gd, selectedDateTime.hour, selectedDateTime.minute, selectedDateTime.ampm);
-                                $original.val(formattedDate);
                                 logInfo('DateTime saved to original input: ' + formattedDate);
-                                $original.trigger('change').trigger('input').trigger('blur');
+                                setInputAndTriggerEvents($original, formattedDate);
                             } else {
                                 $persian.val('');
-                                $original.val('');
                                 logInfo('DateTime cleared');
-                                $original.trigger('change');
+                                setInputAndTriggerEvents($original, '');
                             }
                         });
                     });
@@ -2958,14 +2991,12 @@
                                 $persian.val(formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
                                 var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
                                 var formattedDate = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
-                                $original.val(formattedDate);
                                 logInfo('Date saved to original input: ' + formattedDate);
-                                $original.trigger('change').trigger('input').trigger('blur');
+                                setInputAndTriggerEvents($original, formattedDate);
                             } else {
                                 $persian.val('');
-                                $original.val('');
                                 logInfo('Date cleared');
-                                $original.trigger('change');
+                                setInputAndTriggerEvents($original, '');
                             }
                         });
                     });
