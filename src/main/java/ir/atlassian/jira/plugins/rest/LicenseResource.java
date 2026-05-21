@@ -5,6 +5,9 @@ import com.atlassian.plugins.rest.common.security.AnonymousAllowed;
 import com.atlassian.sal.api.pluginsettings.PluginSettingsFactory;
 import ir.atlassian.jira.plugins.license.LicenseManager;
 import ir.atlassian.jira.plugins.license.LicenseManager.LicenseInfo;
+import com.atlassian.jira.security.JiraAuthenticationContext;
+import com.atlassian.jira.user.ApplicationUser;
+import com.atlassian.jira.permission.GlobalPermissionKey;
 
 import javax.ws.rs.*;
 import javax.ws.rs.core.MediaType;
@@ -21,6 +24,12 @@ public class LicenseResource {
     private LicenseManager getLicenseManager() {
         PluginSettingsFactory psf = ComponentAccessor.getOSGiComponentInstanceOfType(PluginSettingsFactory.class);
         return new LicenseManager(psf);
+    }
+
+    private boolean isAdmin() {
+        JiraAuthenticationContext authContext = ComponentAccessor.getJiraAuthenticationContext();
+        ApplicationUser user = authContext.getLoggedInUser();
+        return user != null && ComponentAccessor.getGlobalPermissionManager().hasPermission(GlobalPermissionKey.ADMINISTER, user);
     }
 
     /**
@@ -70,6 +79,9 @@ public class LicenseResource {
     @Path("/server-id")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getServerId() {
+        if (!isAdmin()) {
+            return Response.status(Response.Status.FORBIDDEN).entity(java.util.Collections.singletonMap("error", "Access Denied")).build();
+        }
         try {
             LicenseManager licenseManager = getLicenseManager();
             Map<String, String> response = new HashMap<>();
@@ -91,6 +103,9 @@ public class LicenseResource {
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
     public Response activateLicense(Map<String, String> request) {
+        if (!isAdmin()) {
+            return Response.status(Response.Status.FORBIDDEN).entity(java.util.Collections.singletonMap("error", "Access Denied")).build();
+        }
         try {
             String licenseKey = request.get("licenseKey");
 
@@ -127,6 +142,9 @@ public class LicenseResource {
     @Path("/current")
     @Produces(MediaType.APPLICATION_JSON)
     public Response getCurrentLicense() {
+        if (!isAdmin()) {
+            return Response.status(Response.Status.FORBIDDEN).entity(java.util.Collections.singletonMap("error", "Access Denied")).build();
+        }
         try {
             LicenseManager licenseManager = getLicenseManager();
             String licenseKey = licenseManager.getLicenseKey();

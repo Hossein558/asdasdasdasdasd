@@ -1,6 +1,6 @@
 Manifest-Version: 1.0
-Atlassian-Build-Date: 2026-05-21T19:05:09+0330
-Bnd-LastModified: 1779377709859
+Atlassian-Build-Date: 2026-05-22T00:36:23+0330
+Bnd-LastModified: 1779397585958
 Build-Jdk: 21.0.11
 Built-By: Hossein
 Bundle-Description: Displays Due Date field with Persian/Shamsi calendar
@@ -14,11 +14,13 @@ Bundle-Version: 11.4.9
 Created-By: Apache Maven Bundle Plugin
 Import-Package: com.atlassian.jira.component;resolution:=optional,com.at
  lassian.jira.config.properties;resolution:=optional,com.atlassian.jira.
- security;resolution:=optional,com.atlassian.jira.user;resolution:=optio
- nal,com.atlassian.plugins.rest.common.security;resolution:=optional,com
- .atlassian.sal.api.pluginsettings;resolution:=optional,javax.crypto;res
- olution:=optional,javax.crypto.spec;resolution:=optional,javax.servlet;
- resolution:=optional,javax.servlet.http;resolution:=optional,javax.ws.r
- s;resolution:=optional,javax.ws.rs.core;resolution:=optional
+ license;resolution:=optional,com.atlassian.jira.permission;resolution:=
+ optional,com.atlassian.jira.security;resolution:=optional,com.atlassian
+ .jira.user;resolution:=optional,com.atlassian.plugins.rest.common.secur
+ ity;resolution:=optional,com.atlassian.sal.api.pluginsettings;resolutio
+ n:=optional,javax.crypto;resolution:=optional,javax.crypto.spec;resolut
+ ion:=optional,javax.servlet;resolution:=optional,javax.servlet.http;res
+ olution:=optional,javax.ws.rs;resolution:=optional,javax.ws.rs.core;res
+ olution:=optional
 Spring-Context: *
 Tool: Bnd-3.5.0.201709291849

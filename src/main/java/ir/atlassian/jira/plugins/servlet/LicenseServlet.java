@@ -6,6 +6,7 @@ import com.atlassian.jira.user.ApplicationUser;
 import com.atlassian.sal.api.pluginsettings.PluginSettingsFactory;
 import ir.atlassian.jira.plugins.license.LicenseManager;
 import ir.atlassian.jira.plugins.license.LicenseManager.LicenseInfo;
+import com.atlassian.jira.permission.GlobalPermissionKey;
 
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -34,6 +35,11 @@ public class LicenseServlet extends HttpServlet {
 
         if (user == null) {
             response.sendRedirect(request.getContextPath() + "/login.jsp");
+            return;
+        }
+
+        if (!ComponentAccessor.getGlobalPermissionManager().hasPermission(GlobalPermissionKey.ADMINISTER, user)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: Administrator permissions required.");
             return;
         }
 
@@ -145,6 +151,11 @@ public class LicenseServlet extends HttpServlet {
 
         if (user == null) {
             response.sendError(HttpServletResponse.SC_UNAUTHORIZED);
+            return;
+        }
+
+        if (!ComponentAccessor.getGlobalPermissionManager().hasPermission(GlobalPermissionKey.ADMINISTER, user)) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: Administrator permissions required.");
             return;
         }
 

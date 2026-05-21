@@ -125,57 +125,19 @@ public class LicenseManager {
     }
 
     /**
-     * Get the current Server ID hash (custom method, not Atlassian's)
-     * Includes a unique installation ID to prevent license copying
+     * Get the current Jira Server ID
      */
     public String getServerIdHash() {
         try {
-            // Use multiple server-specific values to create a unique ID
-            String jiraHome = System.getProperty("jira.home", "");
-            String hostname = java.net.InetAddress.getLocalHost().getHostName();
-            String osInfo = System.getProperty("os.name") + System.getProperty("os.arch");
-
-            // Get or create unique installation ID (stored in database, generated once)
-            String installationId = getOrCreateInstallationId();
-
-            String combined = jiraHome + "|" + hostname + "|" + osInfo + "|" + installationId;
-
-            MessageDigest md = MessageDigest.getInstance("SHA-256");
-            byte[] hash = md.digest(combined.getBytes(StandardCharsets.UTF_8));
-
-            // Return first 8 characters of hex string
-            StringBuilder hexString = new StringBuilder();
-            for (int i = 0; i < 4; i++) {
-                String hex = Integer.toHexString(0xff & hash[i]);
-                if (hex.length() == 1)
-                    hexString.append('0');
-                hexString.append(hex);
+            com.atlassian.jira.license.JiraLicenseManager jiraLicenseManager = ComponentAccessor.getComponent(com.atlassian.jira.license.JiraLicenseManager.class);
+            String serverId = jiraLicenseManager.getServerId();
+            if (serverId != null && !serverId.isEmpty()) {
+                return serverId;
             }
-            return hexString.toString().toUpperCase();
+            return "00000000";
         } catch (Exception e) {
             return "00000000";
         }
-    }
-
-    /**
-     * Get or create a unique installation ID
-     * This ID is generated once per Jira installation and stored in the database
-     * It prevents license copying between servers with identical hostnames
-     */
-    private String getOrCreateInstallationId() {
-        PluginSettings settings = pluginSettingsFactory.createGlobalSettings();
-        String installationIdKey = PLUGIN_KEY + ".installation.id";
-
-        Object existingId = settings.get(installationIdKey);
-        if (existingId != null && !existingId.toString().isEmpty()) {
-            return existingId.toString();
-        }
-
-        // Generate a new unique ID (UUID)
-        String newId = java.util.UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase();
-        settings.put(installationIdKey, newId);
-
-        return newId;
     }
 
     /**
