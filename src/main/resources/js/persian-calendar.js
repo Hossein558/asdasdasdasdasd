@@ -10,8 +10,21 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '11.4.1';
+    var PC_VERSION = '11.4.9';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
+
+    // IMMEDIATE GLOBAL CLICK DIAGNOSTIC (Writen to F12 Console)
+    window.addEventListener('click', function(e) {
+        var t = e.target;
+        var classes = t.className || '';
+        var id = t.id || '';
+        console.log('[PC-DIAGNOSTIC-CLICK]', {
+            tagName: t.tagName,
+            id: id,
+            className: classes,
+            element: t
+        });
+    }, true);
 
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
@@ -711,7 +724,7 @@
 
     // Convert Issue Search/Navigator table dates to Persian format (YYYY/MM/DD)
     function convertIssueSearchDates($) {
-        logInfo('=== Converting Issue Search Dates ===');
+        logDebug('=== Converting Issue Search Dates ===');
 
         var dateColumnSelectors = [
             // Issue Navigator table cells
@@ -790,12 +803,12 @@
                     'font-family': 'Tahoma, Arial, sans-serif'
                 });
 
-                logInfo('Converted search date: ' + text + ' → ' + persianDateStr);
+                logDebug('Converted search date: ' + text + ' → ' + persianDateStr);
                 convertedCount++;
             }
         });
 
-        logInfo('Issue Search dates converted: ' + convertedCount);
+        logDebug('Issue Search dates converted: ' + convertedCount);
     }
 
     // ========== DATE FORMAT SETTINGS ==========
@@ -849,8 +862,6 @@
         }
     }
 
-    var PC_VERSION = '11.4.4';
-    console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     // ... (rest of the code)
 
@@ -1113,8 +1124,8 @@
         logInfo('Adding CSS styles');
 
         var css = [
-            '.pc-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 9998; }',
-            '.pc-popup { position: absolute; z-index: 9999; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); width: 340px; padding: 12px; direction: rtl; font-family: Tahoma, Arial, sans-serif; }',
+            '.pc-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 2000000000; }',
+            '.pc-popup { position: absolute; z-index: 2000000001; background: #fff; border: 1px solid #ccc; border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); width: 340px; padding: 12px; direction: rtl; font-family: Tahoma, Arial, sans-serif; }',
             '.pc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid #eee; gap: 2px; }',
             '.pc-header button { color: #fff !important; border: none; border-radius: 4px; padding: 6px 2px; cursor: pointer; font-size: 11px; white-space: nowrap; min-width: 55px; text-align: center; transition: all 0.2s; font-weight: bold; background: #f39c12 !important; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }',
             '.pc-header button:hover { background: #e67e22 !important; box-shadow: 0 3px 6px rgba(0,0,0,0.16); transform: translateY(-1px); }',
@@ -1869,6 +1880,126 @@
         logInfo('View page dates converted: ' + convertedCount);
     }
 
+    // Helper to find the closest input in DOM proximity to a button/element
+    function findClosestInput($btn) {
+        console.log(PC_LOG_PREFIX + ' [findClosestInput] Searching proximity for element:', $btn[0]);
+        if ($btn.is('input')) return $btn;
+
+        // Helper to check if an input is text-like
+        function isTextLikeInput(el) {
+            if (!el || el.tagName !== 'INPUT') return false;
+            var type = (el.getAttribute('type') || 'text').toLowerCase();
+            return ['text', 'date', 'datetime', 'datetime-local', 'search'].indexOf(type) !== -1;
+        }
+
+        // Strategy 1: Class-based trigger name match (highly specific)
+        // If button has class "abc-trigger", look for an input with class "abc" or ID "abc" in closest containers
+        var classes = $btn.attr('class') || '';
+        var match = classes.match(/([a-zA-Z0-9_-]+)-trigger/);
+        if (match) {
+            var baseName = match[1]; // e.g. "js-start-date" or "js-end-date"
+            var $curr = $btn;
+            for (var d = 0; d < 5; d++) {
+                $curr = $curr.parent();
+                if ($curr.length === 0 || $curr.is('body')) break;
+                
+                var $target = $curr.find('.' + baseName + ', #' + baseName).filter(function() {
+                    return isTextLikeInput(this);
+                });
+                if ($target.length > 0) {
+                    console.log(PC_LOG_PREFIX + ' [findClosestInput] Found input by trigger name match (' + baseName + '):', $target[0]);
+                    return $target;
+                }
+            }
+        }
+
+        // Strategy 2: Check siblings
+        var $siblings = $btn.siblings().filter(function() {
+            return isTextLikeInput(this);
+        });
+        if ($siblings.length > 0) {
+            if ($siblings.length === 1) {
+                console.log(PC_LOG_PREFIX + ' [findClosestInput] Single text sibling found:', $siblings[0]);
+                return $siblings;
+            }
+            // If multiple, try the immediate previous sibling
+            var $prevSib = $btn.prevAll().filter(function() {
+                return isTextLikeInput(this);
+            }).first();
+            if ($prevSib.length > 0) {
+                console.log(PC_LOG_PREFIX + ' [findClosestInput] Closest previous sibling found:', $prevSib[0]);
+                return $prevSib;
+            }
+            // Fallback to first visible sibling
+            var $visibleSibs = $siblings.filter(':visible');
+            if ($visibleSibs.length > 0) {
+                console.log(PC_LOG_PREFIX + ' [findClosestInput] First visible sibling found:', $visibleSibs[0]);
+                return $visibleSibs.first();
+            }
+            return $siblings.first();
+        }
+
+        // Strategy 3: Ascend DOM tree to find closest container with a text-like input
+        var $current = $btn;
+        for (var i = 0; i < 5; i++) {
+            $current = $current.parent();
+            if ($current.length === 0 || $current.is('body') || $current.is('html')) {
+                break;
+            }
+            
+            // Find inputs in this container
+            var $inputs = $current.find('input').filter(function() {
+                return isTextLikeInput(this);
+            });
+            
+            if ($inputs.length > 0) {
+                // If there is only one input in this container, return it
+                if ($inputs.length === 1) {
+                    console.log(PC_LOG_PREFIX + ' [findClosestInput] Single text input found in ancestor at level ' + i + ':', $inputs[0]);
+                    return $inputs;
+                }
+                
+                // If there are multiple, look for one that is physically closest to the button.
+                // We can find the closest previous input in DOM order.
+                var $prevInContainer = $btn.prevAll().filter(function() {
+                    return isTextLikeInput(this);
+                }).first();
+                if ($prevInContainer.length > 0) {
+                    console.log(PC_LOG_PREFIX + ' [findClosestInput] Previous input in container found:', $prevInContainer[0]);
+                    return $prevInContainer;
+                }
+                
+                // Or look in children of siblings that are before the button
+                var foundTarget = null;
+                $btn.prevAll().each(function() {
+                    var $subInputs = $(this).find('input').filter(function() {
+                        return isTextLikeInput(this);
+                    });
+                    if ($subInputs.length > 0) {
+                        foundTarget = $subInputs.last(); // Last one in preceding sibling is closest
+                        return false; // break loop
+                    }
+                });
+                if (foundTarget) {
+                    console.log(PC_LOG_PREFIX + ' [findClosestInput] Input in preceding sibling container found:', foundTarget[0]);
+                    return foundTarget;
+                }
+
+                // Fallback to first visible input
+                var $visibleInputs = $inputs.filter(':visible');
+                if ($visibleInputs.length > 0) {
+                    console.log(PC_LOG_PREFIX + ' [findClosestInput] First visible input found in ancestor at level ' + i + ':', $visibleInputs.first()[0]);
+                    return $visibleInputs.first();
+                }
+                console.log(PC_LOG_PREFIX + ' [findClosestInput] First input found in ancestor at level ' + i + ':', $inputs.first()[0]);
+                return $inputs.first();
+            }
+        }
+
+        console.log(PC_LOG_PREFIX + ' [findClosestInput] No text-like input found within 5 levels');
+        return $();
+    }
+
     // Initialize Persian calendar for inline edit mode (intercept Jira's calendar buttons)
     function initInlineEditCalendar($) {
         logInfo('=== Initializing Inline Edit Calendar ===');
@@ -1900,6 +2031,8 @@
             var target = e.target;
             var $target = $(target);
 
+            console.log(PC_LOG_PREFIX + ' [CAPTURE-PHASE] Click detected on tag:', target.tagName, 'classes:', $target.attr('class'), 'id:', $target.attr('id'));
+
             // Check if clicked on calendar icon or its parent
             var isCalendarButton = false;
             var $btn = null;
@@ -1921,7 +2054,7 @@
 
             if (!isCalendarButton) return;
 
-            logInfo('Calendar button clicked! Checking context...');
+            console.log(PC_LOG_PREFIX + ' [CAPTURE-PHASE] Click recognized as calendar button! Button:', $btn[0]);
 
             // Check if inside datesmodule (Jira Core inline edit) OR JSM Customer Portal date picker
             var $datesModule = $btn.closest('#datesmodule');
@@ -1931,38 +2064,10 @@
             var isJiraCore = $datesModule.length > 0;
             var isJSM = $jsmDatePicker.length > 0;
 
-            if (!isJiraCore && !isJSM) {
-                logDebug('Not in recognized context (neither Jira Core nor JSM)');
-                return;
-            }
+            console.log(PC_LOG_PREFIX + ' [CAPTURE-PHASE] Context detected: Jira Core=' + isJiraCore + ', JSM=' + isJSM);
 
-            logInfo('Context detected: ' + (isJiraCore ? 'Jira Core' : 'JSM Customer Portal'));
-
-            // Find the associated input field
-            var $container = $btn.closest('.editable-field, .inline-edit-fields, [data-type="date"], [data-type="datetime"], .field-group, .cv-date-picker, .sd-date-picker');
-            if ($container.length === 0) {
-                if (isJiraCore) {
-                    $container = $datesModule.find('.editable-field:visible, .inline-edit-fields:visible').first();
-                } else {
-                    // JSM: find nearby input
-                    $container = $btn.parent();
-                }
-            }
-
-            // Try multiple selectors to find the input
-            var $input = $container.find('input.datepicker-input, input[class*="date"], input[type="text"]').first();
-
-            // JSM specific: look for input with id containing duedate or date
-            if ($input.length === 0) {
-                $input = $btn.parent().find('input[type="text"]').first();
-            }
-            if ($input.length === 0) {
-                $input = $btn.siblings('input[type="text"]').first();
-            }
-            if ($input.length === 0) {
-                // Try finding any visible date input in the form
-                $input = $btn.closest('form').find('input[id*="duedate"], input[name*="date"], input.text.date-picker').first();
-            }
+            // Find the associated input field using a smart proximity search
+            var $input = findClosestInput($btn);
 
             if ($input.length === 0) {
                 logDebug('No input found for calendar button');
@@ -1999,7 +2104,8 @@
                 inputValue.match(/[AP]M/i) ||
                 placeholder.match(/h:mm/i) ||
                 placeholder.match(/time/i) ||
-                $container.attr('data-type') === 'datetime' ||
+                ($input.closest('[data-type]').length > 0 && $input.closest('[data-type]').attr('data-type') === 'datetime') ||
+                ($input.attr('data-type') === 'datetime') ||
                 // JSM specific checks
                 inputClass.indexOf('datetime') !== -1 ||
                 inputClass.indexOf('time') !== -1 ||
@@ -2139,7 +2245,7 @@
             position: 'absolute',
             top: topPos + 'px',
             left: leftPos + 'px',
-            zIndex: 9999
+            zIndex: 2000000001
         });
 
         function render() {
@@ -2226,32 +2332,28 @@
                 var gregorianStr = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
                 logInfo('Formatted Gregorian string: ' + gregorianStr);
 
-                // Re-find the input field - try multiple strategies
-                var $datesModule = $('#datesmodule');
-                logInfo('datesmodule found: ' + ($datesModule.length > 0));
-
+                // Re-find the input field using smart proximity and fallback
                 var $activeInput = null;
-
-                // Strategy 1: Find input#duedate directly (most reliable)
-                $activeInput = $datesModule.find('input#duedate:visible').first();
-                logInfo('Strategy 1 (input#duedate:visible): found ' + $activeInput.length);
-
-                // Strategy 2: Find any visible text input in the dates module
-                if ($activeInput.length === 0) {
-                    $activeInput = $datesModule.find('input[type="text"]:visible').first();
-                    logInfo('Strategy 2 (input[type="text"]:visible): found ' + $activeInput.length);
-                }
-
-                // Strategy 3: Look in editable-field for any input
-                if ($activeInput.length === 0) {
-                    $activeInput = $datesModule.find('.editable-field input:visible, .inline-edit-fields input:visible').first();
-                    logInfo('Strategy 3 (.editable-field input:visible): found ' + $activeInput.length);
-                }
-
-                // Strategy 4: Use the original $input passed to this function
-                if ($activeInput.length === 0) {
+                if ($input && $input.length > 0 && document.body.contains($input[0]) && $input.is(':visible')) {
                     $activeInput = $input;
-                    logInfo('Strategy 4 (original $input fallback): found ' + ($activeInput ? $activeInput.length : 0));
+                    logInfo('Using original input (still in DOM and visible)');
+                } else {
+                    var originalId = $input ? $input.attr('id') : null;
+                    if (originalId) {
+                        $activeInput = $('#' + originalId + ':visible').first();
+                        logInfo('Re-found input by ID: ' + originalId + ', found: ' + ($activeInput.length > 0));
+                    }
+                    if ((!$activeInput || $activeInput.length === 0) && $input) {
+                        var originalName = $input.attr('name');
+                        if (originalName) {
+                            $activeInput = $('input[name="' + originalName + '"]:visible').first();
+                            logInfo('Re-found input by Name: ' + originalName + ', found: ' + ($activeInput.length > 0));
+                        }
+                    }
+                    if (!$activeInput || $activeInput.length === 0) {
+                        $activeInput = $input;
+                        logInfo('Fallback to original input');
+                    }
                 }
 
                 if (!$activeInput || $activeInput.length === 0) {
@@ -2493,7 +2595,7 @@
         var leftPos = Math.min(rect.left + window.scrollX, viewportWidth - 320 - 10);
         if (leftPos < 10) leftPos = 10;
 
-        popup.css({ position: 'absolute', top: topPos + 'px', left: leftPos + 'px', zIndex: 9999 });
+        popup.css({ position: 'absolute', top: topPos + 'px', left: leftPos + 'px', zIndex: 2000000001 });
 
         function render() {
             var html = '<div class="pc-header" style="justify-content:space-between; align-items:center;">';
@@ -2587,16 +2689,28 @@
                 var gregorianStr = formatJiraDateTime(gDate.gy, gDate.gm, gDate.gd, selectedHour, selectedMinute, selectedAmPm);
                 logInfo('Setting inline edit DateTime value (Gregorian): ' + gregorianStr);
 
-                // Re-find the input field in case DOM has changed
-                var $datesModule = $('#datesmodule');
-                var $activeInput = $datesModule.find('.editable-field.active input[type="text"]:visible, .inline-edit-fields input[type="text"]:visible').first();
-
-                if ($activeInput.length === 0) {
-                    $activeInput = $datesModule.find('input.datepicker-input:visible, input[class*="date"]:visible').first();
-                }
-
-                if ($activeInput.length === 0) {
+                // Re-find the input field using smart proximity and fallback
+                var $activeInput = null;
+                if ($input && $input.length > 0 && document.body.contains($input[0]) && $input.is(':visible')) {
                     $activeInput = $input;
+                    logInfo('Using original input for DateTime (still in DOM and visible)');
+                } else {
+                    var originalId = $input ? $input.attr('id') : null;
+                    if (originalId) {
+                        $activeInput = $('#' + originalId + ':visible').first();
+                        logInfo('Re-found DateTime input by ID: ' + originalId + ', found: ' + ($activeInput.length > 0));
+                    }
+                    if ((!$activeInput || $activeInput.length === 0) && $input) {
+                        var originalName = $input.attr('name');
+                        if (originalName) {
+                            $activeInput = $('input[name="' + originalName + '"]:visible').first();
+                            logInfo('Re-found DateTime input by Name: ' + originalName + ', found: ' + ($activeInput.length > 0));
+                        }
+                    }
+                    if (!$activeInput || $activeInput.length === 0) {
+                        $activeInput = $input;
+                        logInfo('Fallback to original DateTime input');
+                    }
                 }
 
                 logInfo('Found active input for DateTime: ' + $activeInput.attr('id') + ' / ' + $activeInput.attr('class'));
