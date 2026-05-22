@@ -722,6 +722,71 @@
         return null;
     }
 
+    // Convert absolute Gregorian date string to Persian (e.g. "13/May/26 8:53 PM" -> "23 اردیبهشت 1405 20:53")
+    function convertAbsoluteDateTextToPersian(fullText) {
+        if (!fullText) return null;
+        
+        var prefix = '';
+        var textToParse = fullText.trim();
+        var prefixMatch = textToParse.match(/^(Original|New|Old Value|New Value):\s*/i);
+        if (prefixMatch) {
+            prefix = prefixMatch[0];
+            textToParse = textToParse.substring(prefix.length).trim();
+        }
+
+        // Extract date part first (before any time)
+        var datePart = textToParse.split(/\s+\d{1,2}:/)[0].trim();
+        var timePart = '';
+
+        // Match time with AM/PM format (e.g., "7:11 PM" or "12:30 AM")
+        var timeMatch = textToParse.match(/\s+(\d{1,2}):(\d{2})\s*(AM|PM)/i);
+        if (timeMatch) {
+            var hour = parseInt(timeMatch[1], 10);
+            var minute = timeMatch[2];
+            var ampm = timeMatch[3].toUpperCase();
+
+            // Convert to 24-hour format
+            if (ampm === 'PM' && hour !== 12) {
+                hour += 12;
+            } else if (ampm === 'AM' && hour === 12) {
+                hour = 0;
+            }
+
+            // Format with leading zero
+            var hour24 = (hour < 10 ? '0' : '') + hour;
+            timePart = ' ' + hour24 + ':' + minute;
+        } else {
+            // Try to match time without AM/PM (already 24-hour format)
+            var time24Match = textToParse.match(/\s+(\d{1,2}:\d{2})(?!\s*[AP]M)/i);
+            if (time24Match) {
+                timePart = ' ' + time24Match[1];
+            }
+        }
+
+        var parsed = parseJiraDate(datePart);
+        if (parsed) {
+            var jDate = toJalaali(parsed.year, parsed.month, parsed.day);
+            var persianDateStr = formatPersianDate(jDate.jy, jDate.jm, jDate.jd);
+            
+            // The LRM (Left-to-Right Mark) character helps separate the time from Persian text
+            var lrm = '\u200E';  // Left-to-Right Mark
+            var rlm = '\u200F';  // Right-to-Left Mark
+
+            var displayText = persianDateStr;
+            if (timePart) {
+                displayText = displayText + lrm + timePart;
+            }
+
+            // Prepend original prefix if it existed
+            if (prefix) {
+                displayText = prefix + rlm + ' ' + displayText;
+            }
+
+            return displayText;
+        }
+        return null;
+    }
+
     function convertSameOriginIframe(iframe) {
         try {
             var iframeDoc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
@@ -809,10 +874,16 @@
                 }
 
                 var persianTime = convertRelativeTimeToPersian(text);
+                if (!persianTime) {
+                    persianTime = convertAbsoluteDateTextToPersian(text);
+                }
                 if (persianTime) {
                     $el.attr('title', text); // Keep original as tooltip
                     $el.text(persianTime);
-                    $el.css('direction', 'rtl');
+                    $el.css({
+                        'direction': 'rtl',
+                        'unicode-bidi': 'embed'
+                    });
                 }
             });
         }
@@ -915,18 +986,19 @@
                 return;
             }
 
-            // Check if text looks like relative time
-            if (!text.match(/ago|now|yesterday|tomorrow|minute|hour|second|day|week|month|year/i)) {
-                return;
-            }
-
             var persianTime = convertRelativeTimeToPersian(text);
+            if (!persianTime) {
+                persianTime = convertAbsoluteDateTextToPersian(text);
+            }
 
             if (persianTime) {
                 $el.attr('title', text); // Keep original as tooltip
                 $el.text(persianTime);
                 $el.data('pc-time-converted', true);
-                $el.css('direction', 'rtl');
+                $el.css({
+                    'direction': 'rtl',
+                    'unicode-bidi': 'embed'
+                });
                 logInfo('Converted time: ' + text + ' → ' + persianTime);
                 convertedCount++;
             }
@@ -1014,10 +1086,16 @@
                         }
 
                         var persianTime = convertRelativeTimeToPersian(text);
+                        if (!persianTime) {
+                            persianTime = convertAbsoluteDateTextToPersian(text);
+                        }
 
                         if (persianTime) {
                             $target.text(persianTime);
-                            $target.css('direction', 'rtl');
+                            $target.css({
+                                'direction': 'rtl',
+                                'unicode-bidi': 'embed'
+                            });
                             logDebug('Livestamp observer converted: ' + text + ' → ' + persianTime);
                         }
                     }
