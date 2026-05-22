@@ -818,6 +818,63 @@
             }
         });
 
+        // Also scan all text nodes inside activity and comment containers for embedded English durations (e.g. "logged '12 minutes'")
+        var textContainers = [
+            '#activitymodule',
+            '.activity-stream',
+            '#activity-stream-issue-tab',
+            '#activity-tabpanel',
+            '.activity-item',
+            '.activity-item-summary',
+            '.activity-item-description',
+            '#worklog-tabpanel',
+            '#changehistory-tabpanel',
+            '#comment-tabpanel',
+            '.actionContainer',
+            '.issue-data-block',
+            '.issue-body-content'
+        ];
+
+        function replaceDurationsInString(str) {
+            if (!str) return str;
+            
+            var persianUnits = {
+                'second': 'ثانیه',
+                'minute': 'دقیقه',
+                'hour': 'ساعت',
+                'day': 'روز',
+                'week': 'هفته',
+                'month': 'ماه',
+                'year': 'سال'
+            };
+
+            return str.replace(/\b(\d+)\s*(second|minute|hour|day|week|month|year)s?\b(?!\s+ago)/gi, function(match, num, unit) {
+                var persianNum = toPersianNumerals(num);
+                var normalizedUnit = unit.toLowerCase();
+                var translatedUnit = persianUnits[normalizedUnit] || normalizedUnit;
+                return persianNum + ' ' + translatedUnit;
+            });
+        }
+
+        $(textContainers.join(',')).each(function() {
+            $(this).find('*').contents().each(function() {
+                if (this.nodeType === 3) { // Text node
+                    var text = this.nodeValue;
+                    if (text && text.match(/\b\d+\s*(second|minute|hour|day|week|month|year)s?\b(?!\s+ago)/i)) {
+                        // Skip if already has Persian numerals to avoid double conversion
+                        if (text.match(/[۰-۹]/)) {
+                            return;
+                        }
+                        var newText = replaceDurationsInString(text);
+                        if (newText !== text) {
+                            this.nodeValue = newText;
+                            convertedCount++;
+                        }
+                    }
+                }
+            });
+        });
+
         logInfo('Time Spent / Durations converted: ' + convertedCount);
     }
 
