@@ -453,7 +453,48 @@
     // Convert duration text to Persian (e.g., "15 minutes" -> "۱۵ دقیقه", "2 hours" -> "۲ ساعت", "15m", "1h 30m")
     function convertDurationToPersian(text) {
         if (!text) return text;
-        var original = text.trim().toLowerCase();
+        
+        var originalText = text.trim();
+        var prefix = '';
+        var prefixMatch = originalText.match(/^(Original|New|Old Value|New Value):\s*/i);
+        var restOfText = originalText;
+        if (prefixMatch) {
+            prefix = prefixMatch[0];
+            restOfText = originalText.substring(prefix.length).trim();
+        }
+        var original = restOfText.toLowerCase();
+
+        // Pattern: Duration with bracketed seconds (e.g. "30 minutes [ 1800 ]", "0 minutes [ 0 ]")
+        var bracketedDurationMatch = original.match(/^(\d+)\s*(second|minute|hour|day|week|month|year)s?\s*\[\s*(\d+)\s*\]$/i);
+        if (bracketedDurationMatch) {
+            var num = bracketedDurationMatch[1];
+            var unit = bracketedDurationMatch[2].toLowerCase();
+            var rawSeconds = bracketedDurationMatch[3];
+            
+            var persianNum = toPersianNumerals(num);
+            var persianSeconds = toPersianNumerals(rawSeconds);
+            
+            var persianUnits = {
+                'second': 'ثانیه',
+                'minute': 'دقیقه',
+                'hour': 'ساعت',
+                'day': 'روز',
+                'week': 'هفته',
+                'month': 'ماه',
+                'year': 'سال'
+            };
+            
+            var translatedUnit = persianUnits[unit] || unit;
+            return prefix + persianNum + ' ' + translatedUnit + ' [ ' + persianSeconds + ' ]';
+        }
+
+        // Pattern: Just bracketed numbers (e.g. "10201 [ 10201 ]")
+        var bracketedNumbersMatch = original.match(/^(\d+)\s*\[\s*(\d+)\s*\]$/);
+        if (bracketedNumbersMatch) {
+            var num1 = bracketedNumbersMatch[1];
+            var num2 = bracketedNumbersMatch[2];
+            return prefix + toPersianNumerals(num1) + ' [ ' + toPersianNumerals(num2) + ' ]';
+        }
 
         // Pattern: "X unit" or "Xu" (e.g., "15 minutes", "15m", "2 hours", "2h")
         // Matches: 15m, 15 m, 15 minutes, 15 minute
@@ -484,7 +525,7 @@
                 'month': 'ماه',
                 'year': 'سال'
             };
-            return persianNum + ' ' + (persianUnits[normalizedUnit] || normalizedUnit);
+            return prefix + persianNum + ' ' + (persianUnits[normalizedUnit] || normalizedUnit);
         }
 
         // Pattern: "Xh Ym" or "X hours Y minutes"
@@ -493,7 +534,7 @@
         if (hoursMinutesMatch) {
             var hours = hoursMinutesMatch[1];
             var mins = hoursMinutesMatch[2];
-            return toPersianNumerals(hours) + ' ساعت ' + toPersianNumerals(mins) + ' دقیقه';
+            return prefix + toPersianNumerals(hours) + ' ساعت ' + toPersianNumerals(mins) + ' دقیقه';
         }
 
         // Pattern: "Xd Yh" (Days and Hours)
@@ -501,7 +542,7 @@
         if (daysHoursMatch) {
             var days = daysHoursMatch[1];
             var hours = daysHoursMatch[2];
-            return toPersianNumerals(days) + ' روز ' + toPersianNumerals(hours) + ' ساعت';
+            return prefix + toPersianNumerals(days) + ' روز ' + toPersianNumerals(hours) + ' ساعت';
         }
 
         return null;
@@ -740,7 +781,12 @@
             '.actionContainer .worklog-duration',
             // dd elements (definition descriptions often used for values)
             'dd#timespent-val',
-            'dd#timeestimate-val'
+            'dd#timeestimate-val',
+            // History Tab (Original/New values)
+            'td.activity-old-val',
+            'td.activity-new-val',
+            '.activity-old-val',
+            '.activity-new-val'
         ];
 
         var convertedCount = 0;
@@ -2012,6 +2058,11 @@
             }
 
             var fullText = $el.text().trim();
+
+            // Skip if already converted by duration converter or containing Persian numerals
+            if ($el.data('pc-duration-converted') || fullText.match(/[۰-۹]/)) {
+                return;
+            }
 
             // Debug: Log each element found
             logDebug('Found element with text: "' + fullText + '" | tag: ' + $el.prop('tagName') + ' | class: ' + $el.attr('class'));
