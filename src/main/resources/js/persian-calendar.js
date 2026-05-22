@@ -722,6 +722,129 @@
         return null;
     }
 
+    function convertSameOriginIframe(iframe) {
+        try {
+            var iframeDoc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+            if (!iframeDoc || !iframeDoc.body) {
+                return;
+            }
+
+            // Skip if already processed
+            if (iframe._pcProcessed) {
+                return;
+            }
+            iframe._pcProcessed = true;
+
+            logInfo('Converting same-origin iframe content');
+
+            // 1. Initial conversion
+            performIframeConversion(iframeDoc);
+
+            // 2. Attach MutationObserver
+            var observer = new MutationObserver(function (mutations) {
+                var hasNewContent = false;
+                mutations.forEach(function (mutation) {
+                    if (mutation.addedNodes.length > 0 || mutation.type === 'characterData') {
+                        hasNewContent = true;
+                    }
+                });
+
+                if (hasNewContent) {
+                    clearTimeout(iframe._pcConvertTimeout);
+                    iframe._pcConvertTimeout = setTimeout(function () {
+                        performIframeConversion(iframeDoc);
+                    }, 200);
+                }
+            });
+
+            observer.observe(iframeDoc.body, {
+                childList: true,
+                subtree: true,
+                characterData: true
+            });
+
+            logInfo('Attached MutationObserver to same-origin iframe');
+
+        } catch (e) {
+            logDebug('Cannot access iframe content (cross-origin?): ' + e.message);
+        }
+    }
+
+    function performIframeConversion(iframeDoc) {
+        if (!iframeDoc || !iframeDoc.body) return;
+
+        // Convert raw text nodes
+        walkTextNodes(iframeDoc.body, function (node) {
+            var text = node.nodeValue;
+            if (!text) return;
+
+            // Skip empty or already translated to Persian
+            if (text.match(/[۰-۹]/) || text.match(/قبل|الان|دیروز|امروز|فردا/)) {
+                return;
+            }
+
+            var newText = translateTextInString(text);
+            if (newText !== text) {
+                node.nodeValue = newText;
+            }
+        });
+
+        // Translate specific elements (like <time> or .livestamp or elements inside Activity Stream) using jQuery (if jQuery is available in context)
+        if (typeof jQuery !== 'undefined') {
+            var $ = jQuery;
+            var timestampSelectors = [
+                'time',
+                '.livestamp',
+                '[data-livestamp]',
+                '.date',
+                '.timestamp'
+            ];
+            $(timestampSelectors.join(','), iframeDoc).each(function () {
+                var $el = $(this);
+                var text = $el.text().trim();
+
+                // Skip if empty or already Persian
+                if (!text || text.match(/[۰-۹]/) || text.match(/قبل|الان|دیروز|فردا/)) {
+                    return;
+                }
+
+                var persianTime = convertRelativeTimeToPersian(text);
+                if (persianTime) {
+                    $el.attr('title', text); // Keep original as tooltip
+                    $el.text(persianTime);
+                    $el.css('direction', 'rtl');
+                }
+            });
+        }
+    }
+
+    function scanAndProcessAllSameOriginIframes() {
+        var iframes = document.querySelectorAll('iframe');
+        iframes.forEach(function (iframe) {
+            try {
+                // If the iframe already has body content, process it
+                var iframeDoc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
+                if (iframeDoc && iframeDoc.body && iframeDoc.body.innerHTML) {
+                    convertSameOriginIframe(iframe);
+                }
+                
+                // Also always attach a load listener in case it reloads or is still loading
+                if (!iframe._pcLoadListenerAttached) {
+                    iframe._pcLoadListenerAttached = true;
+                    iframe.addEventListener('load', function () {
+                        logDebug('Same-origin iframe loaded, converting...');
+                        // Short delay to let dynamic JS (like Activity Stream widgets) render their initial content
+                        setTimeout(function () {
+                            convertSameOriginIframe(iframe);
+                        }, 500);
+                    });
+                }
+            } catch (e) {
+                // Cross-origin iframe, ignore
+            }
+        });
+    }
+
     // Convert Activity Stream timestamps to Persian
     function convertActivityStreamTime($) {
         logInfo('=== Converting Activity Stream Timestamps ===');
@@ -813,6 +936,9 @@
 
         // Also do aggressive text-based conversion for any missed elements
         convertAllRelativeTimesInPage($);
+
+        // Scan and convert same-origin iframes (like Activity Stream gadget)
+        scanAndProcessAllSameOriginIframes();
     }
 
     // Aggressive text-based conversion - find ALL elements with relative time text
@@ -3816,10 +3942,14 @@
                                 className.indexOf('history') !== -1 ||
                                 className.indexOf('livestamp') !== -1;
 
+                            // If an iframe is added, or a container that might contain iframes
+                            var containsIframe = (node.tagName === 'IFRAME' || (node.querySelector && node.querySelector('iframe')));
+
                             if (node.hasAttribute && (node.hasAttribute('data-test-cv-dummy-text') ||
                                 (content.match(/\d{1,2}\/[A-Z][a-z]{2}\/\d{2}/)) ||
                                 hasTimeContent ||
-                                hasRelevantClass)) {
+                                hasRelevantClass ||
+                                containsIframe)) {
                                 shouldConvertDates = true;
                                 logDebug('MutationObserver triggered update', { tag: node.tagName, class: className });
                             }
