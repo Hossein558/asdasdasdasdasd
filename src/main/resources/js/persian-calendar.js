@@ -1280,6 +1280,12 @@
     // Parse Jira date format - supports multiple formats based on DATE_FORMAT_CACHE
     function parseJiraDate(dateStr) {
         if (!dateStr) return null;
+        
+        // Quietly ignore if already contains Persian characters or non-ASCII symbols
+        if (/[^\x00-\x7F]/.test(dateStr)) {
+            return null;
+        }
+
         logDebug('Parsing date: ' + dateStr);
 
         // Try multiple parsing strategies
