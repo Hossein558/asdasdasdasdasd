@@ -161,17 +161,20 @@ public class LicenseManager {
         }
 
         // Parse license: TYPE-SERVERID-EXPIRY-SIGNATURE
-        String[] parts = licenseKey.split("-");
-        if (parts.length != 4) {
+        int firstDash = licenseKey.indexOf("-");
+        int lastDash = licenseKey.lastIndexOf("-");
+        int secondLastDash = licenseKey.lastIndexOf("-", lastDash - 1);
+
+        if (firstDash == -1 || lastDash == -1 || secondLastDash == -1 || firstDash >= secondLastDash) {
             info.setStatus(LicenseStatus.INVALID);
             info.setMessage("فرمت لایسنس نامعتبر است");
             return info;
         }
 
-        String typeCode = parts[0];
-        String serverHash = parts[1];
-        String expiryStr = parts[2];
-        String signature = parts[3];
+        String typeCode = licenseKey.substring(0, firstDash);
+        String serverHash = licenseKey.substring(firstDash + 1, secondLastDash);
+        String expiryStr = licenseKey.substring(secondLastDash + 1, lastDash);
+        String signature = licenseKey.substring(lastDash + 1);
 
         // Validate type
         LicenseType type = LicenseType.fromCode(typeCode);

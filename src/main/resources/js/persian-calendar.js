@@ -722,6 +722,110 @@
         logInfo('Time Spent / Durations converted: ' + convertedCount);
     }
 
+    // Convert Advanced Audit Log and System Info dates to Persian format
+    function convertAuditLogDates($) {
+        var auditDateRegex = /([a-z]+)\s+(\d{1,2}),\s+(\d{4}),\s+(\d{1,2}:\d{2}:\d{2}\s+[AP]M)\s+(GMT[+-]\d{1,2}:\d{2})/i;
+        var isoDateRegex = /(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2}:\d{2})/i;
+        var sysDateRegex1 = /(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday),\s+(\d{1,2})\s+([a-z]+)\s+(\d{4})/i;
+        var sysDateRegex2 = /(\d{1,2})\/([a-z]+)\/(\d{2})(?:\s+(\d{1,2}:\d{2}(?:\s*(?:AM|PM))?))?/i;
+        var sysDateRegex3 = /(?:mon|tue|wed|thu|fri|sat|sun)\s+([a-z]+)\s+(\d{1,2})\s+(\d{2}:\d{2}:\d{2})\s+[A-Z]+\s+(\d{4})/i;
+        var sysDateRegex4 = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s+(\d{1,2}:\d{2}(?:\s*(?:AM|PM))?)/i;
+        var ENGLISH_MONTHS_FULL = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+        
+        $('td, span, div, p, time, a').each(function() {
+            var $this = $(this);
+            if ($this.attr('data-persian-converted') === 'true') return;
+            
+            // Only process leaf nodes (elements with no element children, only text)
+            if ($this.children().length === 0) {
+                var text = $this.text().trim();
+                if (!text) return;
+
+                var match = text.match(auditDateRegex);
+                var isoMatch = text.match(isoDateRegex);
+                var sysMatch1 = text.match(sysDateRegex1);
+                var sysMatch2 = text.match(sysDateRegex2);
+                var sysMatch3 = text.match(sysDateRegex3);
+                var sysMatch4 = text.match(sysDateRegex4);
+
+                var yearStr, monthStr, dayStr, timeStr = '', tzStr = '';
+                var matchedOriginal = '';
+
+                if (match) {
+                    matchedOriginal = match[0];
+                    monthStr = match[1]; dayStr = match[2]; yearStr = match[3];
+                    timeStr = match[4]; tzStr = match[5];
+                } else if (sysMatch1) {
+                    matchedOriginal = sysMatch1[0];
+                    dayStr = sysMatch1[1]; monthStr = sysMatch1[2]; yearStr = sysMatch1[3];
+                } else if (sysMatch2) {
+                    matchedOriginal = sysMatch2[0];
+                    dayStr = sysMatch2[1]; monthStr = sysMatch2[2]; yearStr = "20" + sysMatch2[3];
+                    timeStr = sysMatch2[4] || '';
+                } else if (sysMatch3) {
+                    matchedOriginal = sysMatch3[0];
+                    monthStr = sysMatch3[1]; dayStr = sysMatch3[2]; timeStr = sysMatch3[3]; yearStr = sysMatch3[4];
+                } else if (sysMatch4) {
+                    matchedOriginal = sysMatch4[0];
+                    // US Format M/D/Y expected
+                    monthStr = sysMatch4[1]; dayStr = sysMatch4[2]; 
+                    yearStr = sysMatch4[3];
+                    if (yearStr.length === 2) yearStr = "20" + yearStr;
+                    timeStr = sysMatch4[4];
+                }
+
+                if (matchedOriginal) {
+                    var monthIndex = -1;
+                    if (sysMatch4) {
+                        // For numerical months
+                        monthIndex = parseInt(monthStr, 10) - 1;
+                    } else {
+                        monthStr = monthStr.toLowerCase();
+                        for (var i = 0; i < ENGLISH_MONTHS_FULL.length; i++) {
+                            if (ENGLISH_MONTHS_FULL[i].indexOf(monthStr) === 0) {
+                                monthIndex = i;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (monthIndex !== -1 && typeof toJalaali !== 'undefined') {
+                        try {
+                            var jDate = toJalaali(parseInt(yearStr, 10), monthIndex + 1, parseInt(dayStr, 10));
+                            var persianDateStr = formatPersianDateSlash(jDate.jy, jDate.jm, jDate.jd);
+                            
+                            var finalStr = persianDateStr;
+                            if (timeStr) finalStr += ' ' + timeStr;
+                            if (tzStr) finalStr += ' ' + tzStr;
+
+                            var replacement = text.replace(matchedOriginal, finalStr);
+                            $this.text(replacement);
+                            $this.attr('data-persian-converted', 'true');
+                            $this.attr('title', text);
+                            $this.css('direction', 'ltr').css('white-space', 'nowrap');
+                        } catch (e) { }
+                    }
+                } else if (isoMatch) {
+                    try {
+                        var year = parseInt(isoMatch[1], 10);
+                        var month = parseInt(isoMatch[2], 10);
+                        var day = parseInt(isoMatch[3], 10);
+                        var time = isoMatch[4];
+                        if (typeof toJalaali !== 'undefined') {
+                            var jDate = toJalaali(year, month, day);
+                            var persianDateStr = formatPersianDateSlash(jDate.jy, jDate.jm, jDate.jd);
+                            var replacement = text.replace(isoMatch[0], persianDateStr + ' ' + time);
+                            $this.text(replacement);
+                            $this.attr('data-persian-converted', 'true');
+                            $this.attr('title', text);
+                            $this.css('direction', 'ltr').css('white-space', 'nowrap');
+                        }
+                    } catch (e) {}
+                }
+            }
+        });
+    }
+
     // Convert Issue Search/Navigator table dates to Persian format (YYYY/MM/DD)
     function convertIssueSearchDates($) {
         logDebug('=== Converting Issue Search Dates ===');
@@ -986,17 +1090,20 @@
 
         // Strategy 1: Parse based on current format (d/MMM/yy or dd/MMM/yy)
         result = parseDateByPattern(dateStr, DATE_FORMAT_CACHE.dateFormat);
+        if (result && result.year < 1500) return null; // Already Jalali
         if (result) return result;
 
         // Strategy 2: Try common Jira formats
         var commonFormats = ['d/MMM/yy', 'dd/MMM/yy', 'dd/MMM/yyyy', 'd/MMM/yyyy', 'yyyy-MM-dd', 'MM/dd/yyyy', 'dd-MMM-yy'];
         for (var i = 0; i < commonFormats.length; i++) {
             result = parseDateByPattern(dateStr, commonFormats[i]);
+            if (result && result.year < 1500) return null; // Already Jalali
             if (result) return result;
         }
 
         // Strategy 3: Auto-detect format
         result = autoDetectAndParse(dateStr);
+        if (result && result.year < 1500) return null; // Already Jalali
         if (result) return result;
 
         logWarn('Could not parse date: ' + dateStr);
@@ -3158,6 +3265,7 @@
             initInlineEditCalendar($);
             // v11.4.0: New date display converters
             convertActivityStreamTime($);
+            convertAuditLogDates($);
             convertIssueSearchDates($);
             convertTimeSpentDurations($);
             // Setup livestamp observer for dynamic updates
@@ -3175,7 +3283,8 @@
                     convertViewPageDates($);
                     // v11.4.0: New date display converters
                     convertActivityStreamTime($);
-                    convertIssueSearchDates($);
+                    convertAuditLogDates($);
+            convertIssueSearchDates($);
                     convertTimeSpentDurations($);
                 }, 200);
             });
@@ -3191,7 +3300,8 @@
                     convertViewPageDates($);
                     // v11.4.0: New date display converters
                     convertActivityStreamTime($);
-                    convertIssueSearchDates($);
+                    convertAuditLogDates($);
+            convertIssueSearchDates($);
                     convertTimeSpentDurations($);
                 }, delay);
             });
@@ -3222,7 +3332,7 @@
                             var className = (node.className && typeof node.className === 'string') ? node.className : '';
 
                             // Patterns for English durations, relative times, and history fields
-                            var hasTimeContent = content.match(/minute|hour|ago|now|yesterday|tomorrow|Original|New:|Old Value/i);
+                            var hasTimeContent = content.match(/minute|hour|ago|now|yesterday|tomorrow|Original|New:|Old Value|GMT|[AP]M|january|february|march|april|may|june|july|august|september|october|november|december|\d{4}-\d{2}-\d{2}T/i);
                             var hasRelevantClass = className.indexOf('worklog') !== -1 ||
                                 className.indexOf('activity') !== -1 ||
                                 className.indexOf('history') !== -1 ||
@@ -3248,7 +3358,8 @@
                     convertViewPageDates($);
                     // v11.4.0: New date display converters
                     convertActivityStreamTime($);
-                    convertIssueSearchDates($);
+                    convertAuditLogDates($);
+            convertIssueSearchDates($);
                     convertTimeSpentDurations($);
                 }, 100);
             }
