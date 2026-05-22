@@ -431,6 +431,112 @@
         return parts.join(' و ');
     }
 
+    // Recursive text node walker to process all text content including siblings
+    function walkTextNodes(element, callback) {
+        var node = element.firstChild;
+        while (node) {
+            if (node.nodeType === 3) { // Text node
+                callback(node);
+            } else if (node.nodeType === 1 && node.nodeName !== 'SCRIPT' && node.nodeName !== 'STYLE' && node.nodeName !== 'TEXTAREA') {
+                walkTextNodes(node, callback);
+            }
+            node = node.nextSibling;
+        }
+    }
+
+    // Broad string translator for relative times, bracketed seconds, and durations
+    function translateTextInString(text) {
+        if (!text) return text;
+        
+        // Skip if already containing Persian numerals or key Persian relative words to avoid double translation
+        if (text.match(/[۰-۹]/) || text.match(/قبل|الان|دیروز|امروز|فردا|ساعت/)) {
+            return text;
+        }
+        
+        var original = text;
+        
+        // 1. Yesterday/Today/Tomorrow at/or time (e.g. "Yesterday at 1:06 PM" or "Yesterday 1:06 PM")
+        var yesterdayTodayRegex = /\b(yesterday|today|tomorrow)\s+(?:at\s+)?(\d{1,2}):(\d{2})(?:\s*(am|pm))?\b/gi;
+        original = original.replace(yesterdayTodayRegex, function (match, dayWord, hour, minute, ampm) {
+            var h = parseInt(hour, 10);
+            if (ampm) {
+                var ampmLower = ampm.toLowerCase();
+                if (ampmLower === 'pm' && h !== 12) {
+                    h += 12;
+                } else if (ampmLower === 'am' && h === 12) {
+                    h = 0;
+                }
+            }
+            var hStr = (h < 10 ? '0' : '') + h;
+            var dayTranslate = {
+                'yesterday': 'دیروز',
+                'today': 'امروز',
+                'tomorrow': 'فردا'
+            };
+            var translatedDay = dayTranslate[dayWord.toLowerCase()] || dayWord;
+            return translatedDay + ' ساعت ' + toPersianNumerals(hStr) + ':' + toPersianNumerals(minute);
+        });
+        
+        // 2. Duration with bracketed seconds (e.g. "30 minutes [ 1800 ]" or "1 hour 12 minutes [ 4320 ]")
+        var bracketedDurationRegex = /\b((?:\b\d+\s+(?:second|minute|hour|day|week|month|year|s|m|h|d|w|y)s?\s*(?:and\s*)?)+)\s*\[\s*(\d+)\s*\]/gi;
+        original = original.replace(bracketedDurationRegex, function (match, durationStr, rawSeconds) {
+            var parsedDuration = parseCompoundDuration(durationStr);
+            if (parsedDuration) {
+                var persianSeconds = toPersianNumerals(rawSeconds);
+                return parsedDuration + ' [ ' + persianSeconds + ' ]';
+            }
+            return match;
+        });
+
+        // 3. Bracketed simple numbers (e.g. "[ 1800 ]")
+        var bracketedNumbersRegex = /\b(\d+)\s*\[\s*(\d+)\s*\]/g;
+        original = original.replace(bracketedNumbersRegex, function (match, num1, num2) {
+            return toPersianNumerals(num1) + ' [ ' + toPersianNumerals(num2) + ' ]';
+        });
+
+        // 4. Compound / Simple Relative Times: "X days Y hours ago"
+        var relativeTimeRegex = /\b((?:\b\d+\s+(?:second|minute|hour|day|week|month|year|s|m|h|d|w|y)s?\s*(?:and\s*)?)+)ago\b/gi;
+        original = original.replace(relativeTimeRegex, function (match, durationPart) {
+            var compoundParsed = parseCompoundDuration(durationPart);
+            if (compoundParsed) {
+                return compoundParsed + ' قبل';
+            }
+            return match;
+        });
+        
+        // 5. Future relative times: "in X minutes"
+        var futureRelativeRegex = /\bin\s+((?:\b\d+\s+(?:second|minute|hour|day|week|month|year|s|m|h|d|w|y)s?\s*(?:and\s*)?)+)/gi;
+        original = original.replace(futureRelativeRegex, function (match, durationPart) {
+            var compoundParsed = parseCompoundDuration(durationPart);
+            if (compoundParsed) {
+                return 'در ' + compoundParsed;
+            }
+            return match;
+        });
+
+        // 6. Simple Relative Times without numbers: "yesterday", "today", "just now", etc.
+        var simpleRelativeRegex = /\b(just now|a moment ago|a few seconds ago|seconds ago|a minute ago|minutes ago|an hour ago|hours ago|a day ago|days ago|yesterday|a week ago|weeks ago|a month ago|months ago|a year ago|years ago|today|tomorrow)\b/gi;
+        original = original.replace(simpleRelativeRegex, function (match) {
+            var lower = match.toLowerCase();
+            return PERSIAN_RELATIVE_TIME[lower] || match;
+        });
+
+        // 7. Single or Compound Durations: "12 minutes" or "2 hours" (not followed by "ago" or inside brackets)
+        var durationRegex = /\b((?:\b\d+\s+(?:second|minute|hour|day|week|month|year|s|m|h|d|w|y)s?\s*(?:and\s*)?)+)\b/gi;
+        original = original.replace(durationRegex, function (match) {
+            if (match.trim().match(/^\d+$/)) {
+                return match;
+            }
+            var compoundParsed = parseCompoundDuration(match);
+            if (compoundParsed) {
+                return compoundParsed;
+            }
+            return match;
+        });
+
+        return original;
+    }
+
     // Convert relative time text to Persian (e.g., "15 minutes ago" -> "۱۵ دقیقه قبل")
     function convertRelativeTimeToPersian(text) {
         if (!text) return text;
@@ -713,10 +819,6 @@
     function convertAllRelativeTimesInPage($) {
         logInfo('=== Aggressive Text-Based Relative Time Conversion ===');
 
-        // Pattern to match English relative times
-        var relativeTimePattern = /^(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago$/i;
-        var simplePatterns = ['just now', 'a moment ago', 'yesterday', 'today', 'tomorrow'];
-
         var convertedCount = 0;
 
         // Search through all text nodes in Activity-related containers
@@ -724,38 +826,31 @@
             '#activitymodule',
             '.activity-stream',
             '#activity-stream-issue-tab',
+            '#activity-tabpanel',
+            '.activity-item',
+            '.activity-item-summary',
+            '.activity-item-description',
             '#worklog-tabpanel',
             '#changehistory-tabpanel',
             '#comment-tabpanel',
             '.actionContainer',
-            '.issue-data-block'
+            '.issue-data-block',
+            '.issue-body-content'
         ];
 
-        containers.forEach(function (containerSel) {
-            $(containerSel).find('*').each(function () {
-                var $el = $(this);
+        $(containers.join(',')).each(function () {
+            walkTextNodes(this, function (node) {
+                var text = node.nodeValue;
+                if (!text) return;
 
-                // Skip if has children (we want leaf nodes)
-                if ($el.children().length > 0) return;
-
-                // Skip already converted
-                if ($el.data('pc-text-converted')) return;
-
-                var text = $el.text().trim();
-
-                // Skip empty or already Persian
-                if (!text || text.match(/[۰-۹]/) || text.match(/قبل|الان|دیروز/)) {
+                // Skip empty or already translated to Persian
+                if (text.match(/[۰-۹]/) || text.match(/قبل|الان|دیروز|امروز|فردا/)) {
                     return;
                 }
 
-                var persianTime = convertRelativeTimeToPersian(text);
-
-                if (persianTime) {
-                    $el.attr('title', text);
-                    $el.text(persianTime);
-                    $el.data('pc-text-converted', true);
-                    $el.css('direction', 'rtl');
-                    logInfo('Text-converted: ' + text + ' → ' + persianTime);
+                var newText = translateTextInString(text);
+                if (newText !== text) {
+                    node.nodeValue = newText;
                     convertedCount++;
                 }
             });
