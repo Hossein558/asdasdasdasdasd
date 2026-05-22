@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '11.4.9';
+    var PC_VERSION = '11.4.10';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     // IMMEDIATE GLOBAL CLICK DIAGNOSTIC (Writen to F12 Console)
@@ -53,6 +53,32 @@
     function logDebug(msg, data) { return pcLog('DEBUG', msg, data); }
     function logWarn(msg, data) { return pcLog('WARN', msg, data); }
     function logError(msg, data) { return pcLog('ERROR', msg, data); }
+
+    function setElementValueSafely(element, val) {
+        if (!element) return;
+        try {
+            var nativeInputValueSetter = null;
+            var proto = element;
+            while (proto) {
+                var desc = Object.getOwnPropertyDescriptor(proto, 'value');
+                if (desc && desc.set) {
+                    nativeInputValueSetter = desc.set;
+                    break;
+                }
+                proto = Object.getPrototypeOf(proto);
+            }
+            if (nativeInputValueSetter) {
+                nativeInputValueSetter.call(element, val);
+            } else {
+                element.value = val;
+            }
+        } catch (e) {
+            logError('Error in setElementValueSafely: ' + e);
+            try {
+                element.value = val;
+            } catch (err) {}
+        }
+    }
 
     // ========== LICENSE SYSTEM ==========
     // Security: Obfuscated integrity verification
@@ -730,6 +756,8 @@
         var sysDateRegex2 = /(\d{1,2})\/([a-z]+)\/(\d{2})(?:\s+(\d{1,2}:\d{2}(?:\s*(?:AM|PM))?))?/i;
         var sysDateRegex3 = /(?:mon|tue|wed|thu|fri|sat|sun)\s+([a-z]+)\s+(\d{1,2})\s+(\d{2}:\d{2}:\d{2})\s+[A-Z]+\s+(\d{4})/i;
         var sysDateRegex4 = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s+(\d{1,2}:\d{2}(?:\s*(?:AM|PM))?)/i;
+        var sysDateRegex5 = /([a-z]{3,})\s+(\d{1,2}),\s+(\d{4})/i;
+        var sysDateRegex6 = /(\d{1,2})\/([a-z]{3,})/i;
         var ENGLISH_MONTHS_FULL = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
         
         $('td, span, div, p, time, a').each(function() {
@@ -747,6 +775,8 @@
                 var sysMatch2 = text.match(sysDateRegex2);
                 var sysMatch3 = text.match(sysDateRegex3);
                 var sysMatch4 = text.match(sysDateRegex4);
+                var sysMatch5 = text.match(sysDateRegex5);
+                var sysMatch6 = text.match(sysDateRegex6);
 
                 var yearStr, monthStr, dayStr, timeStr = '', tzStr = '';
                 var matchedOriginal = '';
@@ -772,6 +802,33 @@
                     yearStr = sysMatch4[3];
                     if (yearStr.length === 2) yearStr = "20" + yearStr;
                     timeStr = sysMatch4[4];
+                } else if (sysMatch5) {
+                    matchedOriginal = sysMatch5[0];
+                    monthStr = sysMatch5[1]; dayStr = sysMatch5[2]; yearStr = sysMatch5[3];
+                } else if (sysMatch6) {
+                    var mIdx = -1;
+                    var mStr = sysMatch6[2].toLowerCase();
+                    for (var i = 0; i < ENGLISH_MONTHS_FULL.length; i++) {
+                        if (ENGLISH_MONTHS_FULL[i].indexOf(mStr) === 0) {
+                            mIdx = i;
+                            break;
+                        }
+                    }
+                    if (mIdx !== -1 && typeof toJalaali !== 'undefined' && typeof PERSIAN_MONTHS !== 'undefined') {
+                        try {
+                            var gy = new Date().getFullYear();
+                            var gd = parseInt(sysMatch6[1], 10);
+                            var jDate = toJalaali(gy, mIdx + 1, gd);
+                            var persianDateStr = jDate.jd + '/' + PERSIAN_MONTHS[jDate.jm - 1];
+                            var replacement = text.replace(sysMatch6[0], persianDateStr);
+                            $this.text(replacement);
+                            $this.attr('data-persian-converted', 'true');
+                            $this.attr('title', text);
+                            $this.css('direction', 'rtl').css('white-space', 'nowrap');
+                            convertedCount++;
+                        } catch (e) {}
+                    }
+                    return; // Skip the rest for sysMatch6
                 }
 
                 if (matchedOriginal) {
@@ -799,10 +856,20 @@
                             if (tzStr) finalStr += ' ' + tzStr;
 
                             var replacement = text.replace(matchedOriginal, finalStr);
+                            replacement = replacement.replace(/Start:/gi, 'شروع:')
+                                                     .replace(/End:/gi, 'پایان:')
+                                                     .replace(/Target start:/gi, 'شروع هدف:')
+                                                     .replace(/Target end:/gi, 'پایان هدف:')
+                                                     .replace(/days ago/gi, 'روز پیش')
+                                                     .replace(/day ago/gi, 'روز پیش')
+                                                     .replace(/months ago/gi, 'ماه پیش')
+                                                     .replace(/month ago/gi, 'ماه پیش')
+                                                     .replace(/years ago/gi, 'سال پیش')
+                                                     .replace(/year ago/gi, 'سال پیش');
                             $this.text(replacement);
                             $this.attr('data-persian-converted', 'true');
                             $this.attr('title', text);
-                            $this.css('direction', 'ltr').css('white-space', 'nowrap');
+                            $this.css('direction', 'rtl').css('white-space', 'nowrap');
                         } catch (e) { }
                     }
                 } else if (isoMatch) {
@@ -1114,7 +1181,7 @@
     function parseDateByPattern(dateStr, pattern) {
         if (!dateStr || !pattern) return null;
 
-        var str = dateStr.trim().split(' ')[0]; // Remove time part if present
+        var str = dateStr.trim().split(/\s+\d{1,2}:/)[0].trim(); // Remove time part if present
         var day, month, year;
 
         // Determine separator
@@ -1164,7 +1231,7 @@
 
     // Auto-detect and parse common date formats
     function autoDetectAndParse(dateStr) {
-        var str = dateStr.trim().split(' ')[0];
+        var str = dateStr.trim().split(/\s+\d{1,2}:/)[0].trim();
 
         // Try d/MMM/yy format (most common Jira format)
         var match1 = str.match(/^(\d{1,2})\/([A-Za-z]{3})\/(\d{2,4})$/);
@@ -1197,6 +1264,28 @@
                 var y2 = parseInt(match4[3], 10);
                 if (y2 < 100) y2 += 2000;
                 return { year: y2, month: mIdx2 + 1, day: parseInt(match4[1], 10) };
+            }
+        }
+
+        // Try "Jun 15, 2026" or "June 15 2026" format (Written English)
+        var match5 = str.match(/^([A-Za-z]{3,10})\s+(\d{1,2}),?\s+(\d{4})$/);
+        if (match5) {
+            var mName = match5[1].substring(0, 3); // Get first 3 letters
+            var mNameCap = mName.charAt(0).toUpperCase() + mName.slice(1).toLowerCase();
+            var mIdx = GREGORIAN_MONTHS.indexOf(mNameCap);
+            if (mIdx !== -1) {
+                return { year: parseInt(match5[3], 10), month: mIdx + 1, day: parseInt(match5[2], 10) };
+            }
+        }
+
+        // Try "15 Jun 2026" or "15 June, 2026" format
+        var match6 = str.match(/^(\d{1,2})\s+([A-Za-z]{3,10}),?\s+(\d{4})$/);
+        if (match6) {
+            var mName = match6[2].substring(0, 3); // Get first 3 letters
+            var mNameCap = mName.charAt(0).toUpperCase() + mName.slice(1).toLowerCase();
+            var mIdx = GREGORIAN_MONTHS.indexOf(mNameCap);
+            if (mIdx !== -1) {
+                return { year: parseInt(match6[3], 10), month: mIdx + 1, day: parseInt(match6[1], 10) };
             }
         }
 
@@ -1870,9 +1959,8 @@
             // This happens after inline edit saves - Jira replaces the element content
             if ($el.data('pc-converted')) {
                 var currentText = $el.text().trim();
-                // If text looks like Gregorian date (contains month abbreviation like Dec, Jan, etc.)
-                // then it was updated by Jira and needs re-conversion
-                if (currentText.match(/\d{1,2}\/[A-Za-z]{3}\/\d{2}/)) {
+                // Check if the current text is a valid Gregorian date by trying to parse it
+                if (parseJiraDate(currentText)) {
                     logDebug('Date was updated by Jira, resetting conversion flag: ' + currentText);
                     $el.removeData('pc-converted');
                 } else {
@@ -2478,9 +2566,8 @@
                     $activeInput[0].value = gregorianStr;
                     // Set the value attribute too
                     $activeInput.attr('value', gregorianStr);
-                    // Also set using native setter
-                    var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value').set;
-                    nativeInputValueSetter.call($activeInput[0], gregorianStr);
+                    // Also set using native setter safely
+                    setElementValueSafely($activeInput[0], gregorianStr);
                 }
 
                 logInfo('Input value after setting: ' + $activeInput.val());
@@ -2926,11 +3013,8 @@
             $input[0].value = valueStr;
             $input.attr('value', valueStr);
             
-            // React 16+ overrides the value setter, we need to bypass it to trigger onChange
-            var nativeInputValueSetter = Object.getOwnPropertyDescriptor(window.HTMLInputElement.prototype, 'value');
-            if (nativeInputValueSetter && nativeInputValueSetter.set) {
-                nativeInputValueSetter.set.call($input[0], valueStr);
-            }
+            // React 16+ overrides the value setter, we need to bypass it to trigger onChange safely
+            setElementValueSafely($input[0], valueStr);
 
             var inputEl = $input[0];
             try {
@@ -3368,6 +3452,13 @@
         observer.observe(document.body, { childList: true, subtree: true });
         logInfo('MutationObserver attached');
 
+        // ========== REACT PORTAL INTERCEPTOR ==========
+        try {
+            initReactPortalInterceptor($);
+        } catch (reactError) {
+            logError('React Portal Interceptor failed', { error: reactError.message });
+        }
+
         // ========== JXL SUPPORT ==========
         try {
             logInfo('Starting JXL Support initialization...');
@@ -3376,6 +3467,833 @@
             logError('JXL Support initialization failed', { error: jxlError.message, stack: jxlError.stack });
         }
     });
+
+    // ========== REACT PORTAL INTERCEPTOR (Advanced Roadmaps & Atlaskit) ==========
+    // === Re-open mechanism flags ===
+    var skipNextCalendarIntercept = false;
+    var pendingReactCalendarDate = null;
+    var pendingReactCalendarCallback = null;
+    var pendingReactCalendarPersianStr = null;
+    var pendingReactCalendarInput = null;
+    var savedReactOnSelectCallback = null;
+    var savedReactOnChangeCallback = null;
+
+    // Extract React callbacks from the Fiber tree of a portal element
+    function extractReactCallbacks(portalEl, inputEl) {
+        savedReactOnSelectCallback = null;
+        savedReactOnChangeCallback = null;
+        
+        function getFiberKey(el) {
+            if (!el) return null;
+            var keys = Object.keys(el);
+            for (var i = 0; i < keys.length; i++) {
+                if (keys[i].indexOf('__reactFiber$') === 0 || keys[i].indexOf('__reactInternalInstance$') === 0) {
+                    return keys[i];
+                }
+            }
+            return null;
+        }
+
+        function scanFiberTree(el, sourceName) {
+            if (!el) return;
+            var fiberKey = getFiberKey(el);
+            if (!fiberKey) {
+                logInfo('extractReactCallbacks: no React fiber key found on ' + sourceName);
+                return;
+            }
+            
+            logInfo('extractReactCallbacks: scanning fiber tree for ' + sourceName + ' using key: ' + fiberKey);
+            var current = el[fiberKey];
+            var depth = 0;
+            var maxDepth = 100;
+            
+            while (current && depth < maxDepth) {
+                depth++;
+                var props = current.memoizedProps || current.pendingProps;
+                if (props) {
+                    var name = current.type && (current.type.displayName || current.type.name || '');
+                    var compStr = name ? ' (component: ' + name + ')' : '';
+                    
+                    // Look for onSelect variations
+                    if (!savedReactOnSelectCallback) {
+                        if (typeof props.onSelect === 'function') {
+                            savedReactOnSelectCallback = props.onSelect;
+                            logInfo('extractReactCallbacks: found onSelect from ' + sourceName + ' at depth ' + depth + compStr);
+                        } else if (typeof props.onDateSelect === 'function') {
+                            savedReactOnSelectCallback = props.onDateSelect;
+                            logInfo('extractReactCallbacks: found onDateSelect from ' + sourceName + ' at depth ' + depth + compStr);
+                        } else if (typeof props.handleSelect === 'function') {
+                            savedReactOnSelectCallback = props.handleSelect;
+                            logInfo('extractReactCallbacks: found handleSelect from ' + sourceName + ' at depth ' + depth + compStr);
+                        }
+                    }
+                    
+                    // Look for onChange/onDateChange variations
+                    if (!savedReactOnChangeCallback) {
+                        if (typeof props.onChange === 'function') {
+                            savedReactOnChangeCallback = props.onChange;
+                            logInfo('extractReactCallbacks: found onChange from ' + sourceName + ' at depth ' + depth + compStr);
+                        } else if (typeof props.onDateChange === 'function') {
+                            savedReactOnChangeCallback = props.onDateChange;
+                            logInfo('extractReactCallbacks: found onDateChange from ' + sourceName + ' at depth ' + depth + compStr);
+                        } else if (typeof props.onValueChange === 'function') {
+                            savedReactOnChangeCallback = props.onValueChange;
+                            logInfo('extractReactCallbacks: found onValueChange from ' + sourceName + ' at depth ' + depth + compStr);
+                        } else if (typeof props.onCellChange === 'function') {
+                            savedReactOnChangeCallback = props.onCellChange;
+                            logInfo('extractReactCallbacks: found onCellChange from ' + sourceName + ' at depth ' + depth + compStr);
+                        } else if (typeof props.setValue === 'function') {
+                            savedReactOnChangeCallback = props.setValue;
+                            logInfo('extractReactCallbacks: found setValue from ' + sourceName + ' at depth ' + depth + compStr);
+                        } else if (typeof props.handleChange === 'function') {
+                            savedReactOnChangeCallback = props.handleChange;
+                            logInfo('extractReactCallbacks: found handleChange from ' + sourceName + ' at depth ' + depth + compStr);
+                        }
+                    }
+                }
+                current = current.return; // move up the tree
+            }
+        }
+        
+        // 1. First, scan from Portal element (contains the calendar popup)
+        if (portalEl) {
+            var portalChild = portalEl.querySelector('button') || portalEl.querySelector('[role="grid"]') || portalEl.firstElementChild;
+            if (portalChild) {
+                scanFiberTree(portalChild, 'PortalChild');
+            }
+            if (!savedReactOnSelectCallback || !savedReactOnChangeCallback) {
+                scanFiberTree(portalEl, 'PortalEl');
+            }
+        }
+        
+        // 2. Next, scan from Input element (contains the date cell input)
+        if (inputEl) {
+            if (!savedReactOnSelectCallback || !savedReactOnChangeCallback) {
+                scanFiberTree(inputEl, 'InputEl');
+            }
+            
+            // 3. Scan the parent of the input element (the grid cell container itself)
+            if (inputEl.parentElement && (!savedReactOnSelectCallback || !savedReactOnChangeCallback)) {
+                scanFiberTree(inputEl.parentElement, 'InputParent');
+            }
+            
+            // 4. Let's also check if we can scan the cell element itself
+            var $cell = $(inputEl).closest('td, [role="gridcell"], div[class*="cell"], div[data-testid*="cell"]');
+            if ($cell.length > 0 && $cell[0] !== inputEl && $cell[0] !== inputEl.parentElement) {
+                if (!savedReactOnSelectCallback || !savedReactOnChangeCallback) {
+                    scanFiberTree($cell[0], 'GridCell');
+                }
+            }
+        }
+        
+        logInfo('extractReactCallbacks: scan complete. onSelect=' + !!savedReactOnSelectCallback + ', onChange=' + !!savedReactOnChangeCallback);
+    }
+
+    function initReactPortalInterceptor($) {
+        logInfo('React Portal Interceptor attached (Aggressive Mode - Universal Trigger)');
+        
+        var lastClickedReactInput = null;
+        var lastClickX = 0;
+        var lastClickY = 0;
+        var scanInterval = null;
+        
+        // Listen to all mousedowns globally! No classes, no boundaries.
+        document.addEventListener('mousedown', function(e) {
+            var $target = $(e.target);
+            
+            // Ignore clicks on our own calendar components
+            if ($target.closest('.pc-container, .pc-input, .pc-react-dummy, .pc-overlay').length > 0) return;
+            
+            if (scanInterval) clearInterval(scanInterval);
+            
+            // Save mouse coordinates - this is the ONLY reliable way to position our calendar
+            lastClickX = e.clientX;
+            lastClickY = e.clientY;
+            
+            lastClickedReactInput = $target;
+            var $cell = $target.closest('td, [role="gridcell"], div[class*="cell"], div[data-testid*="cell"], .-control');
+            if ($cell.length > 0) lastClickedReactInput = $cell;
+            
+            // We start the scanner on ANY click. It's cheap and safe.
+            var scanCount = 0;
+            scanInterval = setInterval(function() {
+                scanCount++;
+                if (scanCount > 40) { // 2 seconds max
+                    clearInterval(scanInterval);
+                    return;
+                }
+                
+                var $possibleCalendars = $('div[style*="position: absolute"], div[style*="position: fixed"], .atlaskit-portal, div[role="dialog"]');
+                
+                $possibleCalendars.each(function() {
+                    var $portal = $(this);
+                    if ($portal.data('pc-handled') || $portal.is(':hidden') || $portal.width() < 100) return;
+                    
+                    var text = $portal.text() || '';
+                    var html = $portal.html() || '';
+                    
+                    // The ultimate calendar footprint detection
+                    var isCalendar = 
+                        ($portal.find('[role="grid"]').length > 0) || 
+                        (html.indexOf('role="grid"') > -1) ||
+                        (text.indexOf('Sun') > -1 && text.indexOf('Sat') > -1) || 
+                        (text.indexOf('January') > -1 || text.indexOf('February') > -1 || text.indexOf('May 20') > -1);
+                    
+                    if (isCalendar) {
+                        clearInterval(scanInterval);
+                        
+                        // === CHECK: Is this a re-opened calendar for date injection? ===
+                        if (skipNextCalendarIntercept && pendingReactCalendarDate) {
+                            skipNextCalendarIntercept = false;
+                            logInfo('Re-opened calendar detected! Injecting date directly...');
+                            
+                            // Debug: dump what we found
+                            var btnCount = $portal.find('button').length;
+                            var hasGrid = $portal.find('[role="grid"]').length;
+                            logInfo('Live calendar: ' + btnCount + ' buttons, grid=' + hasGrid + ', text="' + text.substring(0, 60) + '"');
+                            
+                            // The calendar is LIVE and FULLY RENDERED. Interact immediately!
+                            selectDateInReactCalendar($, this, pendingReactCalendarDate, function() {
+                                logInfo('✅ Date set via React calendar simulation!');
+                                if (pendingReactCalendarPersianStr && pendingReactCalendarInput) {
+                                    pendingReactCalendarInput.text(pendingReactCalendarPersianStr);
+                                    var $toast = $('<div style="position:fixed;top:20px;right:20px;background:#22c55e;color:#fff;padding:12px 24px;border-radius:8px;z-index:999999;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.3);direction:rtl">✅ تاریخ ذخیره شد: ' + pendingReactCalendarPersianStr + '</div>');
+                                    $('body').append($toast);
+                                    setTimeout(function() { $toast.fadeOut(function() { $toast.remove(); }); }, 3000);
+                                }
+                                pendingReactCalendarDate = null;
+                                pendingReactCalendarCallback = null;
+                                pendingReactCalendarPersianStr = null;
+                                pendingReactCalendarInput = null;
+                            });
+                            return false; // break .each()
+                        }
+                        
+                        // === Normal flow: hide React calendar and show Persian calendar ===
+                        $portal.data('pc-handled', true);
+                        
+                        logInfo('Aggressive Scanner caught the React Calendar!');
+                        
+                        var $realInput = lastClickedReactInput;
+                        var $active = $(document.activeElement);
+                        if ($active.is('input[type="text"]')) {
+                            $realInput = $active; 
+                        } else if (lastClickedReactInput.find('input[type="text"]').length > 0) {
+                            $realInput = lastClickedReactInput.find('input[type="text"]').first();
+                        }
+
+                        // CRITICAL: Extract React callbacks BEFORE hiding the calendar!
+                        // This gives us direct access to onSelect/onChange for setting dates.
+                        extractReactCallbacks(this, $realInput ? $realInput[0] : null);
+                        
+                        // Hide the React calendar completely.
+                        $portal.css({
+                            'opacity': '0',
+                            'pointer-events': 'none',
+                            'position': 'fixed',
+                            'left': '-9999px',
+                            'top': '-9999px',
+                            'z-index': '-1'
+                        });
+                        
+                        attachPersianToReactInput($, $realInput, this, lastClickX, lastClickY);
+                    }
+                });
+                
+            }, 50);
+        }, true);
+    }
+
+    function attachPersianToReactInput($, $input, portalNode, clickX, clickY) {
+        if ($input.data('pc-react-init') || $input.hasClass('pc-input')) return;
+        $input.data('pc-react-init', true);
+        
+        var id = $input.attr('id') || 'pc-react-date-' + Math.floor(Math.random() * 1000000);
+        $input.attr('id', id);
+        
+        // Use the mouse click coordinates directly - most reliable method!
+        var scrollTop = window.pageYOffset || document.documentElement.scrollTop;
+        var scrollLeft = window.pageXOffset || document.documentElement.scrollLeft;
+        var posTop = clickY + scrollTop;
+        var posLeft = clickX + scrollLeft;
+        
+        var $persian = $('<input type="text" class="text pc-input pc-react-dummy" autocomplete="off" placeholder="1405/02/23">');
+        
+        $persian.css({
+            position: 'absolute',
+            top: posTop + 'px',
+            left: posLeft + 'px',
+            width: '150px',
+            height: '36px',
+            zIndex: 10000,
+            boxSizing: 'border-box', background: '#fff',
+            border: '2px solid #2684FF', borderRadius: '3px', padding: '0 8px'
+        });
+        
+        var currentVal = $input.val() || $input.text();
+        if (currentVal) {
+            var gDate = parseJiraDate(currentVal);
+            if (currentVal.match(/^14\d{2}\/\d{1,2}\/\d{1,2}$/)) {
+                $persian.val(currentVal);
+            } else if (gDate) {
+                var jDate = toJalaali(gDate.year, gDate.month, gDate.day);
+                $persian.val(formatPersianDateSlash(jDate.jy, jDate.jm, jDate.jd));
+            }
+        }
+
+        $('body').append($persian);
+
+        $persian.on('focus click', function(ev) {
+            ev.preventDefault(); ev.stopPropagation();
+            
+            function setReactInputValue(inputEl, val) {
+                try {
+                    inputEl.focus();
+                } catch(e) {}
+                
+                setElementValueSafely(inputEl, val);
+                
+                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+                
+                try {
+                    inputEl.blur();
+                } catch(e) {}
+            }
+            
+            showPersianCalendar($persian, $input, function(dateObj) {
+                if (!dateObj) {
+                    $persian.val('');
+                    setTimeout(function() {
+                        $persian.remove();
+                        $input.data('pc-react-init', false);
+                    }, 200);
+                    return;
+                }
+                
+                var pDateStr = formatPersianDateSlash(dateObj.jy, dateObj.jm, dateObj.jd);
+                $persian.val(pDateStr);
+                
+                var gObj = toGregorian(dateObj.jy, dateObj.jm, dateObj.jd);
+                var gDate = new Date(gObj.gy, gObj.gm - 1, gObj.gd);
+                
+                // Format as YYYY-MM-DD for Jira REST API
+                var yyyy = gDate.getFullYear();
+                var mm = (gDate.getMonth() + 1) < 10 ? '0' + (gDate.getMonth() + 1) : (gDate.getMonth() + 1);
+                var dd = gDate.getDate() < 10 ? '0' + gDate.getDate() : gDate.getDate();
+                var isoDate = yyyy + '-' + mm + '-' + dd;
+                
+                logInfo('Setting date via DIRECT React callback: ' + isoDate);
+                
+                // Remove the persian input first
+                $persian.remove();
+                $input.data('pc-react-init', false);
+                
+                // Close any existing popover/overlay from our calendar
+                $('.pc-container, .pc-overlay').remove();
+                
+                // 1. Native value setting as a robust fallback/accompaniment
+                if ($input && $input.length > 0) {
+                    var gregFormatted = formatJiraDate(gObj.gy, gObj.gm, gObj.gd);
+                    logInfo('Setting input native value to: ' + gregFormatted);
+                    try {
+                        setReactInputValue($input[0], gregFormatted);
+                    } catch(e) {
+                        logError('Error setting native input value: ' + e);
+                    }
+                }
+                
+                // Try to call the saved React callback directly
+                var callbackCalled = false;
+                
+                if (savedReactOnSelectCallback) {
+                    logInfo('Calling saved React onSelect callback with ISO date: ' + isoDate);
+                    try {
+                        // Atlaskit Calendar onSelect gives {iso, day, month, year}
+                        var selectEvent = {
+                            iso: isoDate,
+                            day: gDate.getDate(),
+                            month: gDate.getMonth() + 1,
+                            year: gDate.getFullYear()
+                        };
+                        savedReactOnSelectCallback(selectEvent);
+                        callbackCalled = true;
+                        logInfo('✅ React onSelect callback called successfully!');
+                    } catch(ex) {
+                        logError('React onSelect callback error: ' + ex);
+                    }
+                }
+                
+                if (savedReactOnChangeCallback) {
+                    logInfo('Calling saved React onChange callback with ISO date: ' + isoDate);
+                    var success = false;
+                    
+                    // Try 1: Atlaskit CalendarChangeEvent style object { iso, day, month, year }
+                    try {
+                        var changeEvent = {
+                            iso: isoDate,
+                            day: gDate.getDate(),
+                            month: gDate.getMonth() + 1,
+                            year: gDate.getFullYear()
+                        };
+                        savedReactOnChangeCallback(changeEvent);
+                        success = true;
+                        logInfo('✅ React onChange callback called successfully with CalendarChangeEvent!');
+                    } catch (e0) {
+                        logInfo('React onChange CalendarChangeEvent failed: ' + e0.message);
+                    }
+                    
+                    // Try 2: Standard string (isoDate)
+                    if (!success) {
+                        try {
+                            savedReactOnChangeCallback(isoDate);
+                            success = true;
+                            logInfo('✅ React onChange callback called successfully with ISO string!');
+                        } catch (e1) {
+                            logInfo('React onChange string call failed: ' + e1.message);
+                        }
+                    }
+                    
+                    // Try 3: Synthetic event with ISO date
+                    if (!success) {
+                        try {
+                            savedReactOnChangeCallback({ target: { value: isoDate } });
+                            success = true;
+                            logInfo('✅ React onChange callback called successfully with synthetic event (ISO)!');
+                        } catch (e2) {
+                            logInfo('React onChange synthetic event (ISO) failed: ' + e2.message);
+                        }
+                    }
+                    
+                    // Try 4: Synthetic event with display format
+                    if (!success) {
+                        try {
+                            var gregFormatted = formatJiraDate(gObj.gy, gObj.gm, gObj.gd);
+                            savedReactOnChangeCallback({ target: { value: gregFormatted } });
+                            success = true;
+                            logInfo('✅ React onChange callback called successfully with synthetic event (display format)!');
+                        } catch (e3) {
+                            logInfo('React onChange synthetic event (display) failed: ' + e3.message);
+                        }
+                    }
+                    
+                    // Try 5: Date object
+                    if (!success) {
+                        try {
+                            savedReactOnChangeCallback(gDate);
+                            success = true;
+                            logInfo('✅ React onChange callback called successfully with Date object!');
+                        } catch (e4) {
+                            logInfo('React onChange Date object failed: ' + e4.message);
+                        }
+                    }
+                    
+                    if (success) {
+                        callbackCalled = true;
+                    }
+                }
+                
+                if (callbackCalled) {
+                    // Show success toast
+                    $input.text(pDateStr);
+                    var $toast = $('<div style="position:fixed;top:20px;right:20px;background:#22c55e;color:#fff;padding:12px 24px;border-radius:8px;z-index:999999;font-size:14px;box-shadow:0 4px 12px rgba(0,0,0,0.3);direction:rtl">✅ تاریخ ذخیره شد: ' + pDateStr + '</div>');
+                    $('body').append($toast);
+                    setTimeout(function() { $toast.fadeOut(function() { $toast.remove(); }); }, 3000);
+                } else {
+                    logError('No saved React callback found! Falling back to re-open...');
+                    
+                    // ===== FALLBACK: RE-OPEN MECHANISM =====
+                    pendingReactCalendarDate = gDate;
+                    pendingReactCalendarPersianStr = pDateStr;
+                    pendingReactCalendarInput = $input;
+                    skipNextCalendarIntercept = true;
+                    
+                    var elAtPoint = document.elementFromPoint(clickX, clickY);
+                    if (elAtPoint) {
+                        logInfo('Fallback: clicking element at (' + clickX + ',' + clickY + ')');
+                        elAtPoint.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window, clientX: clickX, clientY: clickY }));
+                        setTimeout(function() {
+                            elAtPoint.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window, clientX: clickX, clientY: clickY }));
+                            elAtPoint.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window, clientX: clickX, clientY: clickY }));
+                        }, 50);
+                    }
+                    
+                    setTimeout(function() {
+                        if (skipNextCalendarIntercept) {
+                            logError('Calendar did not re-open within 5 seconds. Cleaning up.');
+                            skipNextCalendarIntercept = false;
+                            pendingReactCalendarDate = null;
+                            pendingReactCalendarPersianStr = null;
+                            pendingReactCalendarInput = null;
+                        }
+                    }, 5000);
+                }
+            });
+        });
+
+        // Trigger the calendar to open immediately
+        $persian.focus();
+    }
+
+    // This function acts as a hacker! It secretly clicks the React calendar to set the date.
+    function selectDateInReactCalendar($, portalNode, targetGDate, onFinish) {
+        var maxAttempts = 30; 
+        var attempts = 0;
+        var monthNames = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
+        var monthNamesShort = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+        
+        // CRITICAL: React ignores native dispatchEvent/click() (untrusted events).
+        // We must find React's internal props on the DOM element and call handlers directly.
+        function fireReactClick(el) {
+            if (!el) return false;
+            var fired = false;
+            
+            // Find __reactProps$ key on the element
+            var propsKey = null;
+            var keys = Object.keys(el);
+            for (var k = 0; k < keys.length; k++) {
+                if (keys[k].indexOf('__reactProps$') === 0) {
+                    propsKey = keys[k];
+                    break;
+                }
+            }
+            
+            if (propsKey && el[propsKey]) {
+                var props = el[propsKey];
+                var fakeEvent = {
+                    target: el,
+                    currentTarget: el,
+                    preventDefault: function(){},
+                    stopPropagation: function(){},
+                    nativeEvent: new MouseEvent('click', { bubbles: true }),
+                    bubbles: true,
+                    cancelable: true,
+                    type: 'click',
+                    persist: function(){}
+                };
+                
+                // Try onClick first
+                if (typeof props.onClick === 'function') {
+                    logInfo('fireReactClick: calling onClick on <' + el.tagName + '>');
+                    try { props.onClick(fakeEvent); fired = true; } catch(ex) { logError('onClick error: ' + ex); }
+                }
+                // Try onMouseDown
+                if (typeof props.onMouseDown === 'function') {
+                    fakeEvent.type = 'mousedown';
+                    logInfo('fireReactClick: calling onMouseDown on <' + el.tagName + '>');
+                    try { props.onMouseDown(fakeEvent); fired = true; } catch(ex) {}
+                }
+                // Try onPointerDown
+                if (typeof props.onPointerDown === 'function') {
+                    fakeEvent.type = 'pointerdown';
+                    logInfo('fireReactClick: calling onPointerDown on <' + el.tagName + '>');
+                    try { props.onPointerDown(fakeEvent); fired = true; } catch(ex) {}
+                }
+            }
+            
+            // If no React props found on this element, try parent
+            if (!fired && el.parentElement) {
+                var parentPropsKey = null;
+                var parentKeys = Object.keys(el.parentElement);
+                for (var pk = 0; pk < parentKeys.length; pk++) {
+                    if (parentKeys[pk].indexOf('__reactProps$') === 0) {
+                        parentPropsKey = parentKeys[pk];
+                        break;
+                    }
+                }
+                if (parentPropsKey && el.parentElement[parentPropsKey]) {
+                    var parentProps = el.parentElement[parentPropsKey];
+                    var parentEvent = {
+                        target: el,
+                        currentTarget: el.parentElement,
+                        preventDefault: function(){},
+                        stopPropagation: function(){},
+                        nativeEvent: new MouseEvent('click', { bubbles: true }),
+                        bubbles: true,
+                        cancelable: true,
+                        type: 'click',
+                        persist: function(){}
+                    };
+                    if (typeof parentProps.onClick === 'function') {
+                        logInfo('fireReactClick: calling parent onClick on <' + el.parentElement.tagName + '>');
+                        try { parentProps.onClick(parentEvent); fired = true; } catch(ex) {}
+                    }
+                }
+            }
+            
+            // Fallback: still dispatch native events (might work in some React versions)
+            if (!fired) {
+                logInfo('fireReactClick: no React handler found, falling back to native click');
+                el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true, cancelable: true, view: window }));
+                el.dispatchEvent(new MouseEvent('mouseup', { bubbles: true, cancelable: true, view: window }));
+                el.dispatchEvent(new MouseEvent('click', { bubbles: true, cancelable: true, view: window }));
+            }
+            
+            return fired;
+        }
+        
+        var $portalRoot = $(portalNode);
+        
+        // The calendar is LIVE (just re-opened by the scanner).
+        // Hide it visually but keep it interactive for our simulated clicks.
+        $portalRoot.css({
+            'pointer-events': 'auto',
+            'opacity': '0.01',
+            'z-index': '99999'
+        });
+        
+        var targetMonthStr = monthNames[targetGDate.getMonth()];
+        var targetMonthShort = monthNamesShort[targetGDate.getMonth()];
+        var targetYearStr = targetGDate.getFullYear().toString();
+        var targetDay = targetGDate.getDate();
+        
+        logInfo('React Calendar Target: ' + targetMonthStr + ' ' + targetDay + ', ' + targetYearStr);
+        
+        // Debug: dump portal structure on first attempt
+        var debugDone = false;
+        
+        function tryClick() {
+            if (attempts > maxAttempts) {
+                logError('Could not navigate React calendar after ' + maxAttempts + ' attempts.');
+                // Hide portal again
+                $portalRoot.css({ 'opacity': '0', 'pointer-events': 'none', 'z-index': '-1' });
+                if (onFinish) onFinish();
+                return;
+            }
+            attempts++;
+            
+            // Debug dump on first attempt
+            if (!debugDone) {
+                debugDone = true;
+                var allButtons = [];
+                $portalRoot.find('button').each(function() {
+                    var $b = $(this);
+                    allButtons.push({
+                        text: $b.text().trim().substring(0, 30),
+                        aria: ($b.attr('aria-label') || '').substring(0, 30),
+                        hasSvg: $b.find('svg, span[role="img"]').length > 0,
+                        classes: ($b.attr('class') || '').substring(0, 40)
+                    });
+                });
+                logInfo('Portal buttons: ' + JSON.stringify(allButtons).substring(0, 500));
+                
+                // Also log all text content that might be a heading
+                var headingCandidates = [];
+                $portalRoot.find('div, span, h1, h2, h3, strong').each(function() {
+                    var t = $(this).clone().children().remove().end().text().trim();
+                    if (t && t.length > 2 && t.length < 50 && /[A-Za-z]/.test(t)) {
+                        headingCandidates.push(t);
+                    }
+                });
+                logInfo('Portal text elements: ' + JSON.stringify(headingCandidates.slice(0, 10)));
+            }
+            
+            // Find header text - try multiple selectors
+            var headerText = '';
+            var headerSelectors = [
+                'div[role="heading"]',
+                'h1, h2, h3, h4',
+                'strong',
+                '[class*="month"], [class*="Month"]',
+                '[class*="header"], [class*="Header"]',
+                '[class*="heading"], [class*="Heading"]',
+                '[class*="title"], [class*="Title"]',
+                '[data-testid*="month"], [data-testid*="header"]'
+            ];
+            
+            for (var s = 0; s < headerSelectors.length; s++) {
+                var $found = $portalRoot.find(headerSelectors[s]);
+                if ($found.length > 0) {
+                    var t = $found.first().text().trim();
+                    if (t && /[A-Za-z]/.test(t) && /\d{4}/.test(t)) {
+                        headerText = t;
+                        break;
+                    }
+                }
+            }
+            
+            // Fallback: scan all text for "Month Year" pattern
+            if (!headerText) {
+                $portalRoot.find('*').each(function() {
+                    if (headerText) return false;
+                    var t = $(this).clone().children().remove().end().text().trim();
+                    if (!t) return;
+                    for (var mi = 0; mi < 12; mi++) {
+                        if ((t.indexOf(monthNames[mi]) > -1 || t.indexOf(monthNamesShort[mi]) > -1) && /20\d\d/.test(t)) {
+                            headerText = t;
+                            return false;
+                        }
+                    }
+                });
+            }
+            
+            // Last resort: get all portal text
+            if (!headerText) {
+                headerText = $portalRoot.text();
+            }
+            
+            if (attempts <= 2) {
+                logInfo('Calendar header text: "' + headerText.substring(0, 80) + '"');
+            }
+            
+            // Check if we are in the target month/year
+            var inTargetMonth = (headerText.indexOf(targetMonthStr) > -1 || headerText.indexOf(targetMonthShort) > -1) && headerText.indexOf(targetYearStr) > -1;
+            
+            if (inTargetMonth) {
+                // Find the day cell to click
+                var targetDayStr = targetDay.toString();
+                var $dayCells = $portalRoot.find('button, td, div[role="button"], div[role="gridcell"], span[role="button"]').filter(function() {
+                    if ($(this).find('svg, span[role="img"]').length > 0) return false;
+                    
+                    var txt = $(this).text().trim();
+                    // Exact match only (avoid matching "16" when looking for "1")
+                    if (txt === targetDayStr) return true;
+                    
+                    var aria = $(this).attr('aria-label') || '';
+                    if (aria && aria.indexOf(targetMonthStr) > -1 && aria.indexOf(targetDayStr) > -1 && aria.indexOf(targetYearStr) > -1) return true;
+                    
+                    return false;
+                });
+                
+                if ($dayCells.length > 0) {
+                    // If multiple matches, pick the one that's not in "other month" styling
+                    var $best = $dayCells.first();
+                    $dayCells.each(function() {
+                        var cls = ($(this).attr('class') || '') + ' ' + ($(this).parent().attr('class') || '');
+                        if (cls.indexOf('other') === -1 && cls.indexOf('disabled') === -1 && cls.indexOf('outside') === -1) {
+                            $best = $(this);
+                            return false;
+                        }
+                    });
+                    
+                    logInfo('Simulating click on React calendar day: ' + targetDayStr + ' (found ' + $dayCells.length + ' candidates)');
+                    var el = $best[0];
+                    
+                    // Use React's internal handler to set the date
+                    var reactFired = fireReactClick(el);
+                    
+                    // Hide portal again
+                    setTimeout(function() {
+                        $portalRoot.css({ 'opacity': '0', 'pointer-events': 'none', 'z-index': '-1' });
+                    }, 200);
+                    
+                    if (onFinish) setTimeout(onFinish, 300);
+                    return;
+                } else {
+                    logInfo('In target month but day ' + targetDayStr + ' not found yet, waiting...');
+                    setTimeout(tryClick, 100);
+                    return;
+                }
+            }
+            
+            // Need to navigate to target month
+            var currentMonthIdx = -1;
+            for (var i = 0; i < 12; i++) {
+                if (headerText.indexOf(monthNames[i]) > -1 || headerText.indexOf(monthNamesShort[i]) > -1) {
+                    currentMonthIdx = i;
+                    break;
+                }
+            }
+            
+            var currentYear = targetGDate.getFullYear();
+            var yearMatch = headerText.match(/\b(20\d\d)\b/);
+            if (yearMatch) {
+                currentYear = parseInt(yearMatch[1], 10);
+            }
+            
+            if (currentMonthIdx !== -1) {
+                var targetTime = targetGDate.getFullYear() * 12 + targetGDate.getMonth();
+                var currentTime = currentYear * 12 + currentMonthIdx;
+                
+                if (targetTime === currentTime) {
+                    setTimeout(tryClick, 100);
+                    return;
+                }
+                
+                var goForward = targetTime > currentTime;
+                logInfo('Navigating: ' + monthNames[currentMonthIdx] + ' ' + currentYear + ' → ' + targetMonthStr + ' ' + targetYearStr + (goForward ? ' (forward)' : ' (backward)'));
+                
+                // Try MANY different selectors for nav buttons
+                var $nextBtn = $(), $prevBtn = $();
+                
+                // Method 1: Specifically find "Next month" / "Previous month" buttons
+                // The Atlaskit calendar has buttons with text: "Previous year", "Previous month", "Next month", "Next year"
+                $portalRoot.find('button').each(function() {
+                    var btnText = $(this).text().trim().toLowerCase();
+                    var ariaLabel = ($(this).attr('aria-label') || '').toLowerCase();
+                    var combined = btnText + ' ' + ariaLabel;
+                    
+                    // Prefer "month" buttons over "year" buttons
+                    if (combined.indexOf('next month') > -1) {
+                        $nextBtn = $(this);
+                    } else if (combined.indexOf('previous month') > -1 || combined.indexOf('prev month') > -1) {
+                        $prevBtn = $(this);
+                    }
+                });
+                
+                // Method 2: Fallback to any Next/Prev buttons (but prefer month over year)
+                if ($nextBtn.length === 0 || $prevBtn.length === 0) {
+                    var $nextCandidates = $portalRoot.find('button').filter(function() {
+                        var t = ($(this).text().trim() + ' ' + ($(this).attr('aria-label') || '')).toLowerCase();
+                        return (t.indexOf('next') > -1 || t.indexOf('forward') > -1) && t.indexOf('year') === -1;
+                    });
+                    var $prevCandidates = $portalRoot.find('button').filter(function() {
+                        var t = ($(this).text().trim() + ' ' + ($(this).attr('aria-label') || '')).toLowerCase();
+                        return (t.indexOf('prev') > -1 || t.indexOf('back') > -1) && t.indexOf('year') === -1;
+                    });
+                    if ($nextBtn.length === 0 && $nextCandidates.length > 0) $nextBtn = $nextCandidates.first();
+                    if ($prevBtn.length === 0 && $prevCandidates.length > 0) $prevBtn = $prevCandidates.first();
+                }
+                
+                // Method 3: title
+                if ($nextBtn.length === 0) {
+                    $nextBtn = $portalRoot.find('[title*="Next month"], [title*="next month"]');
+                    $prevBtn = $portalRoot.find('[title*="Prev month"], [title*="prev month"], [title*="Previous month"]');
+                }
+                
+                // Method 4: buttons with SVG (arrow icons) - find the 2 middle ones (skip year buttons)
+                if ($nextBtn.length === 0) {
+                    var $svgBtns = $portalRoot.find('button').filter(function() { 
+                        return $(this).find('svg, span[role="img"], [class*="icon"], [class*="Icon"]').length > 0; 
+                    });
+                    // In Atlaskit calendar: [prev-year, prev-month, next-month, next-year]
+                    if ($svgBtns.length >= 4) {
+                        $prevBtn = $svgBtns.eq(1); // second = prev month
+                        $nextBtn = $svgBtns.eq(2); // third = next month
+                    } else if ($svgBtns.length >= 2) {
+                        $prevBtn = $svgBtns.first();
+                        $nextBtn = $svgBtns.last();
+                    }
+                }
+                
+                // Method 5: buttons with < or > characters
+                if ($nextBtn.length === 0) {
+                    $portalRoot.find('button, [role="button"]').each(function() {
+                        var t = $(this).text().trim();
+                        if (t === '>' || t === '›' || t === '→' || t === '▶') $nextBtn = $(this);
+                        if (t === '<' || t === '‹' || t === '←' || t === '◀') $prevBtn = $(this);
+                    });
+                }
+                
+                var $btn = goForward ? $nextBtn : $prevBtn;
+                if ($btn.length) {
+                    logInfo('Clicking nav button: ' + ($btn.attr('aria-label') || $btn.text().trim().substring(0, 30)));
+                    fireReactClick($btn[0]);
+                    setTimeout(tryClick, 150);
+                    return;
+                }
+                
+                logError('Nav buttons not found! Buttons dump: ' + $portalRoot.find('button').length + ' total buttons');
+            } else {
+                logError('Could not detect current month from header: "' + headerText.substring(0, 60) + '"');
+            }
+            
+            setTimeout(tryClick, 150);
+        }
+        
+        // Small delay to let React render the calendar
+        setTimeout(tryClick, 100);
+    }
 
     // ========== JXL (Jira eXtensible List) SUPPORT ==========
     function initJXLSupport($) {
@@ -3619,9 +4537,27 @@
 
                     if (inputs.length > 0) {
                         inputs.forEach(function (input) {
-                            // If this input looks like a date/time picker (has specific class or value matches date)
-                            var val = input.value;
-                            // logInfo('JXL: Input found', { value: val, className: input.className });
+                            // Filter 1: Only allow text-like inputs and textareas (skips file inputs, checkboxes, searches, etc.)
+                            var type = (input.getAttribute('type') || 'text').toLowerCase();
+                            if (type !== 'text' && input.tagName !== 'TEXTAREA') {
+                                return;
+                            }
+
+                            // Filter 2: Verify if the input value matches a date pattern (or relies on calendarObserver for empty inputs)
+                            var val = (input.value || '').trim();
+                            var looksLikeDate = false;
+                            if (val) {
+                                for (var i = 0; i < DATE_PATTERNS.length; i++) {
+                                    if (DATE_PATTERNS[i].test(val)) {
+                                        looksLikeDate = true;
+                                        break;
+                                    }
+                                }
+                            }
+
+                            if (!looksLikeDate) {
+                                return; // Let non-date text inputs behave normally
+                            }
 
                             // Attach Persian Calendar if not already attached
                             if (!input.dataset.pcAttached) {
@@ -3634,15 +4570,11 @@
                                     ev.stopPropagation();
                                     if (isDateTime) {
                                         showPersianDateTimePicker(jQuery(input), jQuery(input), function (date) {
-                                            // Format back to JXL expectation? JXL likely expects Gregorian string
-                                            // But for display we might want Persian? 
-                                            // Actually best is to just set the value and trigger events
-                                            // input.value = ...
-                                            // input.dispatchEvent(new Event('change', { bubbles: true }));
+                                            // Handled
                                         });
                                     } else {
                                         showPersianCalendar(jQuery(input), jQuery(input), function (date) {
-                                            // ...
+                                            // Handled
                                         });
                                     }
                                 });

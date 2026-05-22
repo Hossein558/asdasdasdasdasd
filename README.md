@@ -234,6 +234,11 @@ Server ID = SHA256(jira.home + hostname + OS + InstallationUUID)
 
 ## 📝 Version History
 
+*   **v11.4.10**: **JXL Upload Fix & Advanced Roadmaps Grid Save Fixes** - Major compatibility release:
+    *   **JXL Choose File Hijack Resolved**: Restricts JXL input interception exclusively to `<input type="text">` and `<textarea>` whose values match a date pattern. Restores standard browser file selection behavior on "Choose file" buttons.
+    *   **React Grid Save Fixes**: Implements dynamic prototype traversal using `Object.getPrototypeOf()` to fetch value setters, eliminating the `TypeError: Illegal invocation` error on custom inputs. Sends a structured event payload matching Atlaskit's schema to resolve `undefined.split` errors.
+    *   **Robust Navigation Targeting**: Implements 5-layered fallback selector strategy to locate React month navigation elements accurately in dynamically rendered Atlaskit grids.
+*   **v11.4.9**: Support dynamic Persian date conversion in Audit Log and System Info pages, and added comprehensive dynamic license support.
 *   **v11.4.0**: **Persian Date & Time Enhancement** - Added comprehensive Persian display support:
     *   **Activity Stream**: Converts relative timestamps (e.g., "15 minutes ago" → "۱۵ دقیقه قبل") for comments, worklogs, and history.
     *   **Issue Search**: Displays dates in Issue Navigator in Persian format `1404/11/05`.
