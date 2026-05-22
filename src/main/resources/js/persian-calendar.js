@@ -10,7 +10,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '11.4.10';
+    var PC_VERSION = '11.4.11';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     // IMMEDIATE GLOBAL CLICK DIAGNOSTIC (Writen to F12 Console)
@@ -2073,6 +2073,96 @@
         });
 
         logInfo('View page dates converted: ' + convertedCount);
+
+        // Convert full JavaScript-style dates (e.g. for ScriptRunner or dynamic outputs)
+        try {
+            convertFullEnglishDates($);
+        } catch (e) {
+            logError('Error converting full English dates: ' + e.message);
+        }
+    }
+
+    // Convert full JavaScript-style English dates (e.g. Sat May 23 2026 00:33:50 GMT+0330)
+    function convertFullEnglishDates($) {
+        logInfo('=== Converting Full English JS Dates ===');
+
+        var jsDateRegex = /\b(Sun|Mon|Tue|Wed|Thu|Fri|Sat)\s+(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)\s+(\d{1,2})\s+(\d{4})\s+(\d{2}):(\d{2}):(\d{2})(?:\s+GMT[+-]\d{4})?(?:\s*\([A-Za-z0-9_.\s+-]+\))?/gi;
+        var GREGORIAN_MONTH_MAP = {
+            'jan': 1, 'feb': 2, 'mar': 3, 'apr': 4, 'may': 5, 'jun': 6,
+            'jul': 7, 'aug': 8, 'sep': 9, 'oct': 10, 'nov': 11, 'dec': 12
+        };
+        var PERSIAN_WEEKDAY_MAP = {
+            'sat': 'شنبه', 'sun': 'یکشنبه', 'mon': 'دوشنبه', 'tue': 'سه‌شنبه',
+            'wed': 'چهارشنبه', 'thu': 'پنج‌شنبه', 'fri': 'جمعه'
+        };
+        var PERSIAN_MONTH_NAMES = [
+            'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
+            'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند'
+        ];
+
+        var convertedCount = 0;
+
+        // Efficiently search elements containing "GMT" or a recent year "202"
+        $(':contains("202"), :contains("GMT")').each(function () {
+            var $el = $(this);
+
+            $el.contents().each(function () {
+                if (this.nodeType === 3) { // Text node
+                    var text = this.nodeValue;
+                    if (text && jsDateRegex.test(text)) {
+                        jsDateRegex.lastIndex = 0; // Reset regex
+                        var newText = text.replace(jsDateRegex, function (match, dayOfWeek, monthStr, day, year, hour, minute, second) {
+                            var gYear = parseInt(year, 10);
+                            var gMonth = GREGORIAN_MONTH_MAP[monthStr.toLowerCase()];
+                            var gDay = parseInt(day, 10);
+
+                            if (gYear && gMonth && gDay) {
+                                var jDate = toJalaali(gYear, gMonth, gDay);
+                                var persianDayOfWeek = PERSIAN_WEEKDAY_MAP[dayOfWeek.toLowerCase()] || '';
+                                var persianMonthName = PERSIAN_MONTH_NAMES[jDate.jm - 1];
+
+                                var tzSuffix = '';
+                                if (match.indexOf('GMT') > -1) {
+                                    var gmtMatch = match.match(/GMT[+-]\d{4}/i);
+                                    var tzNameMatch = match.match(/\([A-Za-z0-9_.\s+-]+\)/);
+
+                                    var tzPart = '';
+                                    if (tzNameMatch) {
+                                        var tzName = tzNameMatch[0].replace(/[()]/g, '').trim();
+                                        if (tzName === 'Iran Standard Time' || tzName === 'Iran Daylight Time' || tzName.indexOf('Tehran') > -1) {
+                                            tzPart = 'به وقت ایران';
+                                        } else {
+                                            tzPart = tzName;
+                                        }
+                                    }
+
+                                    if (gmtMatch) {
+                                        var gmtStr = gmtMatch[0];
+                                        var offset = gmtStr.replace(/GMT/i, '').trim();
+                                        if (offset.length === 5) {
+                                            offset = offset.substring(0, 3) + ':' + offset.substring(3);
+                                        }
+                                        tzSuffix = ' (GMT' + offset + (tzPart ? ' - ' + tzPart : '') + ')';
+                                    } else {
+                                        tzSuffix = tzPart ? ' (' + tzPart + ')' : '';
+                                    }
+                                }
+
+                                return persianDayOfWeek + ' ' + jDate.jd + ' ' + persianMonthName + ' ' + jDate.jy + ' ساعت ' + hour + ':' + minute + ':' + second + tzSuffix;
+                            }
+                            return match;
+                        });
+
+                        if (newText !== text) {
+                            logInfo('Full English Date converted: "' + text.trim() + '" → "' + newText.trim() + '"');
+                            this.nodeValue = newText;
+                            convertedCount++;
+                        }
+                    }
+                }
+            });
+        });
+        logInfo('Full English Dates converted: ' + convertedCount);
     }
 
     // Helper to find the closest input in DOM proximity to a button/element
