@@ -374,6 +374,63 @@
         'ago': 'قبل'
     };
 
+    // Parse compound durations (e.g., "1 days 4 hours 10 minutes" or "1d 4h 10m")
+    function parseCompoundDuration(str) {
+        if (!str) return null;
+        var original = str.trim().toLowerCase();
+        
+        // Remove standard joining words like "and" or commas
+        var cleaned = original.replace(/\band\b/g, ' ').replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
+        
+        // Match patterns like "(\d+)\s*(seconds?|minutes?|hours?|days?|weeks?|months?|years?|s|m|h|d|w|y)\b"
+        var segmentRegex = /(\d+)\s*(second|minute|hour|day|week|month|year|s|m|h|d|w|y)s?\b/g;
+        var matches = [];
+        var match;
+        var lastIndex = 0;
+        
+        while ((match = segmentRegex.exec(cleaned)) !== null) {
+            // Check if there's any unparsed text between matches (excluding whitespace)
+            var between = cleaned.substring(lastIndex, match.index).trim();
+            if (between.length > 0) {
+                return null;
+            }
+            matches.push({
+                num: match[1],
+                unit: match[2]
+            });
+            lastIndex = segmentRegex.lastIndex;
+        }
+        
+        // If the whole string wasn't consumed (excluding trailing whitespace)
+        if (lastIndex < cleaned.length && cleaned.substring(lastIndex).trim().length > 0) {
+            return null;
+        }
+        
+        if (matches.length === 0) {
+            return null;
+        }
+        
+        var unitMap = {
+            'second': 'ثانیه', 's': 'ثانیه',
+            'minute': 'دقیقه', 'm': 'دقیقه',
+            'hour': 'ساعت', 'h': 'ساعت',
+            'day': 'روز', 'd': 'روز',
+            'week': 'هفته', 'w': 'هفته',
+            'month': 'ماه',
+            'year': 'سال', 'y': 'سال'
+        };
+        
+        var parts = [];
+        for (var i = 0; i < matches.length; i++) {
+            var num = matches[i].num;
+            var unit = matches[i].unit;
+            var translatedUnit = unitMap[unit] || unit;
+            parts.push(toPersianNumerals(num) + ' ' + translatedUnit);
+        }
+        
+        return parts.join(' و ');
+    }
+
     // Convert relative time text to Persian (e.g., "15 minutes ago" -> "۱۵ دقیقه قبل")
     function convertRelativeTimeToPersian(text) {
         if (!text) return text;
@@ -409,6 +466,24 @@
                 'tomorrow': 'فردا'
             };
             return dayTranslate[dayWord] + ' ساعت ' + persianTimeStr;
+        }
+
+        // Support compound relative times: "X days Y hours Z minutes ago"
+        if (original.indexOf(' ago') > -1) {
+            var idx = original.lastIndexOf(' ago');
+            var durationPart = original.substring(0, idx).trim();
+            var compoundParsed = parseCompoundDuration(durationPart);
+            if (compoundParsed) {
+                return compoundParsed + ' قبل';
+            }
+        }
+        
+        if (original.indexOf('in ') === 0) {
+            var durationPart = original.substring(3).trim();
+            var compoundParsed = parseCompoundDuration(durationPart);
+            if (compoundParsed) {
+                return 'در ' + compoundParsed;
+            }
         }
 
         // Pattern: "X unit ago" (e.g., "15 minutes ago", "2 hours ago")
@@ -464,28 +539,17 @@
         }
         var original = restOfText.toLowerCase();
 
-        // Pattern: Duration with bracketed seconds (e.g. "30 minutes [ 1800 ]", "0 minutes [ 0 ]")
-        var bracketedDurationMatch = original.match(/^(\d+)\s*(second|minute|hour|day|week|month|year)s?\s*\[\s*(\d+)\s*\]$/i);
+        // Pattern: Duration with bracketed seconds (e.g. "30 minutes [ 1800 ]", "1 hour 12 minutes [ 4320 ]")
+        var bracketedDurationMatch = original.match(/^([\d\s\w,]+?)\s*\[\s*(\d+)\s*\]$/i);
         if (bracketedDurationMatch) {
-            var num = bracketedDurationMatch[1];
-            var unit = bracketedDurationMatch[2].toLowerCase();
-            var rawSeconds = bracketedDurationMatch[3];
+            var durationStr = bracketedDurationMatch[1].trim();
+            var rawSeconds = bracketedDurationMatch[2].trim();
             
-            var persianNum = toPersianNumerals(num);
-            var persianSeconds = toPersianNumerals(rawSeconds);
-            
-            var persianUnits = {
-                'second': 'ثانیه',
-                'minute': 'دقیقه',
-                'hour': 'ساعت',
-                'day': 'روز',
-                'week': 'هفته',
-                'month': 'ماه',
-                'year': 'سال'
-            };
-            
-            var translatedUnit = persianUnits[unit] || unit;
-            return prefix + persianNum + ' ' + translatedUnit + ' [ ' + persianSeconds + ' ]';
+            var parsedDuration = parseCompoundDuration(durationStr);
+            if (parsedDuration) {
+                var persianSeconds = toPersianNumerals(rawSeconds);
+                return prefix + parsedDuration + ' [ ' + persianSeconds + ' ]';
+            }
         }
 
         // Pattern: Just bracketed numbers (e.g. "10201 [ 10201 ]")
@@ -496,15 +560,20 @@
             return prefix + toPersianNumerals(num1) + ' [ ' + toPersianNumerals(num2) + ' ]';
         }
 
+        // Try compound duration
+        var compoundParsed = parseCompoundDuration(original);
+        if (compoundParsed) {
+            return prefix + compoundParsed;
+        }
+
+        // Fallbacks:
         // Pattern: "X unit" or "Xu" (e.g., "15 minutes", "15m", "2 hours", "2h")
-        // Matches: 15m, 15 m, 15 minutes, 15 minute
         var singleUnitMatch = original.match(/^(\d+)\s*(second|minute|hour|day|week|month|year|s|m|h|d|w|y)s?$/i);
         if (singleUnitMatch) {
             var num = singleUnitMatch[1];
             var unit = singleUnitMatch[2].toLowerCase();
             var persianNum = toPersianNumerals(num);
 
-            // Map short units to long names
             var unitMap = {
                 's': 'second', 'sec': 'second',
                 'm': 'minute', 'min': 'minute',
@@ -529,7 +598,6 @@
         }
 
         // Pattern: "Xh Ym" or "X hours Y minutes"
-        // Matches: 1h 30m, 1h30m, 1 hour 30 minutes
         var hoursMinutesMatch = original.match(/(\d+)\s*(?:h|hours?)\s*(\d+)\s*(?:m|minutes?)/i);
         if (hoursMinutesMatch) {
             var hours = hoursMinutesMatch[1];
