@@ -384,6 +384,33 @@
             return PERSIAN_RELATIVE_TIME[original];
         }
 
+        // Pattern: "Yesterday/Today at X:XX AM/PM" or "Yesterday/Today X:XX AM/PM"
+        var yesterdayTodayMatch = original.match(/^(yesterday|today|tomorrow)\s+(?:at\s+)?(\d{1,2}):(\d{2})(?:\s*(am|pm))?$/i);
+        if (yesterdayTodayMatch) {
+            var dayWord = yesterdayTodayMatch[1].toLowerCase();
+            var hour = parseInt(yesterdayTodayMatch[2], 10);
+            var minute = yesterdayTodayMatch[3];
+            var ampm = yesterdayTodayMatch[4];
+
+            if (ampm) {
+                ampm = ampm.toUpperCase();
+                if (ampm === 'PM' && hour !== 12) {
+                    hour += 12;
+                } else if (ampm === 'AM' && hour === 12) {
+                    hour = 0;
+                }
+            }
+
+            var hourStr = (hour < 10 ? '0' : '') + hour;
+            var persianTimeStr = toPersianNumerals(hourStr) + ':' + toPersianNumerals(minute);
+            var dayTranslate = {
+                'yesterday': 'دیروز',
+                'today': 'امروز',
+                'tomorrow': 'فردا'
+            };
+            return dayTranslate[dayWord] + ' ساعت ' + persianTimeStr;
+        }
+
         // Pattern: "X unit ago" (e.g., "15 minutes ago", "2 hours ago")
         var match = original.match(/^(\d+)\s+(second|minute|hour|day|week|month|year)s?\s+ago$/i);
         if (match) {
