@@ -722,7 +722,7 @@
         return null;
     }
 
-    // Convert absolute Gregorian date string to Persian (e.g. "13/May/26 8:53 PM" -> "23 اردیبهشت 1405 20:53")
+    // Convert absolute Gregorian date string to Persian (e.g. "13/May/26 8:53 PM" -> "23 اردیبهشت 1405 20:53", "May 13" -> "23 اردیبهشت")
     function convertAbsoluteDateTextToPersian(fullText) {
         if (!fullText) return null;
         
@@ -732,6 +732,76 @@
         if (prefixMatch) {
             prefix = prefixMatch[0];
             textToParse = textToParse.substring(prefix.length).trim();
+        }
+
+        // Support Month-Day and Month-Day-Year textual dates (e.g. "May 13", "13 May", "May 13, 2026", "13 May 2026")
+        var monthNamesAbbr = ['jan', 'feb', 'mar', 'apr', 'may', 'jun', 'jul', 'aug', 'sep', 'oct', 'nov', 'dec'];
+        var monthNamesFull = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+        var monthRegexStr = '(' + monthNamesAbbr.concat(monthNamesFull).join('|') + ')';
+
+        // Pattern A: "Month Day, Year" or "Month Day Year" e.g., "May 13, 2026" or "May 13 2026"
+        var monthDayYearMatch = textToParse.match(new RegExp('^' + monthRegexStr + '\\s+(\\d{1,2})(?:,\\s*|\\s+)(\\d{4})$', 'i'));
+        // Pattern B: "Day Month Year" e.g., "13 May 2026"
+        var dayMonthYearMatch = textToParse.match(new RegExp('^(\\d{1,2})\\s+' + monthRegexStr + '\\s+(\\d{4})$', 'i'));
+        // Pattern C: "Month Day" e.g., "May 13"
+        var monthDayMatch = textToParse.match(new RegExp('^' + monthRegexStr + '\\s+(\\d{1,2})$', 'i'));
+        // Pattern D: "Day Month" e.g., "13 May"
+        var dayMonthMatch = textToParse.match(new RegExp('^(\\d{1,2})\\s+' + monthRegexStr + '$', 'i'));
+
+        var monthStr = '';
+        var dayVal = 0;
+        var yearVal = 0;
+        var hasYear = false;
+
+        if (monthDayYearMatch) {
+            monthStr = monthDayYearMatch[1].toLowerCase();
+            dayVal = parseInt(monthDayYearMatch[2], 10);
+            yearVal = parseInt(monthDayYearMatch[3], 10);
+            hasYear = true;
+        } else if (dayMonthYearMatch) {
+            monthStr = dayMonthYearMatch[2].toLowerCase();
+            dayVal = parseInt(dayMonthYearMatch[1], 10);
+            yearVal = parseInt(dayMonthYearMatch[3], 10);
+            hasYear = true;
+        } else if (monthDayMatch) {
+            monthStr = monthDayMatch[1].toLowerCase();
+            dayVal = parseInt(monthDayMatch[2], 10);
+            yearVal = new Date().getFullYear();
+            hasYear = false;
+        } else if (dayMonthMatch) {
+            monthStr = dayMonthMatch[2].toLowerCase();
+            dayVal = parseInt(dayMonthMatch[1], 10);
+            yearVal = new Date().getFullYear();
+            hasYear = false;
+        }
+
+        if (monthStr && dayVal > 0) {
+            var gMonth = 0;
+            var abbrIdx = monthNamesAbbr.indexOf(monthStr);
+            if (abbrIdx !== -1) {
+                gMonth = abbrIdx + 1;
+            } else {
+                var fullIdx = monthNamesFull.indexOf(monthStr);
+                if (fullIdx !== -1) {
+                    gMonth = fullIdx + 1;
+                }
+            }
+
+            if (gMonth > 0) {
+                var jDate = toJalaali(yearVal, gMonth, dayVal);
+                var displayText = '';
+                if (hasYear) {
+                    displayText = formatPersianDate(jDate.jy, jDate.jm, jDate.jd);
+                } else {
+                    displayText = jDate.jd + ' ' + PERSIAN_MONTHS[jDate.jm - 1];
+                }
+
+                var rlm = '\u200F';  // Right-to-Left Mark
+                if (prefix) {
+                    displayText = prefix + rlm + ' ' + displayText;
+                }
+                return displayText;
+            }
         }
 
         // Extract date part first (before any time)
@@ -862,7 +932,9 @@
                 '.livestamp',
                 '[data-livestamp]',
                 '.date',
-                '.timestamp'
+                '.timestamp',
+                'h2.date-header',
+                '.date-header'
             ];
             $(timestampSelectors.join(','), iframeDoc).each(function () {
                 var $el = $(this);
@@ -972,7 +1044,10 @@
             '.issue-data-block time',
             '.changehistorydetails time',
             // All time elements with datetime attribute
-            'time[datetime]'
+            'time[datetime]',
+            // Date headers in Activity Stream
+            'h2.date-header',
+            '.date-header'
         ];
 
         var convertedCount = 0;
