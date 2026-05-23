@@ -14,7 +14,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '11.4.15';
+    var PC_VERSION = '11.4.16';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     // IMMEDIATE GLOBAL CLICK DIAGNOSTIC (Writen to F12 Console)
@@ -4158,11 +4158,7 @@
         logInfo('MutationObserver attached');
 
         // ========== REACT PORTAL INTERCEPTOR ==========
-            // initReactPortalInterceptor($); - Removed
-            initReactPortalInterceptor($);
-        } catch (reactError) {
-            logError('React Portal Interceptor failed', { error: reactError.message });
-        }
+        // Aggressive React interceptor removed.
 
         // ========== JXL SUPPORT ==========
         try {
@@ -4170,6 +4166,9 @@
             initJXLSupport($);
         } catch (jxlError) {
             logError('JXL Support initialization failed', { error: jxlError.message, stack: jxlError.stack });
+        }
+    });
+
     // ========== NON-AGGRESSIVE REACT PORTAL SUPPORT ==========
     // The aggressive scanner has been removed for better stability.
     // ========== JXL (Jira eXtensible List) SUPPORT ==========
