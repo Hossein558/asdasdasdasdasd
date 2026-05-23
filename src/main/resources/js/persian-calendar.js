@@ -1977,6 +1977,7 @@
         var overlay = document.createElement('div');
         overlay.className = 'pc-overlay';
         document.body.appendChild(overlay);
+        var openTime = Date.now();
 
         // Create popup
         var popup = document.createElement('div');
@@ -2158,6 +2159,10 @@
         });
 
         overlay.addEventListener('click', function () {
+            if (Date.now() - openTime < 300) {
+                logDebug('Ignoring overlay click too close to open time');
+                return;
+            }
             logDebug('Overlay clicked, closing');
             close();
         });
@@ -2238,6 +2243,7 @@
         var overlay = document.createElement('div');
         overlay.className = 'pc-overlay';
         document.body.appendChild(overlay);
+        var openTime = Date.now();
 
         // Create popup
         var popup = document.createElement('div');
@@ -2448,6 +2454,10 @@
         });
 
         overlay.addEventListener('click', function () {
+            if (Date.now() - openTime < 300) {
+                logDebug('Ignoring overlay click too close to open time');
+                return;
+            }
             logDebug('Overlay clicked, closing');
             close();
         });
@@ -3083,6 +3093,7 @@
 
         // Create overlay - clicking it will close the popup but keep inline edit open
         var overlay = $('<div class="pc-overlay"></div>').appendTo('body');
+        var openTime = Date.now();
 
         // Create popup
         var popup = $('<div class="pc-popup"></div>').appendTo('body');
@@ -3346,7 +3357,13 @@
             e.stopPropagation();
         });
 
-        overlay.on('click', close);
+        overlay.on('click', function () {
+            if (Date.now() - openTime < 300) {
+                logDebug('Ignoring overlay click too close to open time');
+                return;
+            }
+            close();
+        });
         render();
     }
 
@@ -3439,6 +3456,7 @@
 
         // Create overlay
         var overlay = $('<div class="pc-overlay"></div>').appendTo('body');
+        var openTime = Date.now();
         var popup = $('<div class="pc-popup"></div>').appendTo('body');
 
         // Prevent mousedown on popup from causing blur
@@ -3675,7 +3693,13 @@
             e.stopPropagation();
         });
 
-        overlay.on('click', close);
+        overlay.on('click', function () {
+            if (Date.now() - openTime < 300) {
+                logDebug('Ignoring overlay click too close to open time');
+                return;
+            }
+            close();
+        });
         render();
     }
 
