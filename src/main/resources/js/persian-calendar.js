@@ -14,7 +14,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '11.4.14';
+    var PC_VERSION = '11.4.15';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     // IMMEDIATE GLOBAL CLICK DIAGNOSTIC (Writen to F12 Console)
@@ -4422,17 +4422,21 @@
         var posTop = clickY + scrollTop;
         var posLeft = clickX + scrollLeft;
         
-        var $persian = $('<input type="text" class="text pc-input pc-react-dummy" autocomplete="off" placeholder="1405/02/23">');
+        var $persian = $('<input type="text" class="text pc-input pc-react-dummy" autocomplete="off">');
         
         $persian.css({
             position: 'absolute',
             top: posTop + 'px',
             left: posLeft + 'px',
-            width: '150px',
-            height: '36px',
-            zIndex: 10000,
-            boxSizing: 'border-box', background: '#fff',
-            border: '2px solid #2684FF', borderRadius: '3px', padding: '0 8px'
+            width: '1px',
+            height: '1px',
+            opacity: '0',
+            pointerEvents: 'none',
+            zIndex: -1,
+            border: 'none',
+            padding: '0',
+            margin: '0',
+            background: 'transparent'
         });
         
         var currentVal = $input.val() || $input.text();
