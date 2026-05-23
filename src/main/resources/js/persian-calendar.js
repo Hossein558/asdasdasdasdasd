@@ -8,9 +8,13 @@
 (function () {
     'use strict';
 
+    // Workaround for Jira React 18 feature gate error ("Client must be initialized before using this method")
+    window.__CRITERION__ = window.__CRITERION__ || { getFeatureFlagOverride: function() { return false; } };
+    window.CRITERION = window.CRITERION || { getFeatureFlagOverride: function() { return false; } };
+
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '11.4.11';
+    var PC_VERSION = '11.4.14';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     // IMMEDIATE GLOBAL CLICK DIAGNOSTIC (Writen to F12 Console)
