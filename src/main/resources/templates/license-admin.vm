@@ -185,8 +185,8 @@
         </div>
 
         #if($request.getParameter("message"))
-        <div class="message message-$request.getParameter('type')">
-            $request.getParameter("message")
+        <div class="message message-$esc.html($request.getParameter('type'))">
+            $esc.html($request.getParameter("message"))
         </div>
         #end
 
