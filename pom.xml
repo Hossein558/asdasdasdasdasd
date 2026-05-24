@@ -84,6 +84,13 @@
             <version>4.1.4</version>
             <scope>provided</scope>
         </dependency>
+        <!-- Apache Commons Text for escaping HTML -->
+        <dependency>
+            <groupId>org.apache.commons</groupId>
+            <artifactId>commons-text</artifactId>
+            <version>1.10.0</version>
+            <scope>provided</scope>
+        </dependency>
     </dependencies>
 
     <build>

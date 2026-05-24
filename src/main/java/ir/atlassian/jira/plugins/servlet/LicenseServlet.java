@@ -14,6 +14,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+import org.apache.commons.text.StringEscapeUtils;
 
 /**
  * License Administration Servlet
@@ -96,7 +97,11 @@ public class LicenseServlet extends HttpServlet {
 
         // Message
         if (message != null && !message.isEmpty()) {
-            out.println("<div class='message-" + (messageType != null ? messageType : "success") + "'>" + message
+            String safeMessageType = "success";
+            if ("error".equals(messageType)) {
+                safeMessageType = "error";
+            }
+            out.println("<div class='message-" + safeMessageType + "'>" + StringEscapeUtils.escapeHtml4(message)
                     + "</div>");
         }
 
