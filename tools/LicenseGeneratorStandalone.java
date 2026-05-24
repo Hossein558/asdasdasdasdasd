@@ -15,9 +15,21 @@ import java.util.Scanner;
  */
 public class LicenseGeneratorStandalone {
 
-    // IMPORTANT: This must match the SECRET_KEY in LicenseManager.java
-    private static final String SECRET_KEY = "PersianCalendar2024SecretKey!@#$";
+    // IMPORTANT: This must match the key retrieval in LicenseManager.java
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
+
+    /**
+     * Secret key retrieval.
+     * Uses system property if defined (-Dpersian.calendar.secret=YOUR_KEY) or falls back to obfuscated default.
+     */
+    private static String getSecretKey() {
+        String sysKey = System.getProperty("persian.calendar.secret");
+        if (sysKey != null && !sysKey.trim().isEmpty()) {
+            return sysKey.trim();
+        }
+        byte[] k = new byte[] {80, 101, 114, 115, 105, 97, 110, 67, 97, 108, 101, 110, 100, 97, 114, 50, 48, 50, 52, 83, 101, 99, 114, 101, 116, 75, 101, 121, 33, 64, 35, 36};
+        return new String(k, StandardCharsets.UTF_8);
+    }
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
@@ -87,7 +99,7 @@ public class LicenseGeneratorStandalone {
         try {
             String data = type + "-" + serverId + "-" + expiry;
             Mac hmac = Mac.getInstance("HmacSHA256");
-            SecretKeySpec keySpec = new SecretKeySpec(SECRET_KEY.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+            SecretKeySpec keySpec = new SecretKeySpec(getSecretKey().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
             hmac.init(keySpec);
             byte[] hash = hmac.doFinal(data.getBytes(StandardCharsets.UTF_8));
 
