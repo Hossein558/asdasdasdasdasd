@@ -171,9 +171,30 @@
         popup.className = 'pc-popup';
         popup.style.textAlign = 'center';
         popup.style.padding = '30px';
-        popup.innerHTML = '<h3 style="color:#de350b;margin-bottom:15px;">⚠️ لایسنس منقضی شده</h3>' +
-            '<p style="margin-bottom:20px;">' + (LICENSE_CACHE.message || 'لطفاً با پشتیبانی تماس بگیرید.') + '</p>' +
-            '<button type="button" class="pc-close-btn" style="background:#0052cc;color:#fff;border:none;padding:10px 20px;border-radius:4px;cursor:pointer;">بستن</button>';
+
+        var titleNode = document.createElement('h3');
+        titleNode.style.color = '#de350b';
+        titleNode.style.marginBottom = '15px';
+        titleNode.textContent = '⚠️ لایسنس منقضی شده';
+
+        var messageNode = document.createElement('p');
+        messageNode.style.marginBottom = '20px';
+        messageNode.textContent = LICENSE_CACHE.message || 'لطفاً با پشتیبانی تماس بگیرید.';
+
+        var closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'pc-close-btn';
+        closeBtn.style.background = '#0052cc';
+        closeBtn.style.color = '#fff';
+        closeBtn.style.border = 'none';
+        closeBtn.style.padding = '10px 20px';
+        closeBtn.style.borderRadius = '4px';
+        closeBtn.style.cursor = 'pointer';
+        closeBtn.textContent = 'بستن';
+
+        popup.appendChild(titleNode);
+        popup.appendChild(messageNode);
+        popup.appendChild(closeBtn);
         document.body.appendChild(popup);
 
         var rect = document.body.getBoundingClientRect();
