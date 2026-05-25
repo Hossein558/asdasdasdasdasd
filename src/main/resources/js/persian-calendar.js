@@ -2010,7 +2010,7 @@
         
         // Use popover if supported to ensure top-layer rendering above all dialogs
         if (typeof popup.showPopover === 'function') {
-            popup.popover = "auto";
+            popup.popover = "manual";
         }
         
         document.body.appendChild(popup);
@@ -2288,7 +2288,7 @@
         popup.className = 'pc-popup';
         
         if (typeof popup.showPopover === 'function') {
-            popup.popover = "auto";
+            popup.popover = "manual";
         }
         
         document.body.appendChild(popup);
@@ -4348,8 +4348,18 @@
                     if (inp.dataset.pcAuditDate) continue;
                     
                     // If the input has a nearby SVG icon with the calendar path, mark it
-                    var container = inp.closest('div[data-vc], [class*="css-"]') || inp.parentElement;
-                    if (container && container.querySelector('svg path[d*="4.995"], svg path[d*="14.01"]')) {
+                    var container = inp.parentElement;
+                    var depth = 0;
+                    var foundIcon = false;
+                    while (container && depth < 4 && !foundIcon) {
+                        if (container.querySelector('svg path[d*="4.995"], svg path[d*="14.01"]')) {
+                            foundIcon = true;
+                        } else {
+                            container = container.parentElement;
+                            depth++;
+                        }
+                    }
+                    if (foundIcon) {
                         inp.dataset.pcAuditDate = 'true';
                         logInfo('Dynamically marked audit date input via icon sibling');
                     }
