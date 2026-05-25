@@ -4049,6 +4049,227 @@
         logInfo('Initialization complete. Inputs processed: ' + foundCount);
     }
 
+    // ========================================================================
+    // Audit Log Date Picker - Replace Atlaskit Gregorian calendar with Persian
+    // ========================================================================
+    function initAuditLogDatePicker($) {
+        // Only run on audit log page
+        if (window.location.pathname.indexOf('/plugins/servlet/audit') === -1) {
+            return;
+        }
+
+        logInfo('=== Initializing Audit Log Persian Date Picker ===');
+
+        // Track which input triggered the picker
+        var activeAuditInput = null;
+
+        // --- 1) MutationObserver: hide any Atlaskit calendar popup that appears ---
+        var auditCalendarObserver = new MutationObserver(function (mutations) {
+            mutations.forEach(function (mutation) {
+                mutation.addedNodes.forEach(function (node) {
+                    if (node.nodeType !== 1) return;
+
+                    // Atlaskit calendar uses role="grid" or data-testid containing "calendar"
+                    // Also look for the popup layer that contains the calendar
+                    var calendarGrids = [];
+                    if (node.getAttribute && (
+                        node.getAttribute('role') === 'grid' ||
+                        (node.getAttribute('data-testid') || '').indexOf('calendar') !== -1
+                    )) {
+                        calendarGrids.push(node);
+                    }
+                    // Check children too
+                    if (node.querySelectorAll) {
+                        var childGrids = node.querySelectorAll('[role="grid"], [data-testid*="calendar"], [class*="Calendar"], [class*="calendar-"]');
+                        for (var i = 0; i < childGrids.length; i++) {
+                            calendarGrids.push(childGrids[i]);
+                        }
+                    }
+
+                    calendarGrids.forEach(function (grid) {
+                        // Find the popup container (usually the closest positioned parent)
+                        var popupContainer = grid.closest('[data-testid*="popup"], [class*="Layer"], [class*="Popup"], [style*="position"]');
+                        if (popupContainer && !popupContainer.classList.contains('pc-popup')) {
+                            logInfo('Hiding Atlaskit calendar popup on audit page');
+                            popupContainer.style.display = 'none';
+                            popupContainer.style.visibility = 'hidden';
+                            popupContainer.style.pointerEvents = 'none';
+                        } else if (!grid.closest('.pc-popup')) {
+                            // If no container found, hide the grid itself
+                            grid.style.display = 'none';
+                        }
+                    });
+                });
+            });
+        });
+
+        auditCalendarObserver.observe(document.body, { childList: true, subtree: true });
+
+        // --- 2) Helper: set React-controlled input value ---
+        function setReactInputValue(inputEl, value) {
+            try {
+                var nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                    window.HTMLInputElement.prototype, 'value'
+                ).set;
+                nativeInputValueSetter.call(inputEl, value);
+            } catch (ex) {
+                inputEl.value = value;
+            }
+            inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+            inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+            // Also try React's synthetic events
+            try {
+                inputEl.dispatchEvent(new Event('blur', { bubbles: true }));
+            } catch (ex2) {}
+        }
+
+        // --- 3) Intercept clicks on audit date inputs (capture phase) ---
+        function isAuditDateInput(el) {
+            if (!el || el.tagName !== 'INPUT') return false;
+            var placeholder = (el.getAttribute('placeholder') || '').toLowerCase();
+            var type = (el.getAttribute('type') || '').toLowerCase();
+            // Audit date inputs have placeholders like "e.g. 5/26/2026"
+            // and are NOT time inputs (which have "e.g. 1:01 AM")
+            if (placeholder.indexOf('e.g.') !== -1 && placeholder.indexOf('/') !== -1 && placeholder.indexOf('am') === -1) {
+                return true;
+            }
+            // Also check by type or parent context
+            if (type === 'text') {
+                var parentForm = el.closest('[class*="DateFilter"], [class*="date-filter"], [class*="DatePicker"], [data-testid*="date"]');
+                if (parentForm) return true;
+            }
+            return false;
+        }
+
+        function isAuditCalendarIcon(el) {
+            if (!el) return false;
+            // Calendar icon button next to the date input
+            var svgParent = el.closest('button, [role="button"], [class*="icon"], [class*="Icon"]');
+            if (svgParent) {
+                var svg = svgParent.querySelector('svg') || (el.tagName === 'svg' ? el : null) || (el.tagName === 'path' ? el.closest('svg') : null);
+                if (svg) {
+                    // Check if it's near a date input
+                    var container = svgParent.parentElement;
+                    if (container) {
+                        var nearbyInput = container.querySelector('input');
+                        if (nearbyInput && isAuditDateInput(nearbyInput)) {
+                            return nearbyInput;
+                        }
+                        // Look in siblings
+                        var prev = container.previousElementSibling;
+                        var next = container.nextElementSibling;
+                        if (prev) {
+                            var inp = prev.querySelector ? prev.querySelector('input') : null;
+                            if (inp && isAuditDateInput(inp)) return inp;
+                            if (prev.tagName === 'INPUT' && isAuditDateInput(prev)) return prev;
+                        }
+                        if (next) {
+                            var inp2 = next.querySelector ? next.querySelector('input') : null;
+                            if (inp2 && isAuditDateInput(inp2)) return inp2;
+                        }
+                    }
+                }
+            }
+            return false;
+        }
+
+        // Capture-phase click listener
+        document.addEventListener('click', function (e) {
+            var target = e.target;
+
+            // Check if target is a date input
+            var dateInput = null;
+            if (isAuditDateInput(target)) {
+                dateInput = target;
+            } else {
+                // Check if it's a calendar icon near a date input
+                var iconResult = isAuditCalendarIcon(target);
+                if (iconResult) {
+                    dateInput = iconResult;
+                }
+            }
+
+            if (!dateInput) return;
+
+            // We're on audit page and clicked a date input/icon
+            logInfo('Audit Log date input intercepted!');
+
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+
+            activeAuditInput = dateInput;
+
+            // Hide any existing Atlaskit calendar that may have opened
+            setTimeout(function () {
+                var atlaskitCalendars = document.querySelectorAll('[role="grid"]:not(.pc-popup *)');
+                atlaskitCalendars.forEach(function (cal) {
+                    var container = cal.closest('[style*="position"]');
+                    if (container && !container.classList.contains('pc-popup')) {
+                        container.style.display = 'none';
+                    }
+                });
+            }, 50);
+
+            // Show our Persian calendar
+            var $dateInput = $(dateInput);
+            showPersianCalendar($dateInput, $dateInput, function (selectedDate) {
+                if (!selectedDate) {
+                    // Clear
+                    setReactInputValue(dateInput, '');
+                    return;
+                }
+
+                // Convert Persian date to Gregorian
+                var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
+
+                // Format as M/d/yyyy (Jira audit log format based on placeholder "e.g. 5/26/2026")
+                var formattedDate = gDate.gm + '/' + gDate.gd + '/' + gDate.gy;
+
+                logInfo('Audit date selected: Persian=' + selectedDate.jy + '/' + selectedDate.jm + '/' + selectedDate.jd +
+                    ' → Gregorian=' + formattedDate);
+
+                // Set the value using React-compatible method
+                setReactInputValue(dateInput, formattedDate);
+
+                // Also show the Persian date as a visual hint
+                dateInput.title = selectedDate.jy + '/' + selectedDate.jm + '/' + selectedDate.jd;
+
+                activeAuditInput = null;
+            });
+        }, true); // capture phase
+
+        // --- 4) Update placeholder text to Persian ---
+        function updateAuditPlaceholders() {
+            var today = new Date();
+            var todayJ = toJalaali(today.getFullYear(), today.getMonth() + 1, today.getDate());
+            var persianExample = todayJ.jy + '/' + todayJ.jm + '/' + todayJ.jd;
+
+            var allInputs = document.querySelectorAll('input[placeholder]');
+            allInputs.forEach(function (inp) {
+                var ph = inp.getAttribute('placeholder') || '';
+                if (ph.indexOf('e.g.') !== -1 && ph.indexOf('/') !== -1 && ph.indexOf('AM') === -1 && ph.indexOf('PM') === -1) {
+                    inp.setAttribute('placeholder', 'مثال: ' + persianExample);
+                    inp.setAttribute('data-pc-audit-date', 'true');
+                }
+            });
+        }
+
+        // Run placeholder update with retries (React renders asynchronously)
+        var placeholderRetries = [500, 1000, 2000, 3000, 5000];
+        placeholderRetries.forEach(function (delay) {
+            setTimeout(updateAuditPlaceholders, delay);
+        });
+
+        // Also update placeholders when Date filter dropdown opens
+        var dropdownObserver = new MutationObserver(function () {
+            setTimeout(updateAuditPlaceholders, 200);
+        });
+        dropdownObserver.observe(document.body, { childList: true, subtree: true });
+
+        logInfo('Audit Log Persian Date Picker initialized');
+    }
+
     // Main initialization
     waitForJira(function ($) {
         logInfo('========================================');
@@ -4069,6 +4290,7 @@
             // v11.4.0: New date display converters
             convertActivityStreamTime($);
             convertAuditLogDates($);
+            initAuditLogDatePicker($);
             convertIssueSearchDates($);
             convertTimeSpentDurations($);
             // Setup livestamp observer for dynamic updates
