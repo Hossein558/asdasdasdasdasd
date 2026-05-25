@@ -4120,19 +4120,38 @@
 
         // --- 2) Helper: set React-controlled input value ---
         function setReactInputValue(inputEl, value) {
-            try {
-                var nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-                    window.HTMLInputElement.prototype, 'value'
-                ).set;
-                nativeInputValueSetter.call(inputEl, value);
-            } catch (ex) {
-                inputEl.value = value;
-            }
-            inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-            inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-            try {
-                inputEl.dispatchEvent(new Event('blur', { bubbles: true }));
-            } catch (ex2) {}
+            setTimeout(function() {
+                try {
+                    var nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                        window.HTMLInputElement.prototype, 'value'
+                    ).set;
+                    nativeInputValueSetter.call(inputEl, value);
+                } catch (ex) {
+                    inputEl.value = value;
+                }
+                
+                try {
+                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
+                    inputEl.dispatchEvent(new Event('change', { bubbles: true }));
+                    
+                    var enterEvent = new KeyboardEvent('keydown', {
+                        key: 'Enter',
+                        code: 'Enter',
+                        keyCode: 13,
+                        which: 13,
+                        bubbles: true,
+                        cancelable: true
+                    });
+                    inputEl.dispatchEvent(enterEvent);
+                    inputEl.dispatchEvent(new Event('blur', { bubbles: true }));
+                } catch (evError) {
+                    logInfo('Error dispatching events: ' + evError);
+                }
+                
+                try {
+                    $(inputEl).trigger('input').trigger('change').trigger('blur');
+                } catch (jqError) {}
+            }, 10);
         }
 
         // --- 3) Detect audit date inputs ---
