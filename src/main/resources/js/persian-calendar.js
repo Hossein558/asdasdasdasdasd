@@ -1421,7 +1421,6 @@
                             $this.text(replacement);
                             $this.attr('data-persian-converted', 'true');
                             $this.attr('title', text);
-                            $this.css('direction', 'rtl').css('white-space', 'nowrap');
                             convertedCount++;
                         } catch (e) {}
                     }
@@ -1466,7 +1465,6 @@
                             $this.text(replacement);
                             $this.attr('data-persian-converted', 'true');
                             $this.attr('title', text);
-                            $this.css('direction', 'rtl').css('white-space', 'nowrap');
                         } catch (e) { }
                     }
                 } else if (isoMatch) {
@@ -1482,7 +1480,6 @@
                             $this.text(replacement);
                             $this.attr('data-persian-converted', 'true');
                             $this.attr('title', text);
-                            $this.css('direction', 'ltr').css('white-space', 'nowrap');
                         }
                     } catch (e) {}
                 }
