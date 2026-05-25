@@ -4293,7 +4293,13 @@
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
-                if (e.type === 'mousedown') openPersianCalendarForInput(target);
+                if (e.type === 'mousedown' || e.type === 'pointerdown') {
+                    // Avoid opening twice if both pointerdown and mousedown fire
+                    if (!window.pcLastOpenTime || Date.now() - window.pcLastOpenTime > 500) {
+                        window.pcLastOpenTime = Date.now();
+                        openPersianCalendarForInput(target);
+                    }
+                }
                 return;
             }
 
@@ -4305,7 +4311,13 @@
                     e.preventDefault();
                     e.stopPropagation();
                     e.stopImmediatePropagation();
-                    if (e.type === 'mousedown') openPersianCalendarForInput(nearInput);
+                    if (e.type === 'mousedown' || e.type === 'pointerdown') {
+                        // Avoid opening twice if both pointerdown and mousedown fire
+                        if (!window.pcLastOpenTime || Date.now() - window.pcLastOpenTime > 500) {
+                            window.pcLastOpenTime = Date.now();
+                            openPersianCalendarForInput(nearInput);
+                        }
+                    }
                     return;
                 }
             }
@@ -4315,9 +4327,11 @@
         document.addEventListener('mousedown', handleEventIntercept, true);
         document.addEventListener('mouseup', handleEventIntercept, true);
         document.addEventListener('click', handleEventIntercept, true);
+        document.addEventListener('pointerdown', handleEventIntercept, true);
+        document.addEventListener('pointerup', handleEventIntercept, true);
 
         // --- 8) Also intercept focus on date inputs ---
-        document.addEventListener('focus', function (e) {
+        function handleFocusIntercept(e) {
             if (isAuditDateInput(e.target)) {
                 logInfo('Audit date input focus intercepted');
                 e.preventDefault();
@@ -4327,7 +4341,9 @@
                 e.target.blur();
                 hideAtlaskitCalendars();
             }
-        }, true); // capture phase
+        }
+        document.addEventListener('focus', handleFocusIntercept, true); // capture phase
+        document.addEventListener('focusin', handleFocusIntercept, true); // capture phase
 
         // --- 9) MutationObserver: continuously tag date inputs and hide Atlaskit calendars ---
         var auditMutObserver = new MutationObserver(function (mutations) {
