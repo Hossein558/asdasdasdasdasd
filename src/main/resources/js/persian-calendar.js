@@ -4154,23 +4154,25 @@
                 return true;
             }
             
-            // Check geometrically: if there's a calendar SVG overlapping this input
-            var inputRect = el.getBoundingClientRect();
-            if (inputRect.width > 0) {
-                var svgs = document.querySelectorAll('svg path[d^="M4.995"], svg path[d^="M14.01"]');
-                for (var i = 0; i < svgs.length; i++) {
-                    var svg = svgs[i].closest('svg');
-                    if (!svg) continue;
-                    var svgRect = svg.getBoundingClientRect();
-                    if (svgRect.width > 0) {
-                        // Check if SVG is inside or near the input
-                        if (svgRect.left >= inputRect.left - 20 && svgRect.right <= inputRect.right + 20 &&
-                            svgRect.top >= inputRect.top - 20 && svgRect.bottom <= inputRect.bottom + 20) {
-                            el.setAttribute('data-pc-audit-date', 'true');
-                            return true;
-                        }
-                    }
+            // Check by DOM hierarchy: if this input is the ONLY input in a small container that ALSO has a calendar SVG
+            var container = el;
+            var depth = 0;
+            while (container && depth < 4) {
+                var inputs = container.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])');
+                if (inputs.length > 1) {
+                    // Container has multiple inputs, too broad.
+                    break;
                 }
+                if (isCalendarSvgIcon(container)) return true; // unlikely but possible
+                
+                // check if container has a calendar svg
+                var svgs = container.querySelectorAll('svg path[d^="M4.995"], svg path[d^="M14.01"]');
+                if (svgs.length > 0) {
+                    el.setAttribute('data-pc-audit-date', 'true');
+                    return true;
+                }
+                container = container.parentElement;
+                depth++;
             }
             return false;
         }
@@ -4207,53 +4209,25 @@
         }
 
         // --- 5) Find closest date input by screen coordinates ---
-        function findClosestDateInputGeometrically(clickedEl, strictMatch) {
-            var allInputs = document.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])');
-            var clickRect = clickedEl.getBoundingClientRect();
-            var closest = null;
-            var minDist = Infinity;
-
-            var cx = clickRect.left + clickRect.width / 2;
-            var cy = clickRect.top + clickRect.height / 2;
-
-            logInfo('Geometric search: found ' + allInputs.length + ' inputs total, clickRect=' +
-                Math.round(clickRect.left) + ',' + Math.round(clickRect.top));
-
-            for (var i = 0; i < allInputs.length; i++) {
-                var inp = allInputs[i];
-                var inputRect = inp.getBoundingClientRect();
-                // Skip hidden/zero-size inputs
-                if (inputRect.width === 0 || inputRect.height === 0) continue;
-
-                var ph = inp.getAttribute('placeholder') || '';
-                var typ = inp.getAttribute('type') || 'text';
-                var isDateMatch = isAuditDateInput(inp);
-
-                // In strict mode, only match date inputs; in loose mode, match any visible text input
-                var shouldConsider = strictMatch ? isDateMatch : true;
-
-                if (shouldConsider) {
-                    var dx = Math.max(inputRect.left - cx, 0, cx - inputRect.right);
-                    var dy = Math.max(inputRect.top - cy, 0, cy - inputRect.bottom);
-                    var dist = Math.sqrt(dx * dx + dy * dy);
-
-                    logInfo('  Input[' + i + ']: placeholder="' + ph.substring(0, 30) + '" type=' + typ +
-                        ' isDate=' + isDateMatch + ' rect=' + Math.round(inputRect.left) + ',' +
-                        Math.round(inputRect.top) + ' dist=' + Math.round(dist) + 'px');
-
-                    if (dist < minDist) {
-                        minDist = dist;
-                        closest = inp;
+        function findAssociatedInputByDomHierarchy(clickedEl) {
+            var el = clickedEl;
+            var depth = 0;
+            while (el && depth < 5) {
+                if (el.tagName !== 'svg' && el.tagName !== 'path' && el.tagName !== 'BUTTON') {
+                    var inputs = el.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])');
+                    if (inputs.length === 1) {
+                        logInfo('Found associated input via DOM Hierarchy at depth ' + depth);
+                        return inputs[0];
+                    }
+                    if (inputs.length > 1) {
+                        logInfo('DOM Hierarchy reached container with multiple inputs at depth ' + depth + '. Aborting search.');
+                        break;
                     }
                 }
+                el = el.parentElement;
+                depth++;
             }
-            // Only return if reasonably close (within 200px)
-            if (closest && minDist < 200) {
-                logInfo('Found closest input at distance: ' + Math.round(minDist) + 'px, placeholder="' +
-                    (closest.getAttribute('placeholder') || '').substring(0, 30) + '"');
-                return closest;
-            }
-            logInfo('No input found within 200px (minDist=' + Math.round(minDist) + ')');
+            logInfo('Could not find associated input via DOM Hierarchy.');
             return null;
         }
 
@@ -4346,9 +4320,9 @@
 
             // Calendar SVG icon match: detect by SVG path data + geometric proximity
             if (isCalendarSvgIcon(target)) {
-                var nearInput = findClosestDateInputGeometrically(target.closest('[data-vc]') || target);
+                var nearInput = findAssociatedInputByDomHierarchy(target);
                 if (nearInput) {
-                    logInfo('Audit date icon ' + e.type + ' intercepted (geometric match)');
+                    logInfo('Audit date icon ' + e.type + ' intercepted (DOM hierarchy match)');
                     e.preventDefault();
                     e.stopPropagation();
                     e.stopImmediatePropagation();
@@ -4400,7 +4374,7 @@
         document.addEventListener('focus', handleFocusIntercept, true); // capture phase
         document.addEventListener('focusin', handleFocusIntercept, true); // capture phase
 
-        // --- 9) MutationObserver: continuously tag date inputs and hide Atlaskit calendars ---
+        // --- 9) MutationObserver: only hide Atlaskit calendars ---
         var auditMutObserver = new MutationObserver(function (mutations) {
             var shouldCheck = false;
             for (var i = 0; i < mutations.length; i++) {
@@ -4411,30 +4385,6 @@
             }
             if (shouldCheck) {
                 hideAtlaskitCalendars();
-                
-                // Proactively mark date inputs that might have empty placeholders
-                var inputs = document.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])');
-                for (var j = 0; j < inputs.length; j++) {
-                    var inp = inputs[j];
-                    if (inp.dataset.pcAuditDate) continue;
-                    
-                    // If the input has a nearby SVG icon with the calendar path, mark it
-                    var container = inp.parentElement;
-                    var depth = 0;
-                    var foundIcon = false;
-                    while (container && depth < 4 && !foundIcon) {
-                        if (container.querySelector('svg path[d*="4.995"], svg path[d*="14.01"]')) {
-                            foundIcon = true;
-                        } else {
-                            container = container.parentElement;
-                            depth++;
-                        }
-                    }
-                    if (foundIcon) {
-                        inp.dataset.pcAuditDate = 'true';
-                        logInfo('Dynamically marked audit date input via icon sibling');
-                    }
-                }
             }
         });
         auditMutObserver.observe(document.body, { childList: true, subtree: true });
