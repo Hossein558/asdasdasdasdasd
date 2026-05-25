@@ -4430,7 +4430,6 @@
                 setTimeout(function () {
                     var inputs = iframeDoc.body.querySelectorAll('input:not([type="hidden"]), textarea, [contenteditable="true"]');
                     logInfo('JXL Debug: Inputs found', { count: inputs.length });
-                    // logDebug('JXL: Visible inputs after click', { count: inputs.length });
 
                     if (inputs.length > 0) {
                         inputs.forEach(function (input) {
