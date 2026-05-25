@@ -4153,6 +4153,25 @@
             if (ph.indexOf('مثال:') !== -1) {
                 return true;
             }
+            
+            // Check geometrically: if there's a calendar SVG overlapping this input
+            var inputRect = el.getBoundingClientRect();
+            if (inputRect.width > 0) {
+                var svgs = document.querySelectorAll('svg path[d^="M4.995"], svg path[d^="M14.01"]');
+                for (var i = 0; i < svgs.length; i++) {
+                    var svg = svgs[i].closest('svg');
+                    if (!svg) continue;
+                    var svgRect = svg.getBoundingClientRect();
+                    if (svgRect.width > 0) {
+                        // Check if SVG is inside or near the input
+                        if (svgRect.left >= inputRect.left - 20 && svgRect.right <= inputRect.right + 20 &&
+                            svgRect.top >= inputRect.top - 20 && svgRect.bottom <= inputRect.bottom + 20) {
+                            el.setAttribute('data-pc-audit-date', 'true');
+                            return true;
+                        }
+                    }
+                }
+            }
             return false;
         }
 
@@ -4189,10 +4208,13 @@
 
         // --- 5) Find closest date input by screen coordinates ---
         function findClosestDateInputGeometrically(clickedEl, strictMatch) {
-            var allInputs = document.querySelectorAll('input');
+            var allInputs = document.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])');
             var clickRect = clickedEl.getBoundingClientRect();
             var closest = null;
             var minDist = Infinity;
+
+            var cx = clickRect.left + clickRect.width / 2;
+            var cy = clickRect.top + clickRect.height / 2;
 
             logInfo('Geometric search: found ' + allInputs.length + ' inputs total, clickRect=' +
                 Math.round(clickRect.left) + ',' + Math.round(clickRect.top));
@@ -4208,11 +4230,11 @@
                 var isDateMatch = isAuditDateInput(inp);
 
                 // In strict mode, only match date inputs; in loose mode, match any visible text input
-                var shouldConsider = strictMatch ? isDateMatch : (typ !== 'hidden' && typ !== 'checkbox' && typ !== 'radio');
+                var shouldConsider = strictMatch ? isDateMatch : true;
 
                 if (shouldConsider) {
-                    var dy = Math.abs(clickRect.top - inputRect.top);
-                    var dx = Math.abs(clickRect.left - inputRect.right);
+                    var dx = Math.max(inputRect.left - cx, 0, cx - inputRect.right);
+                    var dy = Math.max(inputRect.top - cy, 0, cy - inputRect.bottom);
                     var dist = Math.sqrt(dx * dx + dy * dy);
 
                     logInfo('  Input[' + i + ']: placeholder="' + ph.substring(0, 30) + '" type=' + typ +
@@ -4272,7 +4294,7 @@
             }
         }
 
-        // --- 6) Show Persian calendar for a date input ---
+        // --- 7) Show Persian calendar for a date input ---
         function openPersianCalendarForInput(dateInput) {
             logInfo('Opening Persian calendar for audit date input');
 
@@ -4315,7 +4337,8 @@
                     // Avoid opening twice if both pointerdown and mousedown fire
                     if (!window.pcLastOpenTime || Date.now() - window.pcLastOpenTime > 500) {
                         window.pcLastOpenTime = Date.now();
-                        openPersianCalendarForInput(target);
+                        window.pcPreventBodyClickUntil = Date.now() + 800; // Prevent orphaned click from closing parent
+                        openPersianCalendarForInput($(target));
                     }
                 }
                 return;
@@ -4333,7 +4356,8 @@
                         // Avoid opening twice if both pointerdown and mousedown fire
                         if (!window.pcLastOpenTime || Date.now() - window.pcLastOpenTime > 500) {
                             window.pcLastOpenTime = Date.now();
-                            openPersianCalendarForInput(nearInput);
+                            window.pcPreventBodyClickUntil = Date.now() + 800; // Prevent orphaned click from closing parent
+                            openPersianCalendarForInput($(nearInput));
                         }
                     }
                     return;
@@ -4347,6 +4371,19 @@
         document.addEventListener('click', handleEventIntercept, true);
         document.addEventListener('pointerdown', handleEventIntercept, true);
         document.addEventListener('pointerup', handleEventIntercept, true);
+
+        // Global orphaned click swallower
+        document.addEventListener('click', function(e) {
+            if (window.pcPreventBodyClickUntil && Date.now() < window.pcPreventBodyClickUntil) {
+                // If it reached body or is not part of our popup
+                if (e.target === document.body || !e.target.closest || !e.target.closest('.pc-popup')) {
+                    logInfo('Orphaned click swallowed to prevent parent closure');
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    // We don't preventDefault to avoid breaking other things, but we MUST stop propagation
+                }
+            }
+        }, true);
 
         // --- 8) Also intercept focus on date inputs ---
         function handleFocusIntercept(e) {
