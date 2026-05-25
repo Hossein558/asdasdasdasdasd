@@ -2001,10 +2001,22 @@
         document.body.appendChild(overlay);
         var openTime = Date.now();
 
+        // Add a body class to aggressively hide any Atlaskit popups while our calendar is open
+        document.body.classList.add('pc-calendar-is-open');
+
         // Create popup
         var popup = document.createElement('div');
         popup.className = 'pc-popup';
+        
+        // Use popover if supported to ensure top-layer rendering above all dialogs
+        if (typeof popup.showPopover === 'function') {
+            popup.popover = "auto";
+        }
+        
         document.body.appendChild(popup);
+        if (typeof popup.showPopover === 'function') {
+            popup.showPopover();
+        }
 
         // Position popup - smart positioning to avoid going off-screen
         var inputEl = $input[0] || $input;
@@ -2122,6 +2134,8 @@
         }
 
         function close() {
+            document.body.classList.remove('pc-calendar-is-open');
+            document.body.classList.remove('pc-calendar-is-open');
             logDebug('Closing calendar popup');
             popup.remove();
             overlay.remove();
@@ -2267,10 +2281,20 @@
         document.body.appendChild(overlay);
         var openTime = Date.now();
 
+        document.body.classList.add('pc-calendar-is-open');
+
         // Create popup
         var popup = document.createElement('div');
         popup.className = 'pc-popup';
+        
+        if (typeof popup.showPopover === 'function') {
+            popup.popover = "auto";
+        }
+        
         document.body.appendChild(popup);
+        if (typeof popup.showPopover === 'function') {
+            popup.showPopover();
+        }
 
         // Position popup - smart positioning to avoid going off-screen
         var inputEl = $input[0] || $input;
@@ -2400,6 +2424,7 @@
         }
 
         function close() {
+            document.body.classList.remove('pc-calendar-is-open');
             logDebug('Closing DateTime picker popup');
             popup.remove();
             overlay.remove();
@@ -3212,6 +3237,7 @@
         }
 
         function close() {
+            document.body.classList.remove('pc-calendar-is-open');
             // Cleanup blur prevention before closing
             cleanupBlurPrevention();
             popup.remove();
@@ -3585,7 +3611,8 @@
             popup.find('.pc-ampm').on('change', function () { selectedAmPm = $(this).val(); });
         }
 
-        function close() { cleanupBlurPrevention(); popup.remove(); overlay.remove(); }
+        function close() {
+            document.body.classList.remove('pc-calendar-is-open'); cleanupBlurPrevention(); popup.remove(); overlay.remove(); }
 
         function selectDay(day) { selectedDate = { jy: viewYear, jm: viewMonth, jd: day }; render(); }
 
@@ -4065,8 +4092,9 @@
         auditCSS.id = 'pc-audit-calendar-hide';
         auditCSS.textContent = [
             '/* Hide Atlaskit calendar popup when it appears on audit page */',
-            '[role="dialog"] table[role="grid"] { display: none !important; }',
-            '[role="dialog"]:has(table[role="grid"]) { display: none !important; }',
+            'body.pc-calendar-is-open [role="dialog"] table[role="grid"] { display: none !important; }',
+            'body.pc-calendar-is-open [role="dialog"]:has(table[role="grid"]) { display: none !important; }',
+            'body.pc-calendar-is-open div[data-placement] { display: none !important; }',
             '.pc-audit-hidden-calendar { display: none !important; visibility: hidden !important; pointer-events: none !important; height: 0 !important; overflow: hidden !important; }'
         ].join('\n');
         document.head.appendChild(auditCSS);
@@ -4255,30 +4283,29 @@
             });
         }
 
-        // --- 8) Intercept with MOUSEDOWN (fires before click/focus) ---
-        document.addEventListener('mousedown', function (e) {
+        // --- 8) Intercept with MOUSEDOWN, MOUSEUP, CLICK (fires before click/focus) ---
+        function handleEventIntercept(e) {
             var target = e.target;
 
             // Direct match: clicked on a date input
             if (isAuditDateInput(target)) {
-                logInfo('Audit date input mousedown intercepted (direct)');
+                logInfo('Audit date input ' + e.type + ' intercepted (direct)');
                 e.preventDefault();
                 e.stopPropagation();
                 e.stopImmediatePropagation();
-                openPersianCalendarForInput(target);
+                if (e.type === 'mousedown') openPersianCalendarForInput(target);
                 return;
             }
 
             // Calendar SVG icon match: detect by SVG path data + geometric proximity
             if (isCalendarSvgIcon(target)) {
-                logInfo('Calendar SVG icon detected!');
                 var nearInput = findClosestDateInputGeometrically(target.closest('[data-vc]') || target);
                 if (nearInput) {
-                    logInfo('Audit date icon mousedown intercepted (geometric match)');
+                    logInfo('Audit date icon ' + e.type + ' intercepted (geometric match)');
                     e.preventDefault();
                     e.stopPropagation();
                     e.stopImmediatePropagation();
-                    openPersianCalendarForInput(nearInput);
+                    if (e.type === 'mousedown') openPersianCalendarForInput(nearInput);
                     return;
                 }
             }
@@ -4289,15 +4316,19 @@
                 // Try geometric search for any clickable element near a date input
                 var nearInput2 = findClosestDateInputGeometrically(target);
                 if (nearInput2) {
-                    logInfo('Audit date icon mousedown intercepted (fallback geometric)');
+                    logInfo('Audit date icon ' + e.type + ' intercepted (fallback geometric)');
                     e.preventDefault();
                     e.stopPropagation();
                     e.stopImmediatePropagation();
-                    openPersianCalendarForInput(nearInput2);
+                    if (e.type === 'mousedown') openPersianCalendarForInput(nearInput2);
                     return;
                 }
             }
-        }, true); // capture phase
+        }
+
+        document.addEventListener('mousedown', handleEventIntercept, true);
+        document.addEventListener('mouseup', handleEventIntercept, true);
+        document.addEventListener('click', handleEventIntercept, true);
 
         // --- 8) Also intercept focus on date inputs ---
         document.addEventListener('focus', function (e) {
