@@ -4310,20 +4310,6 @@
                 }
             }
 
-            // Fallback: any click on span/button/svg near a date input (broad search)
-            var tagName = target.tagName ? target.tagName.toUpperCase() : '';
-            if (tagName === 'SVG' || tagName === 'PATH' || tagName === 'BUTTON' || tagName === 'SPAN') {
-                // Try geometric search for any clickable element near a date input
-                var nearInput2 = findClosestDateInputGeometrically(target);
-                if (nearInput2) {
-                    logInfo('Audit date icon ' + e.type + ' intercepted (fallback geometric)');
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.stopImmediatePropagation();
-                    if (e.type === 'mousedown') openPersianCalendarForInput(nearInput2);
-                    return;
-                }
-            }
         }
 
         document.addEventListener('mousedown', handleEventIntercept, true);
@@ -4343,7 +4329,7 @@
             }
         }, true); // capture phase
 
-        // --- 9) MutationObserver: continuously hide Atlaskit calendars ---
+        // --- 9) MutationObserver: continuously tag date inputs and hide Atlaskit calendars ---
         var auditMutObserver = new MutationObserver(function (mutations) {
             var shouldCheck = false;
             for (var i = 0; i < mutations.length; i++) {
@@ -4354,6 +4340,20 @@
             }
             if (shouldCheck) {
                 hideAtlaskitCalendars();
+                
+                // Proactively mark date inputs that might have empty placeholders
+                var inputs = document.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])');
+                for (var j = 0; j < inputs.length; j++) {
+                    var inp = inputs[j];
+                    if (inp.dataset.pcAuditDate) continue;
+                    
+                    // If the input has a nearby SVG icon with the calendar path, mark it
+                    var container = inp.closest('div[data-vc], [class*="css-"]') || inp.parentElement;
+                    if (container && container.querySelector('svg path[d*="4.995"], svg path[d*="14.01"]')) {
+                        inp.dataset.pcAuditDate = 'true';
+                        logInfo('Dynamically marked audit date input via icon sibling');
+                    }
+                }
             }
         });
         auditMutObserver.observe(document.body, { childList: true, subtree: true });
