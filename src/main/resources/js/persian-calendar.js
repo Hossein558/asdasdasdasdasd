@@ -1955,19 +1955,19 @@
     }
 
     // Create and show Persian calendar popup
-    function showPersianCalendar($input, $originalInput, onSelect) {
+    function showPersianCalendar($input, $originalInput, onSelect, hideButtons) {
         // Check license before showing calendar
         checkLicenseStatus(function (license) {
             if (!license.enabled) {
                 showLicenseExpiredMessage();
                 return;
             }
-            _showPersianCalendarImpl($input, $originalInput, onSelect);
+            _showPersianCalendarImpl($input, $originalInput, onSelect, hideButtons);
         });
     }
 
-    function _showPersianCalendarImpl($input, $originalInput, onSelect) {
-        logInfo('Opening Persian calendar popup');
+    function _showPersianCalendarImpl($input, $originalInput, onSelect, hideButtons) {
+        logInfo('Opening Persian calendar popup (hideButtons: ' + !!hideButtons + ')');
 
         var $existing = document.querySelector('.pc-popup');
         if ($existing) $existing.remove();
@@ -2124,11 +2124,13 @@
 
             html += '</div>';
 
-            html += '<div class="pc-footer">';
-            html += '<button type="button" class="pc-confirm">تأیید</button>';
-            html += '<button type="button" class="pc-today">امروز</button>';
-            html += '<button type="button" class="pc-clear">پاک کردن</button>';
-            html += '</div>';
+            if (!hideButtons) {
+                html += '<div class="pc-footer">';
+                html += '<button type="button" class="pc-confirm">تأیید</button>';
+                html += '<button type="button" class="pc-today">امروز</button>';
+                html += '<button type="button" class="pc-clear">پاک کردن</button>';
+                html += '</div>';
+            }
 
             popup.innerHTML = html;
         }
@@ -2178,6 +2180,7 @@
                 render();
             } else if (target.classList.contains('pc-day') && !target.classList.contains('empty')) {
                 selectDay(parseInt(target.dataset.day, 10));
+                if (hideButtons) { confirm(); }
             } else if (target.classList.contains('pc-today')) {
                 logInfo('Today button clicked');
                 selectedDate = { jy: todayJ.jy, jm: todayJ.jm, jd: todayJ.jd };
@@ -2403,11 +2406,13 @@
             html += '</select>';
             html += '</div>';
 
-            html += '<div class="pc-footer">';
-            html += '<button type="button" class="pc-confirm">تأیید</button>';
-            html += '<button type="button" class="pc-today">الان</button>';
-            html += '<button type="button" class="pc-clear">پاک کردن</button>';
-            html += '</div>';
+            if (!hideButtons) {
+                html += '<div class="pc-footer">';
+                html += '<button type="button" class="pc-confirm">تأیید</button>';
+                html += '<button type="button" class="pc-today">الان</button>';
+                html += '<button type="button" class="pc-clear">پاک کردن</button>';
+                html += '</div>';
+            }
 
             popup.innerHTML = html;
 
@@ -2434,6 +2439,7 @@
             selectedDate = { jy: viewYear, jm: viewMonth, jd: day };
             logDebug('Day selected', selectedDate);
             render();
+            if (hideButtons) { confirm(); }
         }
 
         function confirm() {
@@ -2479,16 +2485,7 @@
                 selectedHour = now.getHours() > 12 ? now.getHours() - 12 : (now.getHours() === 0 ? 12 : now.getHours());
                 selectedMinute = Math.floor(now.getMinutes() / 5) * 5;
                 selectedAmPm = now.getHours() >= 12 ? 'PM' : 'AM';
-                var result = {
-                    jy: selectedDate.jy,
-                    jm: selectedDate.jm,
-                    jd: selectedDate.jd,
-                    hour: selectedHour,
-                    minute: selectedMinute,
-                    ampm: selectedAmPm
-                };
-                onSelect(result);
-                close();
+                confirm();
             } else if (target.classList.contains('pc-clear')) {
                 logInfo('Clear button clicked');
                 onSelect(null);
@@ -3227,11 +3224,13 @@
                 html += '<span class="' + classes + '" data-day="' + d + '"' + titleAttr + '>' + d + '</span>';
             }
             html += '</div>';
+            
             html += '<div class="pc-footer">';
             html += '<button type="button" class="pc-confirm">تأیید</button>';
             html += '<button type="button" class="pc-today">امروز</button>';
             html += '<button type="button" class="pc-clear">پاک کردن</button>';
             html += '</div>';
+
 
             popup.html(html);
         }
@@ -3293,37 +3292,9 @@
                 logInfo('Current input value before change: ' + $activeInput.val());
 
                 // Set value using multiple methods to ensure it works
-                $activeInput.val(gregorianStr);
-                if ($activeInput[0]) {
-                    $activeInput[0].value = gregorianStr;
-                    // Set the value attribute too
-                    $activeInput.attr('value', gregorianStr);
-                    // Also set using native setter safely
-                    setElementValueSafely($activeInput[0], gregorianStr);
-                }
+                setInputAndTriggerEvents($activeInput, gregorianStr);
 
                 logInfo('Input value after setting: ' + $activeInput.val());
-
-                // Define inputEl for event dispatching
-                var inputEl = $activeInput[0];
-
-                try {
-                    var nativeInputEvent = new InputEvent('input', {
-                        bubbles: true,
-                        cancelable: true,
-                        data: gregorianStr
-                    });
-                    inputEl.dispatchEvent(nativeInputEvent);
-                } catch (e) {
-                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-
-                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-
-                // Also trigger jQuery events
-                $activeInput.trigger('input').trigger('change');
-
-                logInfo('Value set and events dispatched: ' + $activeInput.val());
 
                 // Find and click Jira's inline edit submit button (the checkmark icon)
                 var $form = $activeInput.closest('form');
@@ -3358,7 +3329,7 @@
                     logInfo('No submit button found, triggering Enter key on input');
                     setTimeout(function () {
                         // Focus the input first
-                        inputEl.focus();
+                        $activeInput[0].focus();
 
                         // Simulate pressing Enter
                         var enterEvent = new KeyboardEvent('keydown', {
@@ -3369,7 +3340,7 @@
                             bubbles: true,
                             cancelable: true
                         });
-                        inputEl.dispatchEvent(enterEvent);
+                        $activeInput[0].dispatchEvent(enterEvent);
 
                         var enterUp = new KeyboardEvent('keyup', {
                             key: 'Enter',
@@ -3378,12 +3349,12 @@
                             which: 13,
                             bubbles: true
                         });
-                        inputEl.dispatchEvent(enterUp);
+                        $activeInput[0].dispatchEvent(enterUp);
 
                         // Also trigger blur which sometimes triggers save
                         setTimeout(function () {
                             $activeInput.trigger('blur');
-                            inputEl.blur();
+                            $activeInput[0].blur();
                         }, 50);
                     }, 50);
                 }
@@ -3399,7 +3370,7 @@
             else if (target.hasClass('pc-next-month')) { viewMonth++; if (viewMonth > 12) { viewMonth = 1; viewYear++; } render(); }
             else if (target.hasClass('pc-day') && !target.hasClass('empty')) { selectDay(parseInt(target.data('day'), 10)); }
             else if (target.hasClass('pc-today')) { selectedDate = { jy: todayJ.jy, jm: todayJ.jm, jd: todayJ.jd }; confirm(); }
-            else if (target.hasClass('pc-clear')) { $input.val('').trigger('change'); close(); }
+            else if (target.hasClass('pc-clear')) { setInputAndTriggerEvents($input, ''); close(); }
             else if (target.hasClass('pc-confirm')) { confirm(); }
             e.preventDefault();
             e.stopPropagation();
@@ -3659,27 +3630,7 @@
                 logInfo('Found active input for DateTime: ' + $activeInput.attr('id') + ' / ' + $activeInput.attr('class'));
 
                 // Set value using multiple methods
-                $activeInput.val(gregorianStr);
-                if ($activeInput[0]) {
-                    $activeInput[0].value = gregorianStr;
-                    $activeInput.attr('value', gregorianStr);
-                }
-
-                // Trigger events
-                var inputEl = $activeInput[0];
-                try {
-                    var nativeInputEvent = new InputEvent('input', {
-                        bubbles: true,
-                        cancelable: true,
-                        data: gregorianStr
-                    });
-                    inputEl.dispatchEvent(nativeInputEvent);
-                } catch (e) {
-                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-                }
-
-                inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-                $activeInput.trigger('input').trigger('change');
+                setInputAndTriggerEvents($activeInput, gregorianStr);
 
                 logInfo('DateTime value set: ' + $activeInput.val());
 
@@ -3709,7 +3660,7 @@
                 } else {
                     logInfo('No submit button found for DateTime, triggering Enter');
                     setTimeout(function () {
-                        inputEl.focus();
+                        $activeInput[0].focus();
                         var enterEvent = new KeyboardEvent('keydown', {
                             key: 'Enter',
                             code: 'Enter',
@@ -3718,11 +3669,11 @@
                             bubbles: true,
                             cancelable: true
                         });
-                        inputEl.dispatchEvent(enterEvent);
+                        $activeInput[0].dispatchEvent(enterEvent);
 
                         setTimeout(function () {
                             $activeInput.trigger('blur');
-                            inputEl.blur();
+                            $activeInput[0].blur();
                         }, 50);
                     }, 50);
                 }
@@ -3745,7 +3696,7 @@
                 selectedAmPm = now.getHours() >= 12 ? 'PM' : 'AM';
                 confirm();
             }
-            else if (target.hasClass('pc-clear')) { $input.val('').trigger('change'); close(); }
+            else if (target.hasClass('pc-clear')) { setInputAndTriggerEvents($input, ''); close(); }
             else if (target.hasClass('pc-confirm')) { confirm(); }
             e.preventDefault();
             e.stopPropagation();
@@ -3772,24 +3723,26 @@
 
     // Helper to safely trigger React native events and jQuery events on inputs (Jira 10+ compatibility)
     function setInputAndTriggerEvents($input, valueStr) {
-        $input.val(valueStr);
-        if ($input[0]) {
-            $input[0].value = valueStr;
-            $input.attr('value', valueStr);
-            
-            // React 16+ overrides the value setter, we need to bypass it to trigger onChange safely
-            setElementValueSafely($input[0], valueStr);
-
-            var inputEl = $input[0];
-            try {
-                inputEl.dispatchEvent(new InputEvent('input', { bubbles: true, cancelable: true, data: valueStr }));
-            } catch (e) {
-                inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-            }
-            inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-            inputEl.dispatchEvent(new Event('blur', { bubbles: true }));
+        var inputEl = $input[0];
+        try {
+            var nativeInputValueSetter = Object.getOwnPropertyDescriptor(
+                window.HTMLInputElement.prototype, 'value'
+            ).set;
+            nativeInputValueSetter.call(inputEl, valueStr);
+        } catch (ex) {
+            inputEl.value = valueStr;
         }
-        $input.trigger('change').trigger('input').trigger('blur');
+        $input.attr('value', valueStr);
+        
+        try { inputEl.dispatchEvent(new Event('input', { bubbles: true })); } catch(e) {}
+        try { inputEl.dispatchEvent(new Event('change', { bubbles: true })); } catch(e) {}
+        try { 
+            var ev = new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true });
+            inputEl.dispatchEvent(ev);
+        } catch(e) {}
+        try { inputEl.dispatchEvent(new Event('blur', { bubbles: true })); } catch(e) {}
+        
+        try { $input.trigger('input').trigger('change').trigger('blur'); } catch (e) {}
     }
 
     // Initialize Persian calendar for date inputs
@@ -4313,7 +4266,7 @@
 
                 setReactInputValue(dateInput, formattedDate);
                 dateInput.title = selectedDate.jy + '/' + selectedDate.jm + '/' + selectedDate.jd;
-            });
+            }, true);
         }
 
         // --- 8) Intercept with MOUSEDOWN, MOUSEUP, CLICK (fires before click/focus) ---
