@@ -46,6 +46,13 @@ public class LicenseManager {
         TRIAL("T");
 
         private final String code;
+        private static final java.util.Map<String, LicenseType> CODE_MAP = new java.util.HashMap<>();
+
+        static {
+            for (LicenseType type : values()) {
+                CODE_MAP.put(type.code, type);
+            }
+        }
 
         LicenseType(String code) {
             this.code = code;
@@ -56,12 +63,7 @@ public class LicenseManager {
         }
 
         public static LicenseType fromCode(String code) {
-            for (LicenseType type : values()) {
-                if (type.code.equals(code)) {
-                    return type;
-                }
-            }
-            return null;
+            return CODE_MAP.get(code);
         }
     }
 

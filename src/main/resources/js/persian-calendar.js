@@ -2048,24 +2048,23 @@
 
             // Final layout for v10.4.12:
             // User requested order from LEFT to RIGHT: << < Title > >>
-            var html = [];
-            html.push('<div class="pc-header">');
-            html.push('<button type="button" class="pc-next-year" title="سال بعد">سال بعد</button>');
-            html.push('<button type="button" class="pc-next-month" title="ماه بعد">ماه بعد</button>');
-            html.push('<span class="pc-title">', PERSIAN_MONTHS[viewMonth - 1], ' ', viewYear, '</span>');
-            html.push('<button type="button" class="pc-prev-month" title="ماه قبل">ماه قبل</button>');
-            html.push('<button type="button" class="pc-prev-year" title="سال قبل">سال قبل</button>');
-            html.push('</div>');
+            var html = '<div class="pc-header">';
+            html += '<button type="button" class="pc-next-year" title="سال بعد">سال بعد</button>';
+            html += '<button type="button" class="pc-next-month" title="ماه بعد">ماه بعد</button>';
+            html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
+            html += '<button type="button" class="pc-prev-month" title="ماه قبل">ماه قبل</button>';
+            html += '<button type="button" class="pc-prev-year" title="سال قبل">سال قبل</button>';
+            html += '</div>';
 
             // Weekday headers: In RTL, grid goes right-to-left
             // Position 0 (rightmost) = Saturday, Position 6 (leftmost) = Friday
-            html.push('<div class="pc-weekdays">');
+            html += '<div class="pc-weekdays">';
             for (var w = 0; w < 7; w++) {
-                html.push('<span>', PERSIAN_WEEKDAYS[w], '</span>');
+                html += '<span>' + PERSIAN_WEEKDAYS[w] + '</span>';
             }
-            html.push('</div>');
+            html += '</div>';
 
-            html.push('<div class="pc-days">');
+            html += '<div class="pc-days">';
 
             var gFirst = toGregorian(viewYear, viewMonth, 1);
             var firstDate = new Date(gFirst.gy, gFirst.gm - 1, gFirst.gd);
@@ -2084,7 +2083,7 @@
             // So we need persianFirstDay empty cells before day 1
             logDebug('Empty cells count: ' + persianFirstDay);
             for (var e = 0; e < persianFirstDay; e++) {
-                html.push('<span class="pc-day empty"></span>');
+                html += '<span class="pc-day empty"></span>';
             }
 
             // Days
@@ -2111,18 +2110,18 @@
                     titleAttr = ' title="جمعه"';
                 }
 
-                html.push('<span class="', classes, '" data-day="', d, '"', titleAttr, '>', d, '</span>');
+                html += '<span class="' + classes + '" data-day="' + d + '"' + titleAttr + '>' + d + '</span>';
             }
 
-            html.push('</div>');
+            html += '</div>';
 
-            html.push('<div class="pc-footer">');
-            html.push('<button type="button" class="pc-confirm">تأیید</button>');
-            html.push('<button type="button" class="pc-today">امروز</button>');
-            html.push('<button type="button" class="pc-clear">پاک کردن</button>');
-            html.push('</div>');
+            html += '<div class="pc-footer">';
+            html += '<button type="button" class="pc-confirm">تأیید</button>';
+            html += '<button type="button" class="pc-today">امروز</button>';
+            html += '<button type="button" class="pc-clear">پاک کردن</button>';
+            html += '</div>';
 
-            popup.innerHTML = html.join('');
+            popup.innerHTML = html;
         }
 
         function close() {
@@ -2309,20 +2308,19 @@
         function render() {
             logDebug('Rendering DateTime calendar for', { year: viewYear, month: viewMonth });
 
-            var html = [];
-            html.push('<div class="pc-header" style="justify-content:space-between; align-items:center;">');
-            html.push('<button type="button" class="pc-next-year" title="سال بعد">سال بعد</button>');
-            html.push('<button type="button" class="pc-next-month" title="ماه بعد">ماه بعد</button>');
-            html.push('<span class="pc-title">', PERSIAN_MONTHS[viewMonth - 1], ' ', viewYear, '</span>');
-            html.push('<button type="button" class="pc-prev-month" title="ماه قبل">ماه قبل</button>');
-            html.push('<button type="button" class="pc-prev-year" title="سال قبل">سال قبل</button>');
-            html.push('</div>');
+            var html = '<div class="pc-header" style="justify-content:space-between; align-items:center;">';
+            html += '<button type="button" class="pc-next-year" title="سال بعد">سال بعد</button>';
+            html += '<button type="button" class="pc-next-month" title="ماه بعد">ماه بعد</button>';
+            html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
+            html += '<button type="button" class="pc-prev-month" title="ماه قبل">ماه قبل</button>';
+            html += '<button type="button" class="pc-prev-year" title="سال قبل">سال قبل</button>';
+            html += '</div>';
 
-            html.push('<div class="pc-weekdays">');
-            PERSIAN_WEEKDAYS.forEach(function (d) { html.push('<span>', d, '</span>'); });
-            html.push('</div>');
+            html += '<div class="pc-weekdays">';
+            PERSIAN_WEEKDAYS.forEach(function (d) { html += '<span>' + d + '</span>'; });
+            html += '</div>';
 
-            html.push('<div class="pc-days">');
+            html += '<div class="pc-days">';
 
             var gFirst = toGregorian(viewYear, viewMonth, 1);
             var dFirst = new Date(gFirst.gy, gFirst.gm - 1, gFirst.gd);
@@ -2330,7 +2328,7 @@
             var persianFirstDay = (jsDay + 1) % 7;
 
             for (var i = 0; i < persianFirstDay; i++) {
-                html.push('<span class="pc-day empty"></span>');
+                html += '<span class="pc-day empty"></span>';
             }
 
             var daysInMonth = jalaaliMonthLength(viewYear, viewMonth);
@@ -2357,40 +2355,40 @@
                     titleAttr = ' title="جمعه"';
                 }
 
-                html.push('<span class="', cls, '" data-day="', d, '"', titleAttr, '>', d, '</span>');
+                html += '<span class="' + cls + '" data-day="' + d + '"' + titleAttr + '>' + d + '</span>';
             }
 
-            html.push('</div>');
+            html += '</div>';
 
             // Time picker section
-            html.push('<div class="pc-time-picker">');
-            html.push('<label>ساعت:</label>');
-            html.push('<select class="pc-hour">');
+            html += '<div class="pc-time-picker">';
+            html += '<label>ساعت:</label>';
+            html += '<select class="pc-hour">';
             for (var h = 1; h <= 12; h++) {
                 var sel = h === selectedHour ? ' selected' : '';
-                html.push('<option value="', h, '"', sel, '>', (h < 10 ? '0' + h : h), '</option>');
+                html += '<option value="' + h + '"' + sel + '>' + (h < 10 ? '0' + h : h) + '</option>';
             }
-            html.push('</select>');
-            html.push('<span>:</span>');
-            html.push('<select class="pc-minute">');
+            html += '</select>';
+            html += '<span>:</span>';
+            html += '<select class="pc-minute">';
             for (var m = 0; m < 60; m += 5) {
                 var sel = m === selectedMinute || (m <= selectedMinute && m + 5 > selectedMinute) ? ' selected' : '';
-                html.push('<option value="', m, '"', sel, '>', (m < 10 ? '0' + m : m), '</option>');
+                html += '<option value="' + m + '"' + sel + '>' + (m < 10 ? '0' + m : m) + '</option>';
             }
-            html.push('</select>');
-            html.push('<select class="pc-ampm">');
-            html.push('<option value="AM"', (selectedAmPm === 'AM' ? ' selected' : ''), '>AM</option>');
-            html.push('<option value="PM"', (selectedAmPm === 'PM' ? ' selected' : ''), '>PM</option>');
-            html.push('</select>');
-            html.push('</div>');
+            html += '</select>';
+            html += '<select class="pc-ampm">';
+            html += '<option value="AM"' + (selectedAmPm === 'AM' ? ' selected' : '') + '>AM</option>';
+            html += '<option value="PM"' + (selectedAmPm === 'PM' ? ' selected' : '') + '>PM</option>';
+            html += '</select>';
+            html += '</div>';
 
-            html.push('<div class="pc-footer">');
-            html.push('<button type="button" class="pc-confirm">تأیید</button>');
-            html.push('<button type="button" class="pc-today">الان</button>');
-            html.push('<button type="button" class="pc-clear">پاک کردن</button>');
-            html.push('</div>');
+            html += '<div class="pc-footer">';
+            html += '<button type="button" class="pc-confirm">تأیید</button>';
+            html += '<button type="button" class="pc-today">الان</button>';
+            html += '<button type="button" class="pc-clear">پاک کردن</button>';
+            html += '</div>';
 
-            popup.innerHTML = html.join('');
+            popup.innerHTML = html;
 
             // Attach change handlers for time inputs
             popup.querySelector('.pc-hour').addEventListener('change', function (e) {
@@ -3157,22 +3155,21 @@
         function render() {
             // DateTime: RTL arrows requested by user
             // Visual order RIGHT to LEFT: >> > | Title | < <<
-            var html = [];
-            html.push('<div class="pc-header">');
-            html.push('<button type="button" class="pc-next-year" title="سال بعد">سال بعد</button>');
-            html.push('<button type="button" class="pc-next-month" title="ماه بعد">ماه بعد</button>');
-            html.push('<span class="pc-title">', PERSIAN_MONTHS[viewMonth - 1], ' ', viewYear, '</span>');
-            html.push('<button type="button" class="pc-prev-month" title="ماه قبل">ماه قبل</button>');
-            html.push('<button type="button" class="pc-prev-year" title="سال قبل">سال قبل</button>');
-            html.push('</div>');
+            var html = '<div class="pc-header">';
+            html += '<button type="button" class="pc-next-year" title="سال بعد">سال بعد</button>';
+            html += '<button type="button" class="pc-next-month" title="ماه بعد">ماه بعد</button>';
+            html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
+            html += '<button type="button" class="pc-prev-month" title="ماه قبل">ماه قبل</button>';
+            html += '<button type="button" class="pc-prev-year" title="سال قبل">سال قبل</button>';
+            html += '</div>';
 
-            html.push('<div class="pc-weekdays">');
+            html += '<div class="pc-weekdays">';
             for (var w = 0; w < 7; w++) {
-                html.push('<span>', PERSIAN_WEEKDAYS[w], '</span>');
+                html += '<span>' + PERSIAN_WEEKDAYS[w] + '</span>';
             }
-            html.push('</div>');
+            html += '</div>';
 
-            html.push('<div class="pc-days">');
+            html += '<div class="pc-days">';
 
             var gFirst = toGregorian(viewYear, viewMonth, 1);
             var firstDate = new Date(gFirst.gy, gFirst.gm - 1, gFirst.gd);
@@ -3181,7 +3178,7 @@
             var daysInMonth = jalaaliMonthLength(viewYear, viewMonth);
 
             for (var e = 0; e < persianFirstDay; e++) {
-                html.push('<span class="pc-day empty"></span>');
+                html += '<span class="pc-day empty"></span>';
             }
 
             for (var d = 1; d <= daysInMonth; d++) {
@@ -3205,16 +3202,16 @@
                     titleAttr = ' title="جمعه"';
                 }
 
-                html.push('<span class="', classes, '" data-day="', d, '"', titleAttr, '>', d, '</span>');
+                html += '<span class="' + classes + '" data-day="' + d + '"' + titleAttr + '>' + d + '</span>';
             }
-            html.push('</div>');
-            html.push('<div class="pc-footer">');
-            html.push('<button type="button" class="pc-confirm">تأیید</button>');
-            html.push('<button type="button" class="pc-today">امروز</button>');
-            html.push('<button type="button" class="pc-clear">پاک کردن</button>');
-            html.push('</div>');
+            html += '</div>';
+            html += '<div class="pc-footer">';
+            html += '<button type="button" class="pc-confirm">تأیید</button>';
+            html += '<button type="button" class="pc-today">امروز</button>';
+            html += '<button type="button" class="pc-clear">پاک کردن</button>';
+            html += '</div>';
 
-            popup.html(html.join(''));
+            popup.html(html);
         }
 
         function close() {
@@ -3511,26 +3508,25 @@
         popup.css({ position: 'absolute', top: topPos + 'px', left: leftPos + 'px', zIndex: 2000000001 });
 
         function render() {
-            var html = [];
-            html.push('<div class="pc-header" style="justify-content:space-between; align-items:center;">');
-            html.push('<button type="button" class="pc-next-year" title="سال بعد">سال بعد</button>');
-            html.push('<button type="button" class="pc-next-month" title="ماه بعد">ماه بعد</button>');
-            html.push('<span class="pc-title">', PERSIAN_MONTHS[viewMonth - 1], ' ', viewYear, '</span>');
-            html.push('<button type="button" class="pc-prev-month" title="ماه قبل">ماه قبل</button>');
-            html.push('<button type="button" class="pc-prev-year" title="سال قبل">سال قبل</button>');
-            html.push('</div>');
+            var html = '<div class="pc-header" style="justify-content:space-between; align-items:center;">';
+            html += '<button type="button" class="pc-next-year" title="سال بعد">سال بعد</button>';
+            html += '<button type="button" class="pc-next-month" title="ماه بعد">ماه بعد</button>';
+            html += '<span class="pc-title">' + PERSIAN_MONTHS[viewMonth - 1] + ' ' + viewYear + '</span>';
+            html += '<button type="button" class="pc-prev-month" title="ماه قبل">ماه قبل</button>';
+            html += '<button type="button" class="pc-prev-year" title="سال قبل">سال قبل</button>';
+            html += '</div>';
 
-            html.push('<div class="pc-weekdays">');
-            for (var w = 0; w < 7; w++) { html.push('<span>', PERSIAN_WEEKDAYS[w], '</span>'); }
-            html.push('</div>');
+            html += '<div class="pc-weekdays">';
+            for (var w = 0; w < 7; w++) { html += '<span>' + PERSIAN_WEEKDAYS[w] + '</span>'; }
+            html += '</div>';
 
-            html.push('<div class="pc-days">');
+            html += '<div class="pc-days">';
             var gFirst = toGregorian(viewYear, viewMonth, 1);
             var firstDate = new Date(gFirst.gy, gFirst.gm - 1, gFirst.gd);
             var persianFirstDay = (firstDate.getDay() + 1) % 7;
             var daysInMonth = jalaaliMonthLength(viewYear, viewMonth);
 
-            for (var e = 0; e < persianFirstDay; e++) { html.push('<span class="pc-day empty"></span>'); }
+            for (var e = 0; e < persianFirstDay; e++) { html += '<span class="pc-day empty"></span>'; }
             for (var d = 1; d <= daysInMonth; d++) {
                 var isSelected = selectedDate && (d === selectedDate.jd && viewMonth === selectedDate.jm && viewYear === selectedDate.jy);
                 var isToday = (d === todayJ.jd && viewMonth === todayJ.jm && viewYear === todayJ.jy);
@@ -3552,39 +3548,39 @@
                     titleAttr = ' title="جمعه"';
                 }
 
-                html.push('<span class="', classes, '" data-day="', d, '"', titleAttr, '>', d, '</span>');
+                html += '<span class="' + classes + '" data-day="' + d + '"' + titleAttr + '>' + d + '</span>';
             }
-            html.push('</div>');
+            html += '</div>';
 
             // Time picker
-            html.push('<div class="pc-time-picker">');
-            html.push('<label>ساعت:</label>');
-            html.push('<select class="pc-hour">');
+            html += '<div class="pc-time-picker">';
+            html += '<label>ساعت:</label>';
+            html += '<select class="pc-hour">';
             for (var h = 1; h <= 12; h++) {
                 var sel = (h === selectedHour || (selectedHour === 0 && h === 12)) ? ' selected' : '';
-                html.push('<option value="', h, '"', sel, '>', (h < 10 ? '0' + h : h), '</option>');
+                html += '<option value="' + h + '"' + sel + '>' + (h < 10 ? '0' + h : h) + '</option>';
             }
-            html.push('</select>');
-            html.push('<span>:</span>');
-            html.push('<select class="pc-minute">');
+            html += '</select>';
+            html += '<span>:</span>';
+            html += '<select class="pc-minute">';
             for (var m = 0; m < 60; m += 5) {
                 var sel = (m === selectedMinute || (selectedMinute < 5 && m === 0)) ? ' selected' : '';
-                html.push('<option value="', m, '"', sel, '>', (m < 10 ? '0' + m : m), '</option>');
+                html += '<option value="' + m + '"' + sel + '>' + (m < 10 ? '0' + m : m) + '</option>';
             }
-            html.push('</select>');
-            html.push('<select class="pc-ampm">');
-            html.push('<option value="AM"', (selectedAmPm === 'AM' ? ' selected' : ''), '>AM</option>');
-            html.push('<option value="PM"', (selectedAmPm === 'PM' ? ' selected' : ''), '>PM</option>');
-            html.push('</select>');
-            html.push('</div>');
+            html += '</select>';
+            html += '<select class="pc-ampm">';
+            html += '<option value="AM"' + (selectedAmPm === 'AM' ? ' selected' : '') + '>AM</option>';
+            html += '<option value="PM"' + (selectedAmPm === 'PM' ? ' selected' : '') + '>PM</option>';
+            html += '</select>';
+            html += '</div>';
 
-            html.push('<div class="pc-footer">');
-            html.push('<button type="button" class="pc-confirm">تأیید</button>');
-            html.push('<button type="button" class="pc-today">الان</button>');
-            html.push('<button type="button" class="pc-clear">پاک کردن</button>');
-            html.push('</div>');
+            html += '<div class="pc-footer">';
+            html += '<button type="button" class="pc-confirm">تأیید</button>';
+            html += '<button type="button" class="pc-today">الان</button>';
+            html += '<button type="button" class="pc-clear">پاک کردن</button>';
+            html += '</div>';
 
-            popup.html(html.join(''));
+            popup.html(html);
 
             // Bind time selectors
             popup.find('.pc-hour').on('change', function () { selectedHour = parseInt($(this).val(), 10); });
