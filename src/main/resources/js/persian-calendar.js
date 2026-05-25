@@ -4142,30 +4142,50 @@
         }
 
         // --- 5) Find closest date input by screen coordinates ---
-        function findClosestDateInputGeometrically(clickedEl) {
+        function findClosestDateInputGeometrically(clickedEl, strictMatch) {
             var allInputs = document.querySelectorAll('input');
             var clickRect = clickedEl.getBoundingClientRect();
             var closest = null;
             var minDist = Infinity;
 
+            logInfo('Geometric search: found ' + allInputs.length + ' inputs total, clickRect=' +
+                Math.round(clickRect.left) + ',' + Math.round(clickRect.top));
+
             for (var i = 0; i < allInputs.length; i++) {
-                if (isAuditDateInput(allInputs[i])) {
-                    var inputRect = allInputs[i].getBoundingClientRect();
-                    // Distance from icon to input (they should be on the same row)
+                var inp = allInputs[i];
+                var inputRect = inp.getBoundingClientRect();
+                // Skip hidden/zero-size inputs
+                if (inputRect.width === 0 || inputRect.height === 0) continue;
+
+                var ph = inp.getAttribute('placeholder') || '';
+                var typ = inp.getAttribute('type') || 'text';
+                var isDateMatch = isAuditDateInput(inp);
+
+                // In strict mode, only match date inputs; in loose mode, match any visible text input
+                var shouldConsider = strictMatch ? isDateMatch : (typ !== 'hidden' && typ !== 'checkbox' && typ !== 'radio');
+
+                if (shouldConsider) {
                     var dy = Math.abs(clickRect.top - inputRect.top);
                     var dx = Math.abs(clickRect.left - inputRect.right);
                     var dist = Math.sqrt(dx * dx + dy * dy);
+
+                    logInfo('  Input[' + i + ']: placeholder="' + ph.substring(0, 30) + '" type=' + typ +
+                        ' isDate=' + isDateMatch + ' rect=' + Math.round(inputRect.left) + ',' +
+                        Math.round(inputRect.top) + ' dist=' + Math.round(dist) + 'px');
+
                     if (dist < minDist) {
                         minDist = dist;
-                        closest = allInputs[i];
+                        closest = inp;
                     }
                 }
             }
             // Only return if reasonably close (within 200px)
             if (closest && minDist < 200) {
-                logInfo('Found closest date input at distance: ' + Math.round(minDist) + 'px');
+                logInfo('Found closest input at distance: ' + Math.round(minDist) + 'px, placeholder="' +
+                    (closest.getAttribute('placeholder') || '').substring(0, 30) + '"');
                 return closest;
             }
+            logInfo('No input found within 200px (minDist=' + Math.round(minDist) + ')');
             return null;
         }
 
