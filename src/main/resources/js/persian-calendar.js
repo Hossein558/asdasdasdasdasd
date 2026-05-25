@@ -3405,7 +3405,16 @@
             e.stopPropagation();
         });
 
-        overlay.on('click', function () {
+        popup.on('mousedown mouseup pointerdown pointerup', function(e) {
+            e.stopPropagation();
+        });
+
+        overlay.on('mousedown mouseup pointerdown pointerup', function(e) {
+            e.stopPropagation();
+        });
+
+        overlay.on('click', function (e) {
+            e.stopPropagation();
             if (Date.now() - openTime < 300) {
                 logDebug('Ignoring overlay click too close to open time');
                 return;
@@ -3742,7 +3751,16 @@
             e.stopPropagation();
         });
 
-        overlay.on('click', function () {
+        popup.on('mousedown mouseup pointerdown pointerup', function(e) {
+            e.stopPropagation();
+        });
+
+        overlay.on('mousedown mouseup pointerdown pointerup', function(e) {
+            e.stopPropagation();
+        });
+
+        overlay.on('click', function (e) {
+            e.stopPropagation();
             if (Date.now() - openTime < 300) {
                 logDebug('Ignoring overlay click too close to open time');
                 return;
