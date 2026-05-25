@@ -4110,26 +4110,66 @@
             return false;
         }
 
-        // --- 4) Find date input near a clicked element ---
-        function findNearbyDateInput(el) {
-            if (!el) return null;
-            // Walk up the DOM tree looking for a container with a date input
-            var current = el;
-            for (var i = 0; i < 8; i++) {
-                if (!current || current === document.body) break;
-                // Look for inputs in this container
-                var inputs = current.querySelectorAll ? current.querySelectorAll('input') : [];
-                for (var j = 0; j < inputs.length; j++) {
-                    if (isAuditDateInput(inputs[j])) {
-                        return inputs[j];
+        // --- 4) Check if element contains a calendar SVG icon ---
+        function isCalendarSvgIcon(el) {
+            if (!el) return false;
+            // Check the element and its parents for SVG with calendar path
+            var svgEl = null;
+            if (el.tagName === 'svg' || el.tagName === 'SVG') {
+                svgEl = el;
+            } else if (el.tagName === 'path' || el.tagName === 'PATH') {
+                svgEl = el.closest('svg');
+            } else {
+                // Check if this element contains or is near an SVG
+                svgEl = el.querySelector ? el.querySelector('svg') : null;
+                if (!svgEl) {
+                    // Check parent span with data-vc
+                    var vcSpan = el.closest ? el.closest('[data-vc]') : null;
+                    if (vcSpan) svgEl = vcSpan.querySelector('svg');
+                }
+            }
+            if (!svgEl) return false;
+            // Check if the SVG path looks like a calendar icon
+            var pathEl = svgEl.querySelector('path');
+            if (pathEl) {
+                var d = pathEl.getAttribute('d') || '';
+                // The Atlaskit calendar icon has "4.995" and "14.01" in its path
+                if (d.indexOf('4.995') !== -1 || d.indexOf('14.01') !== -1) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        // --- 5) Find closest date input by screen coordinates ---
+        function findClosestDateInputGeometrically(clickedEl) {
+            var allInputs = document.querySelectorAll('input');
+            var clickRect = clickedEl.getBoundingClientRect();
+            var closest = null;
+            var minDist = Infinity;
+
+            for (var i = 0; i < allInputs.length; i++) {
+                if (isAuditDateInput(allInputs[i])) {
+                    var inputRect = allInputs[i].getBoundingClientRect();
+                    // Distance from icon to input (they should be on the same row)
+                    var dy = Math.abs(clickRect.top - inputRect.top);
+                    var dx = Math.abs(clickRect.left - inputRect.right);
+                    var dist = Math.sqrt(dx * dx + dy * dy);
+                    if (dist < minDist) {
+                        minDist = dist;
+                        closest = allInputs[i];
                     }
                 }
-                current = current.parentElement;
+            }
+            // Only return if reasonably close (within 200px)
+            if (closest && minDist < 200) {
+                logInfo('Found closest date input at distance: ' + Math.round(minDist) + 'px');
+                return closest;
             }
             return null;
         }
 
-        // --- 5) Hide any Atlaskit calendar that appeared ---
+        // --- 6) Hide any Atlaskit calendar that appeared ---
         function hideAtlaskitCalendars() {
             // Method 1: Hide by role="grid" (Atlaskit calendar table)
             var grids = document.querySelectorAll('table[role="grid"]');
@@ -4195,7 +4235,7 @@
             });
         }
 
-        // --- 7) Intercept with MOUSEDOWN (fires before click/focus) ---
+        // --- 8) Intercept with MOUSEDOWN (fires before click/focus) ---
         document.addEventListener('mousedown', function (e) {
             var target = e.target;
 
@@ -4209,17 +4249,31 @@
                 return;
             }
 
-            // Indirect match: clicked on calendar icon or button near a date input
-            // Check if clicked element is SVG, path, button, or span near a date input
-            var tagName = target.tagName ? target.tagName.toUpperCase() : '';
-            if (tagName === 'SVG' || tagName === 'PATH' || tagName === 'BUTTON' || tagName === 'SPAN' || tagName === 'DIV') {
-                var nearInput = findNearbyDateInput(target);
+            // Calendar SVG icon match: detect by SVG path data + geometric proximity
+            if (isCalendarSvgIcon(target)) {
+                logInfo('Calendar SVG icon detected!');
+                var nearInput = findClosestDateInputGeometrically(target.closest('[data-vc]') || target);
                 if (nearInput) {
-                    logInfo('Audit date icon mousedown intercepted (nearby input found)');
+                    logInfo('Audit date icon mousedown intercepted (geometric match)');
                     e.preventDefault();
                     e.stopPropagation();
                     e.stopImmediatePropagation();
                     openPersianCalendarForInput(nearInput);
+                    return;
+                }
+            }
+
+            // Fallback: any click on span/button/svg near a date input (broad search)
+            var tagName = target.tagName ? target.tagName.toUpperCase() : '';
+            if (tagName === 'SVG' || tagName === 'PATH' || tagName === 'BUTTON' || tagName === 'SPAN') {
+                // Try geometric search for any clickable element near a date input
+                var nearInput2 = findClosestDateInputGeometrically(target);
+                if (nearInput2) {
+                    logInfo('Audit date icon mousedown intercepted (fallback geometric)');
+                    e.preventDefault();
+                    e.stopPropagation();
+                    e.stopImmediatePropagation();
+                    openPersianCalendarForInput(nearInput2);
                     return;
                 }
             }
