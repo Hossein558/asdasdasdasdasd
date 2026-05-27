@@ -1995,6 +1995,8 @@
         var viewYear = selectedDate ? selectedDate.jy : todayJ.jy;
         var viewMonth = selectedDate ? selectedDate.jm : todayJ.jm;
 
+        var inputEl = $input[0] || $input;
+
         // Create overlay
         var overlay = document.createElement('div');
         overlay.className = 'pc-overlay';
@@ -2008,7 +2010,6 @@
         var popup = document.createElement('div');
         popup.className = 'pc-popup';
         
-        // Use popover if supported to ensure top-layer rendering above all dialogs
         if (typeof popup.showPopover === 'function') {
             popup.popover = "manual";
         }
@@ -2018,9 +2019,9 @@
             popup.showPopover();
         }
 
-        // Position popup - smart positioning to avoid going off-screen
-        var inputEl = $input[0] || $input;
+        // Position popup - smart positioning relative to viewport
         var rect = inputEl.getBoundingClientRect();
+        
         var popupHeight = 420; // Approximate height of popup
         var popupWidth = 320; // Approximate width
         var viewportHeight = window.innerHeight;
@@ -2046,6 +2047,7 @@
         }
         if (leftPos < 10) leftPos = 10;
 
+        popup.style.position = 'absolute';
         popup.style.top = topPos + 'px';
         popup.style.left = leftPos + 'px';
         popup.style.maxHeight = (viewportHeight - 40) + 'px';
@@ -2137,7 +2139,6 @@
 
         function close() {
             document.body.classList.remove('pc-calendar-is-open');
-            document.body.classList.remove('pc-calendar-is-open');
             logDebug('Closing calendar popup');
             popup.remove();
             overlay.remove();
@@ -2157,72 +2158,84 @@
             close();
         }
 
-        // Event delegation
-        popup.addEventListener('click', function (e) {
-            var target = e.target;
-            if (target.classList.contains('pc-prev-year')) {
-                viewYear--;
-                logDebug('Navigate to previous year: ' + viewYear);
-                render();
-            } else if (target.classList.contains('pc-next-year')) {
-                viewYear++;
-                logDebug('Navigate to next year: ' + viewYear);
-                render();
-            } else if (target.classList.contains('pc-prev-month')) {
-                viewMonth--;
-                if (viewMonth < 1) { viewMonth = 12; viewYear--; }
-                logDebug('Navigate to previous month: ' + viewMonth + '/' + viewYear);
-                render();
-            } else if (target.classList.contains('pc-next-month')) {
-                viewMonth++;
-                if (viewMonth > 12) { viewMonth = 1; viewYear++; }
-                logDebug('Navigate to next month: ' + viewMonth + '/' + viewYear);
-                render();
-            } else if (target.classList.contains('pc-day') && !target.classList.contains('empty')) {
-                selectDay(parseInt(target.dataset.day, 10));
-                if (hideButtons) { confirm(); }
-            } else if (target.classList.contains('pc-today')) {
-                logInfo('Today button clicked');
-                selectedDate = { jy: todayJ.jy, jm: todayJ.jm, jd: todayJ.jd };
-                onSelect(selectedDate);
-                close();
-            } else if (target.classList.contains('pc-clear')) {
-                logInfo('Clear button clicked');
-                onSelect(null);
-                close();
-            } else if (target.classList.contains('pc-confirm')) {
-                confirm();
-            }
-            e.preventDefault();
+        function handlePopupEvents(e) {
+            // Stop propagation to prevent closing parent popups/dropdowns
             e.stopPropagation();
-        });
+            if (e.type === 'click') {
+                var target = e.target;
+                if (target.classList.contains('pc-prev-year')) {
+                    viewYear--;
+                    logDebug('Navigate to previous year: ' + viewYear);
+                    render();
+                } else if (target.classList.contains('pc-next-year')) {
+                    viewYear++;
+                    logDebug('Navigate to next year: ' + viewYear);
+                    render();
+                } else if (target.classList.contains('pc-prev-month')) {
+                    viewMonth--;
+                    if (viewMonth < 1) { viewMonth = 12; viewYear--; }
+                    logDebug('Navigate to previous month: ' + viewMonth + '/' + viewYear);
+                    render();
+                } else if (target.classList.contains('pc-next-month')) {
+                    viewMonth++;
+                    if (viewMonth > 12) { viewMonth = 1; viewYear++; }
+                    logDebug('Navigate to next month: ' + viewMonth + '/' + viewYear);
+                    render();
+                } else if (target.classList.contains('pc-day') && !target.classList.contains('empty')) {
+                    selectDay(parseInt(target.dataset.day, 10));
+                    if (hideButtons) { confirm(); }
+                } else if (target.classList.contains('pc-today')) {
+                    logInfo('Today button clicked');
+                    selectedDate = { jy: todayJ.jy, jm: todayJ.jm, jd: todayJ.jd };
+                    onSelect(selectedDate);
+                    close();
+                } else if (target.classList.contains('pc-clear')) {
+                    logInfo('Clear button clicked');
+                    onSelect(null);
+                    close();
+                } else if (target.classList.contains('pc-confirm')) {
+                    confirm();
+                }
+                e.preventDefault();
+            }
+        }
 
-        overlay.addEventListener('click', function () {
+        // Event delegation with capture to prevent any other handlers from running
+        popup.addEventListener('click', handlePopupEvents, true);
+        popup.addEventListener('mousedown', handlePopupEvents, true);
+        popup.addEventListener('mouseup', handlePopupEvents, true);
+        popup.addEventListener('pointerdown', handlePopupEvents, true);
+        popup.addEventListener('pointerup', handlePopupEvents, true);
+
+        overlay.addEventListener('click', function (e) {
             if (Date.now() - openTime < 300) {
                 logDebug('Ignoring overlay click too close to open time');
                 return;
             }
             logDebug('Overlay clicked, closing');
+            e.stopPropagation();
             close();
-        });
+        }, true);
+        overlay.addEventListener('mousedown', function(e) { e.stopPropagation(); }, true);
+        overlay.addEventListener('pointerdown', function(e) { e.stopPropagation(); }, true);
 
         render();
     }
 
     // Create and show Persian DateTime picker popup (Date + Time)
-    function showPersianDateTimePicker($input, $originalInput, onSelect) {
+    function showPersianDateTimePicker($input, $originalInput, onSelect, hideButtons) {
         // Check license before showing calendar
         checkLicenseStatus(function (license) {
             if (!license.enabled) {
                 showLicenseExpiredMessage();
                 return;
             }
-            _showPersianDateTimePickerImpl($input, $originalInput, onSelect);
+            _showPersianDateTimePickerImpl($input, $originalInput, onSelect, hideButtons);
         });
     }
 
-    function _showPersianDateTimePickerImpl($input, $originalInput, onSelect) {
-        logInfo('Opening Persian DateTime picker popup');
+    function _showPersianDateTimePickerImpl($input, $originalInput, onSelect, hideButtons) {
+        logInfo('Opening Persian DateTime picker popup (hideButtons: ' + !!hideButtons + ')');
 
         var $existing = document.querySelector('.pc-popup');
         if ($existing) $existing.remove();
@@ -2459,52 +2472,63 @@
             close();
         }
 
-        // Event delegation
-        popup.addEventListener('click', function (e) {
-            var target = e.target;
-            if (target.classList.contains('pc-prev-year')) {
-                viewYear--;
-                render();
-            } else if (target.classList.contains('pc-next-year')) {
-                viewYear++;
-                render();
-            } else if (target.classList.contains('pc-prev-month')) {
-                viewMonth--;
-                if (viewMonth < 1) { viewMonth = 12; viewYear--; }
-                render();
-            } else if (target.classList.contains('pc-next-month')) {
-                viewMonth++;
-                if (viewMonth > 12) { viewMonth = 1; viewYear++; }
-                render();
-            } else if (target.classList.contains('pc-day') && !target.classList.contains('empty')) {
-                selectDay(parseInt(target.dataset.day, 10));
-            } else if (target.classList.contains('pc-today')) {
-                logInfo('Now button clicked');
-                var now = new Date();
-                selectedDate = { jy: todayJ.jy, jm: todayJ.jm, jd: todayJ.jd };
-                selectedHour = now.getHours() > 12 ? now.getHours() - 12 : (now.getHours() === 0 ? 12 : now.getHours());
-                selectedMinute = Math.floor(now.getMinutes() / 5) * 5;
-                selectedAmPm = now.getHours() >= 12 ? 'PM' : 'AM';
-                confirm();
-            } else if (target.classList.contains('pc-clear')) {
-                logInfo('Clear button clicked');
-                onSelect(null);
-                close();
-            } else if (target.classList.contains('pc-confirm')) {
-                confirm();
-            }
-            e.preventDefault();
+        // Event delegation using capture phase
+        function handlePopupEvents(e) {
             e.stopPropagation();
-        });
+            if (e.type === 'click') {
+                var target = e.target;
+                if (target.classList.contains('pc-prev-year')) {
+                    viewYear--;
+                    render();
+                } else if (target.classList.contains('pc-next-year')) {
+                    viewYear++;
+                    render();
+                } else if (target.classList.contains('pc-prev-month')) {
+                    viewMonth--;
+                    if (viewMonth < 1) { viewMonth = 12; viewYear--; }
+                    render();
+                } else if (target.classList.contains('pc-next-month')) {
+                    viewMonth++;
+                    if (viewMonth > 12) { viewMonth = 1; viewYear++; }
+                    render();
+                } else if (target.classList.contains('pc-day') && !target.classList.contains('empty')) {
+                    selectDay(parseInt(target.dataset.day, 10));
+                } else if (target.classList.contains('pc-today')) {
+                    logInfo('Now button clicked');
+                    var now = new Date();
+                    selectedDate = { jy: todayJ.jy, jm: todayJ.jm, jd: todayJ.jd };
+                    selectedHour = now.getHours() > 12 ? now.getHours() - 12 : (now.getHours() === 0 ? 12 : now.getHours());
+                    selectedMinute = Math.floor(now.getMinutes() / 5) * 5;
+                    selectedAmPm = now.getHours() >= 12 ? 'PM' : 'AM';
+                    confirm();
+                } else if (target.classList.contains('pc-clear')) {
+                    logInfo('Clear button clicked');
+                    onSelect(null);
+                    close();
+                } else if (target.classList.contains('pc-confirm')) {
+                    confirm();
+                }
+                e.preventDefault();
+            }
+        }
 
-        overlay.addEventListener('click', function () {
+        popup.addEventListener('click', handlePopupEvents, true);
+        popup.addEventListener('mousedown', handlePopupEvents, true);
+        popup.addEventListener('mouseup', handlePopupEvents, true);
+        popup.addEventListener('pointerdown', handlePopupEvents, true);
+        popup.addEventListener('pointerup', handlePopupEvents, true);
+
+        overlay.addEventListener('click', function (e) {
             if (Date.now() - openTime < 300) {
                 logDebug('Ignoring overlay click too close to open time');
                 return;
             }
             logDebug('Overlay clicked, closing');
+            e.stopPropagation();
             close();
-        });
+        }, true);
+        overlay.addEventListener('mousedown', function(e) { e.stopPropagation(); }, true);
+        overlay.addEventListener('pointerdown', function(e) { e.stopPropagation(); }, true);
 
         render();
     }
@@ -4050,6 +4074,9 @@
     // ========================================================================
     // Audit Log Date Picker - Replace Atlaskit Gregorian calendar with Persian
     // ========================================================================
+    // ========================================================================
+    // Audit Log Date Picker - Replace Atlaskit Gregorian calendar with Persian
+    // ========================================================================
     function initAuditLogDatePicker($) {
         // Only run on audit log page
         if (window.location.pathname.indexOf('/plugins/servlet/audit') === -1) {
@@ -4066,157 +4093,42 @@
             'body.pc-calendar-is-open [role="dialog"] table[role="grid"] { display: none !important; }',
             'body.pc-calendar-is-open [role="dialog"]:has(table[role="grid"]) { display: none !important; }',
             'body.pc-calendar-is-open div[data-placement] { display: none !important; }',
-            '.pc-audit-hidden-calendar { display: none !important; visibility: hidden !important; pointer-events: none !important; height: 0 !important; overflow: hidden !important; }'
+            '.pc-audit-hidden-calendar { display: none !important; visibility: hidden !important; pointer-events: none !important; height: 0 !important; overflow: hidden !important; }',
+            '/* Style for our custom inputs */',
+            '.pc-persian-audit-input { min-width: 150px; background-color: #FAFBFC; border: 2px solid #DFE1E6; border-radius: 3px; box-sizing: border-box; color: #091E42; font-family: inherit; font-size: 14px; margin: 0; padding: 4px 6px; }',
+            '.pc-persian-audit-input:hover { background-color: #EBECF0; }',
+            '.pc-persian-audit-input:focus { background-color: #fff; border-color: #4C9AFF; outline: none; }'
         ].join('\n');
         document.head.appendChild(auditCSS);
         logInfo('Audit calendar hide CSS injected');
 
-        // --- 2) Helper: set React-controlled input value ---
-        function setReactInputValue(inputEl, value) {
-            setTimeout(function() {
-                try {
-                    var nativeInputValueSetter = Object.getOwnPropertyDescriptor(
-                        window.HTMLInputElement.prototype, 'value'
-                    ).set;
-                    nativeInputValueSetter.call(inputEl, value);
-                } catch (ex) {
-                    inputEl.value = value;
-                }
-                
-                try {
-                    inputEl.dispatchEvent(new Event('input', { bubbles: true }));
-                    inputEl.dispatchEvent(new Event('change', { bubbles: true }));
-                    
-                    var enterEvent = new KeyboardEvent('keydown', {
-                        key: 'Enter',
-                        code: 'Enter',
-                        keyCode: 13,
-                        which: 13,
-                        bubbles: true,
-                        cancelable: true
-                    });
-                    inputEl.dispatchEvent(enterEvent);
-                    inputEl.dispatchEvent(new Event('blur', { bubbles: true }));
-                } catch (evError) {
-                    logInfo('Error dispatching events: ' + evError);
-                }
-                
-                try {
-                    $(inputEl).trigger('input').trigger('change').trigger('blur');
-                } catch (jqError) {}
-            }, 10);
-        }
-
-        // --- 3) Detect audit date inputs ---
+        // --- 2) Detect audit date inputs ---
         function isAuditDateInput(el) {
             if (!el || el.tagName !== 'INPUT') return false;
             var ph = (el.getAttribute('placeholder') || '');
             var phLower = ph.toLowerCase();
-            // Match date inputs like "e.g. 5/26/2026" or our Persian placeholder
-            // Exclude time inputs like "e.g. 1:01 AM"
             if (phLower.indexOf('e.g.') !== -1 && phLower.indexOf('/') !== -1 && phLower.indexOf('am') === -1 && phLower.indexOf('pm') === -1) {
                 return true;
             }
-            // Also match if we already tagged it
             if (el.getAttribute('data-pc-audit-date') === 'true') {
                 return true;
             }
-            // Match our Persian placeholder
             if (ph.indexOf('مثال:') !== -1) {
                 return true;
             }
-            
-            // Check by DOM hierarchy: if this input is the ONLY input in a small container that ALSO has a calendar SVG
-            var container = el;
-            var depth = 0;
-            while (container && depth < 4) {
-                var inputs = container.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])');
-                if (inputs.length > 1) {
-                    // Container has multiple inputs, too broad.
-                    break;
-                }
-                if (isCalendarSvgIcon(container)) return true; // unlikely but possible
-                
-                // check if container has a calendar svg
-                var svgs = container.querySelectorAll('svg path[d^="M4.995"], svg path[d^="M14.01"]');
-                if (svgs.length > 0) {
-                    el.setAttribute('data-pc-audit-date', 'true');
-                    return true;
-                }
-                container = container.parentElement;
-                depth++;
-            }
             return false;
         }
 
-        // --- 4) Check if element contains a calendar SVG icon ---
-        function isCalendarSvgIcon(el) {
-            if (!el) return false;
-            // Check the element and its parents for SVG with calendar path
-            var svgEl = null;
-            if (el.tagName === 'svg' || el.tagName === 'SVG') {
-                svgEl = el;
-            } else if (el.tagName === 'path' || el.tagName === 'PATH') {
-                svgEl = el.closest('svg');
-            } else {
-                // Check if this element contains or is near an SVG
-                svgEl = el.querySelector ? el.querySelector('svg') : null;
-                if (!svgEl) {
-                    // Check parent span with data-vc
-                    var vcSpan = el.closest ? el.closest('[data-vc]') : null;
-                    if (vcSpan) svgEl = vcSpan.querySelector('svg');
-                }
-            }
-            if (!svgEl) return false;
-            // Check if the SVG path looks like a calendar icon
-            var pathEl = svgEl.querySelector('path');
-            if (pathEl) {
-                var d = pathEl.getAttribute('d') || '';
-                // The Atlaskit calendar icon has "4.995" and "14.01" in its path
-                if (d.indexOf('4.995') !== -1 || d.indexOf('14.01') !== -1) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        // --- 5) Find closest date input by screen coordinates ---
-        function findAssociatedInputByDomHierarchy(clickedEl) {
-            var el = clickedEl;
-            var depth = 0;
-            while (el && depth < 5) {
-                if (el.tagName !== 'svg' && el.tagName !== 'path' && el.tagName !== 'BUTTON') {
-                    var inputs = el.querySelectorAll('input:not([type="hidden"]):not([type="checkbox"]):not([type="radio"])');
-                    if (inputs.length === 1) {
-                        logInfo('Found associated input via DOM Hierarchy at depth ' + depth);
-                        return inputs[0];
-                    }
-                    if (inputs.length > 1) {
-                        logInfo('DOM Hierarchy reached container with multiple inputs at depth ' + depth + '. Aborting search.');
-                        break;
-                    }
-                }
-                el = el.parentElement;
-                depth++;
-            }
-            logInfo('Could not find associated input via DOM Hierarchy.');
-            return null;
-        }
-
-        // --- 6) Hide any Atlaskit calendar that appeared ---
+        // --- 3) Hide any Atlaskit calendar that appeared ---
         function hideAtlaskitCalendars() {
-            // Method 1: Hide by role="grid" (Atlaskit calendar table)
             var grids = document.querySelectorAll('table[role="grid"]');
             for (var i = 0; i < grids.length; i++) {
                 var grid = grids[i];
                 if (grid.closest('.pc-popup')) continue; // Don't hide our own
-                // Find the top-level popup container
                 var popup = grid.closest('[role="dialog"], [data-placement], [class*="css-"]');
                 if (popup) {
                     popup.classList.add('pc-audit-hidden-calendar');
-                    logInfo('Hidden Atlaskit calendar popup (via container)');
                 } else {
-                    // Just hide the grid parent
                     var parent = grid.parentElement;
                     if (parent) {
                         parent.classList.add('pc-audit-hidden-calendar');
@@ -4224,7 +4136,6 @@
                 }
             }
 
-            // Method 2: Look for weekday headers (Sun, Mon, Tue...)
             var allThElements = document.querySelectorAll('th[role="columnheader"]');
             for (var k = 0; k < allThElements.length; k++) {
                 var th = allThElements[k];
@@ -4234,119 +4145,106 @@
                     var calContainer = th.closest('div[style], [role="dialog"], [data-placement]');
                     if (calContainer) {
                         calContainer.classList.add('pc-audit-hidden-calendar');
-                        logInfo('Hidden Atlaskit calendar (via weekday header)');
                     }
                 }
             }
         }
 
-        // --- 7) Show Persian calendar for a date input ---
-        function openPersianCalendarForInput(dateInput) {
+        // --- 4) Show Persian calendar for our custom input ---
+        function openPersianCalendarForInput($persianInput, $originalInput) {
             logInfo('Opening Persian calendar for audit date input');
 
-            // Hide Atlaskit calendars
             hideAtlaskitCalendars();
             setTimeout(hideAtlaskitCalendars, 100);
             setTimeout(hideAtlaskitCalendars, 300);
 
-            var $dateInput = $(dateInput);
-            showPersianCalendar($dateInput, $dateInput, function (selectedDate) {
+            showPersianCalendar($persianInput, $originalInput, function (selectedDate) {
                 if (!selectedDate) {
-                    setReactInputValue(dateInput, '');
+                    $persianInput.val('');
+                    setInputAndTriggerEvents($originalInput, '');
                     return;
                 }
 
                 // Convert Persian to Gregorian
                 var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
+                var formattedDate = gDate.gm + '/' + gDate.gd + '/' + gDate.gy; // M/d/yyyy format
+                var persianStr = selectedDate.jy + '/' + selectedDate.jm + '/' + selectedDate.jd;
 
-                // Format as M/d/yyyy
-                var formattedDate = gDate.gm + '/' + gDate.gd + '/' + gDate.gy;
+                logInfo('Audit date: ' + persianStr + ' → ' + formattedDate);
 
-                logInfo('Audit date: ' + selectedDate.jy + '/' + selectedDate.jm + '/' + selectedDate.jd + ' → ' + formattedDate);
-
-                setReactInputValue(dateInput, formattedDate);
-                dateInput.title = selectedDate.jy + '/' + selectedDate.jm + '/' + selectedDate.jd;
+                $persianInput.val(persianStr);
+                $persianInput.attr('title', persianStr);
+                setInputAndTriggerEvents($originalInput, formattedDate);
+                
             }, true);
         }
 
-        // --- 8) Intercept with MOUSEDOWN, MOUSEUP, CLICK (fires before click/focus) ---
-        function handleEventIntercept(e) {
-            var target = e.target;
-
-            // Direct match: clicked on a date input
-            if (isAuditDateInput(target)) {
-                logInfo('Audit date input ' + e.type + ' intercepted (direct)');
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                if (e.type === 'mousedown' || e.type === 'pointerdown') {
-                    // Avoid opening twice if both pointerdown and mousedown fire
-                    if (!window.pcLastOpenTime || Date.now() - window.pcLastOpenTime > 500) {
-                        window.pcLastOpenTime = Date.now();
-                        window.pcPreventBodyClickUntil = Date.now() + 800; // Prevent orphaned click from closing parent
-                        openPersianCalendarForInput($(target));
-                    }
-                }
-                return;
-            }
-
-            // Calendar SVG icon match: detect by SVG path data + geometric proximity
-            if (isCalendarSvgIcon(target)) {
-                var nearInput = findAssociatedInputByDomHierarchy(target);
-                if (nearInput) {
-                    logInfo('Audit date icon ' + e.type + ' intercepted (DOM hierarchy match)');
-                    e.preventDefault();
-                    e.stopPropagation();
-                    e.stopImmediatePropagation();
-                    if (e.type === 'mousedown' || e.type === 'pointerdown') {
-                        // Avoid opening twice if both pointerdown and mousedown fire
-                        if (!window.pcLastOpenTime || Date.now() - window.pcLastOpenTime > 500) {
-                            window.pcLastOpenTime = Date.now();
-                            window.pcPreventBodyClickUntil = Date.now() + 800; // Prevent orphaned click from closing parent
-                            openPersianCalendarForInput($(nearInput));
+        // --- 5) Replace audit inputs with Persian ---
+        function replaceAuditInputsWithPersian() {
+            var allInputs = document.querySelectorAll('input:not(.pc-persian-audit-input)');
+            var found = false;
+            for (var i = 0; i < allInputs.length; i++) {
+                var inp = allInputs[i];
+                if (isAuditDateInput(inp)) {
+                    var $original = $(inp);
+                    
+                    // Already processed?
+                    if ($original.next('.pc-persian-audit-input').length > 0) continue;
+                    
+                    logInfo('Found Audit Date Input, replacing...');
+                    found = true;
+                    
+                    // Hide original input
+                    $original.css('display', 'none');
+                    $original.attr('data-pc-audit-date', 'true');
+                    
+                    // Create Persian input
+                    var $persian = $('<input type="text" class="pc-persian-audit-input" readonly style="cursor:pointer; direction:ltr; text-align:center;">');
+                    $persian.attr('placeholder', 'انتخاب تاریخ');
+                    
+                    // Set initial value
+                    var currentVal = $original.val();
+                    if (currentVal) {
+                        var parts = currentVal.split('/');
+                        if (parts.length === 3) { // expected M/d/yyyy
+                            var m = parseInt(parts[0], 10);
+                            var d = parseInt(parts[1], 10);
+                            var y = parseInt(parts[2], 10);
+                            if (!isNaN(m) && !isNaN(d) && !isNaN(y)) {
+                                var jDate = toJalaali(y, m, d);
+                                $persian.val(jDate.jy + '/' + jDate.jm + '/' + jDate.jd);
+                            }
                         }
                     }
-                    return;
+
+                    $original.after($persian);
+                    
+                    // Prevent any native blur/focus issues
+                    $original.on('focus', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                        $(this).blur();
+                        hideAtlaskitCalendars();
+                    });
+
+                    // Handle clicks on our custom input
+                    $persian.on('mousedown click', function(e) {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        e.stopImmediatePropagation();
+                        if (e.type === 'mousedown') {
+                            var $thisPersian = $(this);
+                            var $thisOriginal = $thisPersian.prev('input');
+                            openPersianCalendarForInput($thisPersian, $thisOriginal);
+                        }
+                    });
                 }
             }
-
+            return found;
         }
 
-        document.addEventListener('mousedown', handleEventIntercept, true);
-        document.addEventListener('mouseup', handleEventIntercept, true);
-        document.addEventListener('click', handleEventIntercept, true);
-        document.addEventListener('pointerdown', handleEventIntercept, true);
-        document.addEventListener('pointerup', handleEventIntercept, true);
-
-        // Global orphaned click swallower
-        document.addEventListener('click', function(e) {
-            if (window.pcPreventBodyClickUntil && Date.now() < window.pcPreventBodyClickUntil) {
-                // If it reached body or is not part of our popup
-                if (e.target === document.body || !e.target.closest || !e.target.closest('.pc-popup')) {
-                    logInfo('Orphaned click swallowed to prevent parent closure');
-                    e.stopPropagation();
-                    e.stopImmediatePropagation();
-                    // We don't preventDefault to avoid breaking other things, but we MUST stop propagation
-                }
-            }
-        }, true);
-
-        // --- 8) Also intercept focus on date inputs ---
-        function handleFocusIntercept(e) {
-            if (isAuditDateInput(e.target)) {
-                logInfo('Audit date input focus intercepted');
-                e.preventDefault();
-                e.stopPropagation();
-                e.stopImmediatePropagation();
-                // Blur immediately to prevent Atlaskit from reacting
-                e.target.blur();
-                hideAtlaskitCalendars();
-            }
-        }
-        document.addEventListener('focus', handleFocusIntercept, true); // capture phase
-        document.addEventListener('focusin', handleFocusIntercept, true); // capture phase
-
-        // --- 9) MutationObserver: only hide Atlaskit calendars ---
+        // --- 6) MutationObserver: watch for new inputs or calendars ---
         var auditMutObserver = new MutationObserver(function (mutations) {
             var shouldCheck = false;
             for (var i = 0; i < mutations.length; i++) {
@@ -4357,30 +4255,14 @@
             }
             if (shouldCheck) {
                 hideAtlaskitCalendars();
+                replaceAuditInputsWithPersian();
             }
         });
         auditMutObserver.observe(document.body, { childList: true, subtree: true });
 
-        // --- 10) Update placeholder text to Persian ---
-        function updateAuditPlaceholders() {
-            var today = new Date();
-            var todayJ = toJalaali(today.getFullYear(), today.getMonth() + 1, today.getDate());
-            var persianExample = todayJ.jy + '/' + todayJ.jm + '/' + todayJ.jd;
-
-            var allInputs = document.querySelectorAll('input[placeholder]');
-            for (var i = 0; i < allInputs.length; i++) {
-                var inp = allInputs[i];
-                var ph = inp.getAttribute('placeholder') || '';
-                if (ph.indexOf('e.g.') !== -1 && ph.indexOf('/') !== -1 && ph.indexOf('AM') === -1 && ph.indexOf('PM') === -1) {
-                    inp.setAttribute('placeholder', 'مثال: ' + persianExample);
-                    inp.setAttribute('data-pc-audit-date', 'true');
-                }
-            }
-        }
-
         // Run placeholder update with retries
         [500, 1000, 2000, 3000, 5000].forEach(function (delay) {
-            setTimeout(updateAuditPlaceholders, delay);
+            setTimeout(replaceAuditInputsWithPersian, delay);
         });
 
         logInfo('Audit Log Persian Date Picker initialized');
