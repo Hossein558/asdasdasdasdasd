@@ -1,6 +1,6 @@
 Manifest-Version: 1.0
-Atlassian-Build-Date: 2026-05-23T19:40:22+0330
-Bnd-LastModified: 1779552623674
+Atlassian-Build-Date: 2026-05-29T01:54:01+0330
+Bnd-LastModified: 1780007042315
 Build-Jdk: 21.0.11
 Built-By: Hossein
 Bundle-Description: Displays Due Date field with Persian/Shamsi calendar
@@ -21,6 +21,6 @@ Import-Package: com.atlassian.jira.component;resolution:=optional,com.at
  n:=optional,javax.crypto;resolution:=optional,javax.crypto.spec;resolut
  ion:=optional,javax.servlet;resolution:=optional,javax.servlet.http;res
  olution:=optional,javax.ws.rs;resolution:=optional,javax.ws.rs.core;res
- olution:=optional
+ olution:=optional,org.slf4j;resolution:=optional
 Spring-Context: *
 Tool: Bnd-3.5.0.201709291849
