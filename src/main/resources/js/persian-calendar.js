@@ -14,7 +14,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '11.4.17';
+    var PC_VERSION = '11.4.18';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     // IMMEDIATE GLOBAL CLICK DIAGNOSTIC (Writen to F12 Console)
@@ -3898,7 +3898,9 @@
             'input#log-work-form-date-logged-date-picker',
             'input#log-work-date-logged-date-picker',
             'input[name="startDate"]',
-            'input[name="worklog_startDate"]'
+            'input[name="worklog_startDate"]',
+            // Tempo plugin Log Time Date field
+            'input#started'
         ];
 
         // Search page selectors - ONLY the Between date inputs
@@ -4452,8 +4454,8 @@
                         var node = mutation.addedNodes[i];
                         if (node.nodeType === 1) {
                             // Jira Core patterns
-                            if (node.id === 'duedate' || (node.querySelector && node.querySelector('#duedate, [name="duedate"]'))) {
-                                logDebug('MutationObserver: Found duedate element in DOM change');
+                            if (node.id === 'duedate' || (node.querySelector && node.querySelector('#duedate, [name="duedate"], input#started'))) {
+                                logDebug('MutationObserver: Found date input element in DOM change');
                                 shouldInit = true;
                             }
                             // JSM Customer Portal patterns
