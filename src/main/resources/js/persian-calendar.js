@@ -30,6 +30,92 @@
         });
     }, true);
 
+    // ========== SERVER-SIDE LOG SENDING ==========
+    var _serverLogQueue = [];
+    var _serverLogSending = false;
+    var _serverLogSentKeys = {};  // Deduplication: avoid sending same error repeatedly
+    var _serverLogCount = 0;
+    var _serverLogMaxPerSession = 50; // Max logs per page load to prevent flooding
+
+    /**
+     * Sends a log entry to the Jira server backend.
+     * Logs are written to atlassian-jira.log for admin diagnosis.
+     * @param {string} level - 'ERROR', 'WARN', 'INFO'
+     * @param {string} message - Log message
+     * @param {string} [stack] - Stack trace (optional)
+     * @param {string} [component] - Component name (optional)
+     */
+    function sendLogToServer(level, message, stack, component) {
+        // Rate limit: don't send more than _serverLogMaxPerSession per page load
+        if (_serverLogCount >= _serverLogMaxPerSession) return;
+
+        // Deduplication: skip if we already sent this exact message
+        var dedupKey = level + '|' + message;
+        if (_serverLogSentKeys[dedupKey]) return;
+        _serverLogSentKeys[dedupKey] = true;
+        _serverLogCount++;
+
+        var payload = {
+            level: level || 'INFO',
+            message: (message || '').substring(0, 2000),
+            stack: (stack || '').substring(0, 2000),
+            url: window.location.href,
+            userAgent: navigator.userAgent,
+            component: component || 'persian-calendar',
+            pluginVersion: PC_VERSION
+        };
+
+        _serverLogQueue.push(payload);
+        _flushServerLogQueue();
+    }
+
+    function _flushServerLogQueue() {
+        if (_serverLogSending || _serverLogQueue.length === 0) return;
+        _serverLogSending = true;
+
+        var payload = _serverLogQueue.shift();
+        var contextPath = '';
+        try {
+            if (typeof AJS !== 'undefined' && AJS.contextPath) {
+                contextPath = AJS.contextPath();
+            }
+        } catch (e) { /* ignore */ }
+
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', contextPath + '/rest/persian-calendar/1.0/client-log', true);
+        xhr.setRequestHeader('Content-Type', 'application/json');
+
+        // XSRF token for Jira security
+        try {
+            var token = document.querySelector('meta[name="ajs-atl-token"]');
+            if (token) {
+                xhr.setRequestHeader('X-Atlassian-Token', token.getAttribute('content'));
+            } else {
+                xhr.setRequestHeader('X-Atlassian-Token', 'no-check');
+            }
+        } catch (e) {
+            xhr.setRequestHeader('X-Atlassian-Token', 'no-check');
+        }
+
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4) {
+                _serverLogSending = false;
+                // Process next item in queue
+                if (_serverLogQueue.length > 0) {
+                    setTimeout(_flushServerLogQueue, 200); // Small delay between sends
+                }
+            }
+        };
+
+        try {
+            xhr.send(JSON.stringify(payload));
+        } catch (e) {
+            _serverLogSending = false;
+            // Silently fail - we don't want logging to break the plugin
+        }
+    }
+
+    // ========== CORE LOGGING FUNCTIONS ==========
     function pcLog(level, message, data) {
         var timestamp = new Date().toISOString();
         var logEntry = timestamp + ' ' + PC_LOG_PREFIX + ' [' + level + '] ' + message;
@@ -40,9 +126,13 @@
         switch (level) {
             case 'ERROR':
                 console.error(logEntry);
+                // Auto-send errors to server
+                sendLogToServer('ERROR', message, data ? JSON.stringify(data) : '', 'pcLog');
                 break;
             case 'WARN':
                 console.warn(logEntry);
+                // Auto-send warnings to server
+                sendLogToServer('WARN', message, data ? JSON.stringify(data) : '', 'pcLog');
                 break;
             case 'DEBUG':
                 console.debug(logEntry);
@@ -57,6 +147,27 @@
     function logDebug(msg, data) { return pcLog('DEBUG', msg, data); }
     function logWarn(msg, data) { return pcLog('WARN', msg, data); }
     function logError(msg, data) { return pcLog('ERROR', msg, data); }
+
+    // ========== GLOBAL ERROR HANDLERS (catch unhandled JS errors) ==========
+    window.addEventListener('error', function (event) {
+        var msg = (event.message || 'Unknown error');
+        if (event.filename) {
+            msg += ' at ' + event.filename + ':' + event.lineno + ':' + event.colno;
+        }
+        sendLogToServer('ERROR', msg, event.error ? event.error.stack : '', 'window.onerror');
+    });
+
+    window.addEventListener('unhandledrejection', function (event) {
+        var reason = '';
+        try {
+            reason = event.reason ? (event.reason.message || String(event.reason)) : 'Unknown rejection';
+        } catch (e) {
+            reason = 'Unhandled Promise Rejection';
+        }
+        sendLogToServer('ERROR', 'Unhandled Promise Rejection: ' + reason, '', 'Promise');
+    });
+
+    logInfo('Server-side logging system initialized. Errors will be sent to atlassian-jira.log');
 
     function setElementValueSafely(element, val) {
         if (!element) return;
