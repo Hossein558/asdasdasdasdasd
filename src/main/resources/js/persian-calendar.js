@@ -3505,7 +3505,7 @@
             else if (target.hasClass('pc-next-year')) { viewYear++; render(); }
             else if (target.hasClass('pc-prev-month')) { viewMonth--; if (viewMonth < 1) { viewMonth = 12; viewYear--; } render(); }
             else if (target.hasClass('pc-next-month')) { viewMonth++; if (viewMonth > 12) { viewMonth = 1; viewYear++; } render(); }
-            else if (target.hasClass('pc-day') && !target.hasClass('empty')) { selectDay(parseInt(target.data('day'), 10)); }
+            else if (target.hasClass('pc-day') && !target.hasClass('empty')) { selectDay(parseInt(target.data('day'), 10)); confirm(); }
             else if (target.hasClass('pc-today')) { selectedDate = { jy: todayJ.jy, jm: todayJ.jm, jd: todayJ.jd }; confirm(); }
             else if (target.hasClass('pc-clear')) { setInputAndTriggerEvents($input, ''); close(); }
             else if (target.hasClass('pc-confirm')) { confirm(); }
