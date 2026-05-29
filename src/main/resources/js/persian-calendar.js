@@ -3452,7 +3452,10 @@
 
                 // Try the icons container (Jira often uses icon buttons)
                 if (!$submitBtn || $submitBtn.length === 0) {
-                    $submitBtn = $datesModule.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                    var $datesModule = $activeInput.closest('#datesmodule');
+                    if ($datesModule.length > 0) {
+                        $submitBtn = $datesModule.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                    }
                 }
 
                 if ($submitBtn && $submitBtn.length > 0) {
@@ -3785,7 +3788,10 @@
                 }
 
                 if (!$submitBtn || $submitBtn.length === 0) {
-                    $submitBtn = $datesModule.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                    var $datesModule = $activeInput.closest('#datesmodule');
+                    if ($datesModule.length > 0) {
+                        $submitBtn = $datesModule.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                    }
                 }
 
                 if ($submitBtn && $submitBtn.length > 0) {
@@ -3861,14 +3867,25 @@
     // Helper to safely trigger React native events and jQuery events on inputs (Jira 10+ compatibility)
     function setInputAndTriggerEvents($input, valueStr) {
         var inputEl = $input[0];
+
+        // This is critical for React 16+ where valueTracker blocks change events if value hasn't "changed"
+        var lastValue = inputEl.value;
+        inputEl.value = valueStr;
+
+        var tracker = inputEl._valueTracker;
+        if (tracker) {
+            tracker.setValue(lastValue);
+        }
+
         try {
             var nativeInputValueSetter = Object.getOwnPropertyDescriptor(
                 window.HTMLInputElement.prototype, 'value'
             ).set;
             nativeInputValueSetter.call(inputEl, valueStr);
         } catch (ex) {
-            inputEl.value = valueStr;
+            // fallback
         }
+
         $input.attr('value', valueStr);
         
         try { inputEl.dispatchEvent(new Event('input', { bubbles: true })); } catch(e) {}
