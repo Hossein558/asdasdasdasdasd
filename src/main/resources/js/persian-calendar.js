@@ -3452,9 +3452,9 @@
 
                 // Try the icons container (Jira often uses icon buttons)
                 if (!$submitBtn || $submitBtn.length === 0) {
-                    var $datesModule = $activeInput.closest('#datesmodule');
-                    if ($datesModule.length > 0) {
-                        $submitBtn = $datesModule.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                    var $datesModuleNode = $activeInput.closest('#datesmodule');
+                    if ($datesModuleNode.length > 0) {
+                        $submitBtn = $datesModuleNode.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
                     }
                 }
 
@@ -3788,9 +3788,9 @@
                 }
 
                 if (!$submitBtn || $submitBtn.length === 0) {
-                    var $datesModule = $activeInput.closest('#datesmodule');
-                    if ($datesModule.length > 0) {
-                        $submitBtn = $datesModule.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                    var $datesModuleNode = $activeInput.closest('#datesmodule');
+                    if ($datesModuleNode.length > 0) {
+                        $submitBtn = $datesModuleNode.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
                     }
                 }
 
@@ -3870,7 +3870,6 @@
 
         // This is critical for React 16+ where valueTracker blocks change events if value hasn't "changed"
         var lastValue = inputEl.value;
-        inputEl.value = valueStr;
 
         var tracker = inputEl._valueTracker;
         if (tracker) {
@@ -3884,6 +3883,7 @@
             nativeInputValueSetter.call(inputEl, valueStr);
         } catch (ex) {
             // fallback
+            inputEl.value = valueStr;
         }
 
         $input.attr('value', valueStr);
