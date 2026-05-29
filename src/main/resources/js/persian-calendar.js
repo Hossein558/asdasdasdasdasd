@@ -2294,7 +2294,7 @@
                     render();
                 } else if (target.classList.contains('pc-day') && !target.classList.contains('empty')) {
                     selectDay(parseInt(target.dataset.day, 10));
-                    if (hideButtons) { confirm(); }
+                    confirm();
                 } else if (target.classList.contains('pc-today')) {
                     logInfo('Today button clicked');
                     selectedDate = { jy: todayJ.jy, jm: todayJ.jm, jd: todayJ.jd };
