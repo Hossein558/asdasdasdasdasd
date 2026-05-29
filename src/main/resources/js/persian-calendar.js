@@ -14,7 +14,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '11.4.18';
+    var PC_VERSION = '11.4.19';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     // IMMEDIATE GLOBAL CLICK DIAGNOSTIC (Writen to F12 Console)
@@ -4082,8 +4082,8 @@
                     return;
                 }
 
-                // Hide original input
-                $original.css('display', 'none');
+                // Hide original input with !important to prevent React overriding
+                $original.attr('style', ($original.attr('style') || '') + '; display: none !important;');
                 logDebug('Hidden original input');
 
                 // Also hide calendar trigger
@@ -4099,8 +4099,14 @@
 
                 // Set initial value
                 var currentVal = $original.val();
+                var exactFormat = null;
                 if (currentVal) {
                     logDebug('Setting initial value from: ' + currentVal);
+                    // Infer exact format to prevent React/Tempo validation errors
+                    if (/^\d{1,2}\/[a-zA-Z]{3}\/\d{2}$/.test(currentVal)) exactFormat = 'd/MMM/yy';
+                    else if (/^\d{1,2}\/[a-zA-Z]{3}\/\d{4}$/.test(currentVal)) exactFormat = 'd/MMM/yyyy';
+                    else if (/^\d{4}-\d{2}-\d{2}$/.test(currentVal)) exactFormat = 'yyyy-MM-dd';
+
                     var gDate = parseJiraDate(currentVal);
                     if (gDate) {
                         var jDate = toJalaali(gDate.year, gDate.month, gDate.day);
@@ -4159,7 +4165,7 @@
                             if (selectedDate) {
                                 $persian.val(formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
                                 var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
-                                var formattedDate = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
+                                var formattedDate = exactFormat ? formatDateWithPattern(gDate.gy, gDate.gm, gDate.gd, exactFormat) : formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
                                 logInfo('Date saved to original input: ' + formattedDate);
                                 setInputAndTriggerEvents($original, formattedDate);
                             } else {
