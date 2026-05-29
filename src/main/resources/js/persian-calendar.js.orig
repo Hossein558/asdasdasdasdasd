@@ -514,16 +514,16 @@
     function parseCompoundDuration(str) {
         if (!str) return null;
         var original = str.trim().toLowerCase();
-        
+
         // Remove standard joining words like "and" or commas
         var cleaned = original.replace(/\band\b/g, ' ').replace(/,/g, ' ').replace(/\s+/g, ' ').trim();
-        
+
         // Match patterns like "(\d+)\s*(seconds?|minutes?|hours?|days?|weeks?|months?|years?|s|m|h|d|w|y)\b"
         var segmentRegex = /(\d+)\s*(second|minute|hour|day|week|month|year|s|m|h|d|w|y)s?\b/g;
         var matches = [];
         var match;
         var lastIndex = 0;
-        
+
         while ((match = segmentRegex.exec(cleaned)) !== null) {
             // Check if there's any unparsed text between matches (excluding whitespace)
             var between = cleaned.substring(lastIndex, match.index).trim();
@@ -536,16 +536,16 @@
             });
             lastIndex = segmentRegex.lastIndex;
         }
-        
+
         // If the whole string wasn't consumed (excluding trailing whitespace)
         if (lastIndex < cleaned.length && cleaned.substring(lastIndex).trim().length > 0) {
             return null;
         }
-        
+
         if (matches.length === 0) {
             return null;
         }
-        
+
         var unitMap = {
             'second': 'ثانیه', 's': 'ثانیه',
             'minute': 'دقیقه', 'm': 'دقیقه',
@@ -555,7 +555,7 @@
             'month': 'ماه',
             'year': 'سال', 'y': 'سال'
         };
-        
+
         var parts = [];
         for (var i = 0; i < matches.length; i++) {
             var num = matches[i].num;
@@ -563,7 +563,7 @@
             var translatedUnit = unitMap[unit] || unit;
             parts.push(toPersianNumerals(num) + ' ' + translatedUnit);
         }
-        
+
         return parts.join(' و ');
     }
 
@@ -583,14 +583,14 @@
     // Broad string translator for relative times, bracketed seconds, and durations
     function translateTextInString(text) {
         if (!text) return text;
-        
+
         // Skip if already containing Persian numerals or key Persian relative words to avoid double translation
         if (text.match(/[۰-۹]/) || text.match(/قبل|الان|دیروز|امروز|فردا|ساعت/)) {
             return text;
         }
-        
+
         var original = text;
-        
+
         // 1. Yesterday/Today/Tomorrow at/or time (e.g. "Yesterday at 1:06 PM" or "Yesterday 1:06 PM")
         var yesterdayTodayRegex = /\b(yesterday|today|tomorrow)\s+(?:at\s+)?(\d{1,2}):(\d{2})(?:\s*(am|pm))?\b/gi;
         original = original.replace(yesterdayTodayRegex, function (match, dayWord, hour, minute, ampm) {
@@ -612,7 +612,7 @@
             var translatedDay = dayTranslate[dayWord.toLowerCase()] || dayWord;
             return translatedDay + ' ساعت ' + toPersianNumerals(hStr) + ':' + toPersianNumerals(minute);
         });
-        
+
         // 2. Duration with bracketed seconds (e.g. "30 minutes [ 1800 ]" or "1 hour 12 minutes [ 4320 ]")
         var bracketedDurationRegex = /\b((?:\b\d+\s+(?:second|minute|hour|day|week|month|year|s|m|h|d|w|y)s?\s*(?:and\s*)?)+)\s*\[\s*(\d+)\s*\]/gi;
         original = original.replace(bracketedDurationRegex, function (match, durationStr, rawSeconds) {
@@ -639,7 +639,7 @@
             }
             return match;
         });
-        
+
         // 5. Future relative times: "in X minutes"
         var futureRelativeRegex = /\bin\s+((?:\b\d+\s+(?:second|minute|hour|day|week|month|year|s|m|h|d|w|y)s?\s*(?:and\s*)?)+)/gi;
         original = original.replace(futureRelativeRegex, function (match, durationPart) {
@@ -719,7 +719,7 @@
                 return compoundParsed + ' قبل';
             }
         }
-        
+
         if (original.indexOf('in ') === 0) {
             var durationPart = original.substring(3).trim();
             var compoundParsed = parseCompoundDuration(durationPart);
@@ -770,7 +770,7 @@
     // Convert duration text to Persian (e.g., "15 minutes" -> "۱۵ دقیقه", "2 hours" -> "۲ ساعت", "15m", "1h 30m")
     function convertDurationToPersian(text) {
         if (!text) return text;
-        
+
         var originalText = text.trim();
         var prefix = '';
         var prefixMatch = originalText.match(/^(Original|New|Old Value|New Value):\s*/i);
@@ -786,7 +786,7 @@
         if (bracketedDurationMatch) {
             var durationStr = bracketedDurationMatch[1].trim();
             var rawSeconds = bracketedDurationMatch[2].trim();
-            
+
             var parsedDuration = parseCompoundDuration(durationStr);
             if (parsedDuration) {
                 var persianSeconds = toPersianNumerals(rawSeconds);
@@ -861,7 +861,7 @@
     // Convert absolute Gregorian date string to Persian (e.g. "13/May/26 8:53 PM" -> "23 اردیبهشت 1405 20:53", "May 13" -> "23 اردیبهشت")
     function convertAbsoluteDateTextToPersian(fullText) {
         if (!fullText) return null;
-        
+
         var prefix = '';
         var textToParse = fullText.trim();
         var prefixMatch = textToParse.match(/^(Original|New|Old Value|New Value):\s*/i);
@@ -973,7 +973,7 @@
         if (parsed) {
             var jDate = toJalaali(parsed.year, parsed.month, parsed.day);
             var persianDateStr = formatPersianDate(jDate.jy, jDate.jm, jDate.jd);
-            
+
             // The LRM (Left-to-Right Mark) character helps separate the time from Persian text
             var lrm = '\u200E';  // Left-to-Right Mark
             var rlm = '\u200F';  // Right-to-Left Mark
@@ -1106,7 +1106,7 @@
                 if (iframeDoc && iframeDoc.body && iframeDoc.body.innerHTML) {
                     convertSameOriginIframe(iframe);
                 }
-                
+
                 // Also always attach a load listener in case it reloads or is still loading
                 if (!iframe._pcLoadListenerAttached) {
                     iframe._pcLoadListenerAttached = true;
@@ -1415,7 +1415,7 @@
 
         function replaceDurationsInString(str) {
             if (!str) return str;
-            
+
             var persianUnits = {
                 'second': 'ثانیه',
                 'minute': 'دقیقه',
@@ -1467,11 +1467,11 @@
         var sysDateRegex5 = /([a-z]{3,})\s+(\d{1,2}),\s+(\d{4})/i;
         var sysDateRegex6 = /(\d{1,2})\/([a-z]{3,})/i;
         var ENGLISH_MONTHS_FULL = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
-        
+
         $('td, span, div, p, time, a').each(function() {
             var $this = $(this);
             if ($this.attr('data-persian-converted') === 'true') return;
-            
+
             // Only process leaf nodes (elements with no element children, only text)
             if ($this.children().length === 0) {
                 var text = $this.text().trim();
@@ -1506,7 +1506,7 @@
                 } else if (sysMatch4) {
                     matchedOriginal = sysMatch4[0];
                     // US Format M/D/Y expected
-                    monthStr = sysMatch4[1]; dayStr = sysMatch4[2]; 
+                    monthStr = sysMatch4[1]; dayStr = sysMatch4[2];
                     yearStr = sysMatch4[3];
                     if (yearStr.length === 2) yearStr = "20" + yearStr;
                     timeStr = sysMatch4[4];
@@ -1552,12 +1552,12 @@
                             }
                         }
                     }
-                    
+
                     if (monthIndex !== -1 && typeof toJalaali !== 'undefined') {
                         try {
                             var jDate = toJalaali(parseInt(yearStr, 10), monthIndex + 1, parseInt(dayStr, 10));
                             var persianDateStr = formatPersianDateSlash(jDate.jy, jDate.jm, jDate.jd);
-                            
+
                             var finalStr = persianDateStr;
                             if (timeStr) finalStr += ' ' + timeStr;
                             if (tzStr) finalStr += ' ' + tzStr;
@@ -1747,7 +1747,7 @@
         var yyyy = year.toString();
         // Force 4-digit year for any year > 1000 to prevent '00xx' database errors
         var yearValue = (year > 1000) ? yyyy : (year % 100 < 10 ? '0' : '') + (year % 100);
-        
+
         var MMM = GREGORIAN_MONTHS[month - 1];
         var MM = (month < 10 ? '0' : '') + month;
         var M = month.toString();
@@ -1855,7 +1855,7 @@
     // Parse Jira date format - supports multiple formats based on DATE_FORMAT_CACHE
     function parseJiraDate(dateStr) {
         if (!dateStr) return null;
-        
+
         // Quietly ignore if already contains Persian characters or non-ASCII symbols
         if (/[^\x00-\x7F]/.test(dateStr)) {
             return null;
@@ -2120,11 +2120,11 @@
         // Create popup
         var popup = document.createElement('div');
         popup.className = 'pc-popup react-datepicker-ignore-onclickoutside';
-        
+
         if (typeof popup.showPopover === 'function') {
             popup.popover = "manual";
         }
-        
+
         document.body.appendChild(popup);
         if (typeof popup.showPopover === 'function') {
             popup.showPopover();
@@ -2132,7 +2132,7 @@
 
         // Position popup - smart positioning relative to viewport
         var rect = inputEl.getBoundingClientRect();
-        
+
         var popupHeight = 420; // Approximate height of popup
         var popupWidth = 320; // Approximate width
         var viewportHeight = window.innerHeight;
@@ -2413,11 +2413,11 @@
         // Create popup
         var popup = document.createElement('div');
         popup.className = 'pc-popup react-datepicker-ignore-onclickoutside';
-        
+
         if (typeof popup.showPopover === 'function') {
             popup.popover = "manual";
         }
-        
+
         document.body.appendChild(popup);
         if (typeof popup.showPopover === 'function') {
             popup.showPopover();
@@ -2649,7 +2649,7 @@
         logInfo('=== Converting View Page Dates ===');
 
         // Selectors for date display elements - ONLY read-only areas
-        // NOTE: Do NOT convert editable fields in sidebar (#due-date, #customfield_*) 
+        // NOTE: Do NOT convert editable fields in sidebar (#due-date, #customfield_*)
         // as it breaks Jira's inline edit functionality
         var dateValueSelectors = [
             // Due date in detail view - ONLY time element (read-only display)
@@ -2959,7 +2959,7 @@
             for (var d = 0; d < 5; d++) {
                 $curr = $curr.parent();
                 if ($curr.length === 0 || $curr.is('body')) break;
-                
+
                 var $target = $curr.find('.' + baseName + ', #' + baseName).filter(function() {
                     return isTextLikeInput(this);
                 });
@@ -3003,19 +3003,19 @@
             if ($current.length === 0 || $current.is('body') || $current.is('html')) {
                 break;
             }
-            
+
             // Find inputs in this container
             var $inputs = $current.find('input').filter(function() {
                 return isTextLikeInput(this);
             });
-            
+
             if ($inputs.length > 0) {
                 // If there is only one input in this container, return it
                 if ($inputs.length === 1) {
                     console.log(PC_LOG_PREFIX + ' [findClosestInput] Single text input found in ancestor at level ' + i + ':', $inputs[0]);
                     return $inputs;
                 }
-                
+
                 // If there are multiple, look for one that is physically closest to the button.
                 // We can find the closest previous input in DOM order.
                 var $prevInContainer = $btn.prevAll().filter(function() {
@@ -3025,7 +3025,7 @@
                     console.log(PC_LOG_PREFIX + ' [findClosestInput] Previous input in container found:', $prevInContainer[0]);
                     return $prevInContainer;
                 }
-                
+
                 // Or look in children of siblings that are before the button
                 var foundTarget = null;
                 $btn.prevAll().each(function() {
@@ -3361,7 +3361,7 @@
                 html += '<span class="' + classes + '" data-day="' + d + '"' + titleAttr + '>' + d + '</span>';
             }
             html += '</div>';
-            
+
             html += '<div class="pc-footer">';
             html += '<button type="button" class="pc-confirm">تأیید</button>';
             html += '<button type="button" class="pc-today">امروز</button>';
@@ -3881,31 +3881,21 @@
             inputEl.value = valueStr;
         }
 
-        // Also try to find React props and invoke onChange directly if tracker approach failed
-        try {
-            var reactPropsKey = Object.keys(inputEl).find(key => key.startsWith('__reactProps$') || key.startsWith('__reactEventHandlers$'));
-            if (reactPropsKey && inputEl[reactPropsKey] && inputEl[reactPropsKey].onChange) {
-                var syntheticEvent = { target: inputEl, currentTarget: inputEl, type: 'change' };
-                inputEl[reactPropsKey].onChange(syntheticEvent);
-                console.log(PC_LOG_PREFIX + ' [INFO] Invoked React onChange directly on ' + inputEl.id);
-            }
-        } catch(e) {}
-
         var tracker = inputEl._valueTracker;
         if (tracker) {
             tracker.setValue(lastValue);
         }
 
         $input.attr('value', valueStr);
-        
+
         try { inputEl.dispatchEvent(new Event('input', { bubbles: true })); } catch(e) {}
         try { inputEl.dispatchEvent(new Event('change', { bubbles: true })); } catch(e) {}
-        try { 
+        try {
             var ev = new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true });
             inputEl.dispatchEvent(ev);
         } catch(e) {}
         try { inputEl.dispatchEvent(new Event('blur', { bubbles: true })); } catch(e) {}
-        
+
         try { $input.trigger('input').trigger('change').trigger('blur'); } catch (e) {}
     }
 
@@ -4116,7 +4106,7 @@
                 // Create Persian calendar button and display span
                 var $persianDisplay = $('<span class="pc-persian-display" style="margin-right:5px; color:#0052cc; font-weight:bold; font-size:12px; direction:rtl;"></span>');
                 var $btn = $('<button type="button" class="aui-button pc-calendar-btn" style="margin-right:5px; background:#0052cc; color:#fff; padding:2px 8px; font-size:11px; border-radius:3px;">📅 تقویم شمسی</button>');
-                
+
                 $original.after($btn);
                 $btn.after($persianDisplay);
                 logInfo('Added Persian calendar button to Create/Edit input');
@@ -4175,7 +4165,7 @@
                         showPersianCalendar($btn, $original, function (selectedDate) {
                             if (selectedDate) {
                                 $persianDisplay.text(formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
-                                
+
                                 var currentVal = $original.val();
                                 var exactFormat = null;
                                 if (currentVal) {
@@ -4315,7 +4305,7 @@
                 $persianInput.val(persianStr);
                 $persianInput.attr('title', persianStr);
                 setInputAndTriggerEvents($originalInput, formattedDate);
-                
+
             }, true);
         }
 
@@ -4327,21 +4317,21 @@
                 var inp = allInputs[i];
                 if (isAuditDateInput(inp)) {
                     var $original = $(inp);
-                    
+
                     // Already processed?
                     if ($original.next('.pc-persian-audit-input').length > 0) continue;
-                    
+
                     logInfo('Found Audit Date Input, replacing...');
                     found = true;
-                    
+
                     // Hide original input
                     $original.css('display', 'none');
                     $original.attr('data-pc-audit-date', 'true');
-                    
+
                     // Create Persian input
                     var $persian = $('<input type="text" class="pc-persian-audit-input" readonly style="cursor:pointer; direction:ltr; text-align:center;">');
                     $persian.attr('placeholder', 'انتخاب تاریخ');
-                    
+
                     // Set initial value
                     var currentVal = $original.val();
                     if (currentVal) {
@@ -4358,7 +4348,7 @@
                     }
 
                     $original.after($persian);
-                    
+
                     // Prevent any native blur/focus issues
                     $original.on('focus', function(e) {
                         e.preventDefault();
@@ -4900,7 +4890,7 @@
                                     var activeInput = iframeDoc.activeElement;
                                     logInfo('JXL: Active element is', { tagName: activeInput ? activeInput.tagName : 'null' });
 
-                                    // If no active input, try to find one related to the popup? 
+                                    // If no active input, try to find one related to the popup?
                                     // Often the input is the LAST focused element.
                                     var inputs = iframeDoc.querySelectorAll('input:not([type="hidden"]), textarea');
                                     if (!activeInput || activeInput.tagName === 'BODY') {

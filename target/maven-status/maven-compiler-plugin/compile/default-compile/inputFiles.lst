@@ -1,7 +1,7 @@
-C:\Users\Hossein\.gemini\antigravity\scratch\Jira-persian-calender\src\main\java\ir\atlassian\jira\plugins\license\LicenseManager.java
-C:\Users\Hossein\.gemini\antigravity\scratch\Jira-persian-calender\src\main\java\ir\atlassian\jira\plugins\rest\ClientLogModel.java
-C:\Users\Hossein\.gemini\antigravity\scratch\Jira-persian-calender\src\main\java\ir\atlassian\jira\plugins\rest\ClientLogResource.java
-C:\Users\Hossein\.gemini\antigravity\scratch\Jira-persian-calender\src\main\java\ir\atlassian\jira\plugins\rest\DateFormatResource.java
-C:\Users\Hossein\.gemini\antigravity\scratch\Jira-persian-calender\src\main\java\ir\atlassian\jira\plugins\rest\LicenseResource.java
-C:\Users\Hossein\.gemini\antigravity\scratch\Jira-persian-calender\src\main\java\ir\atlassian\jira\plugins\security\IntegrityChecker.java
-C:\Users\Hossein\.gemini\antigravity\scratch\Jira-persian-calender\src\main\java\ir\atlassian\jira\plugins\servlet\LicenseServlet.java
+/app/src/main/java/ir/atlassian/jira/plugins/license/LicenseManager.java
+/app/src/main/java/ir/atlassian/jira/plugins/rest/ClientLogModel.java
+/app/src/main/java/ir/atlassian/jira/plugins/rest/ClientLogResource.java
+/app/src/main/java/ir/atlassian/jira/plugins/rest/DateFormatResource.java
+/app/src/main/java/ir/atlassian/jira/plugins/rest/LicenseResource.java
+/app/src/main/java/ir/atlassian/jira/plugins/security/IntegrityChecker.java
+/app/src/main/java/ir/atlassian/jira/plugins/servlet/LicenseServlet.java
