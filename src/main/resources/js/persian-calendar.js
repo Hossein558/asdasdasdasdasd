@@ -3075,7 +3075,9 @@
             '.show-date-picker',
             'button[id*="trigger-"]',
             '.sd-date-picker-gr',
-            '[class*="date-picker"]'
+            '[class*="date-picker"]',
+            // Tempo plugin Log Time Date field
+            'input#started'
         ];
 
         // Remove old listener if exists
@@ -3898,9 +3900,7 @@
             'input#log-work-form-date-logged-date-picker',
             'input#log-work-date-logged-date-picker',
             'input[name="startDate"]',
-            'input[name="worklog_startDate"]',
-            // Tempo plugin Log Time Date field
-            'input#started'
+            'input[name="worklog_startDate"]'
         ];
 
         // Search page selectors - ONLY the Between date inputs
@@ -4460,7 +4460,7 @@
                         var node = mutation.addedNodes[i];
                         if (node.nodeType === 1) {
                             // Jira Core patterns
-                            if (node.id === 'duedate' || (node.querySelector && node.querySelector('#duedate, [name="duedate"], input#started'))) {
+                            if (node.id === 'duedate' || (node.querySelector && node.querySelector('#duedate, [name="duedate"]'))) {
                                 logDebug('MutationObserver: Found date input element in DOM change');
                                 shouldInit = true;
                             }
