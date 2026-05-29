@@ -279,7 +279,7 @@
         document.body.appendChild(overlay);
 
         var popup = document.createElement('div');
-        popup.className = 'pc-popup';
+        popup.className = 'pc-popup react-datepicker-ignore-onclickoutside';
         popup.style.textAlign = 'center';
         popup.style.padding = '30px';
 
@@ -2119,7 +2119,7 @@
 
         // Create popup
         var popup = document.createElement('div');
-        popup.className = 'pc-popup';
+        popup.className = 'pc-popup react-datepicker-ignore-onclickoutside';
         
         if (typeof popup.showPopover === 'function') {
             popup.popover = "manual";
@@ -2412,7 +2412,7 @@
 
         // Create popup
         var popup = document.createElement('div');
-        popup.className = 'pc-popup';
+        popup.className = 'pc-popup react-datepicker-ignore-onclickoutside';
         
         if (typeof popup.showPopover === 'function') {
             popup.popover = "manual";
@@ -3275,7 +3275,7 @@
         var openTime = Date.now();
 
         // Create popup
-        var popup = $('<div class="pc-popup"></div>').appendTo('body');
+        var popup = $('<div class="pc-popup react-datepicker-ignore-onclickoutside"></div>').appendTo('body');
 
         // Prevent mousedown on popup from causing blur
         popup.on('mousedown', function (e) {
@@ -3620,7 +3620,7 @@
         // Create overlay
         var overlay = $('<div class="pc-overlay"></div>').appendTo('body');
         var openTime = Date.now();
-        var popup = $('<div class="pc-popup"></div>').appendTo('body');
+        var popup = $('<div class="pc-popup react-datepicker-ignore-onclickoutside"></div>').appendTo('body');
 
         // Prevent mousedown on popup from causing blur
         popup.on('mousedown', function (e) {
