@@ -4073,116 +4073,110 @@
                     }
                 });
             } else {
-                // CREATE/EDIT PAGE: Replace the input completely
+                // CREATE/EDIT PAGE: Add calendar trigger without replacing the input
                 logInfo('Processing Create/Edit page date input (isDateTime: ' + isDateTimeField + ')');
 
-                // Check if Persian input already exists (for inline edit re-renders)
-                if ($original.next('.pc-persian-input').length > 0) {
-                    logDebug('Persian input already exists, skipping creation');
+                // Check if we already added a button
+                if ($original.next('.pc-calendar-btn').length > 0) {
+                    logDebug('Persian button already exists, skipping creation');
                     return;
                 }
 
-                // Hide original input with !important to prevent React overriding
-                $original.attr('style', ($original.attr('style') || '') + '; display: none !important;');
-                logDebug('Hidden original input');
-
-                // Also hide calendar trigger
+                // Hide native calendar trigger
                 $original.siblings('.aui-ss, .aui-date-picker, .icon-calendar, [class*="calendar"]').hide();
-                $original.next().hide();
+                $original.next('.icon-calendar').hide();
 
-                // Create Persian input with unique class
-                var placeholderText = isDateTimeField ? 'انتخاب تاریخ و ساعت' : 'انتخاب تاریخ';
-                var $persian = $('<input type="text" class="text medium-field pc-persian-input" readonly style="cursor:pointer; direction:rtl; text-align:right;">');
-                $persian.attr('placeholder', placeholderText);
-                $original.after($persian);
-                logInfo('Created Persian input field');
+                // Create Persian calendar button and display span
+                var $persianDisplay = $('<span class="pc-persian-display" style="margin-right:5px; color:#0052cc; font-weight:bold; font-size:12px; direction:rtl;"></span>');
+                var $btn = $('<button type="button" class="aui-button pc-calendar-btn" style="margin-right:5px; background:#0052cc; color:#fff; padding:2px 8px; font-size:11px; border-radius:3px;">📅 تقویم شمسی</button>');
+                
+                $original.after($btn);
+                $btn.after($persianDisplay);
+                logInfo('Added Persian calendar button to Create/Edit input');
 
-                // Set initial value
+                // If input already has a value, show Persian equivalent
                 var currentVal = $original.val();
-                var exactFormat = null;
                 if (currentVal) {
-                    logDebug('Setting initial value from: ' + currentVal);
-                    // Infer exact format to prevent React/Tempo validation errors
-                    if (/^\d{1,2}\/[a-zA-Z]{3}\/\d{2}$/.test(currentVal)) exactFormat = 'd/MMM/yy';
-                    else if (/^\d{1,2}\/[a-zA-Z]{3}\/\d{4}$/.test(currentVal)) exactFormat = 'd/MMM/yyyy';
-                    else if (/^\d{4}-\d{2}-\d{2}$/.test(currentVal)) exactFormat = 'yyyy-MM-dd';
-
-                    var gDate = parseJiraDate(currentVal);
-                    if (gDate) {
-                        var jDate = toJalaali(gDate.year, gDate.month, gDate.day);
+                    var parsedDate = parseJiraDate(currentVal);
+                    if (parsedDate) {
+                        var jDate = toJalaali(parsedDate.year, parsedDate.month, parsedDate.day);
                         if (isDateTimeField) {
-                            // Parse time part
                             var timeMatch = currentVal.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
                             var timeStr = timeMatch ? ' ' + timeMatch[0] : '';
-                            $persian.val(formatPersianDate(jDate.jy, jDate.jm, jDate.jd) + timeStr);
+                            $persianDisplay.text(formatPersianDate(jDate.jy, jDate.jm, jDate.jd) + timeStr);
                         } else {
-                            $persian.val(formatPersianDate(jDate.jy, jDate.jm, jDate.jd));
+                            $persianDisplay.text(formatPersianDate(jDate.jy, jDate.jm, jDate.jd));
                         }
-                        logInfo('Initial Persian date set: ' + $persian.val());
                     }
                 }
 
-                // Click handler - different for Date vs DateTime
-                if (isDateTimeField) {
-                    // DateTime picker with time selection
-                    $persian.on('click', function (e) {
-                        logInfo('Persian DateTime input clicked');
-                        e.preventDefault();
-                        e.stopPropagation();
+                $btn.on('click', function (e) {
+                    logInfo('Create/Edit calendar button clicked');
+                    e.preventDefault();
+                    e.stopPropagation();
 
-                        showPersianDateTimePicker($persian, $original, function (selectedDateTime) {
+                    // Hide any native AUI datepicker that might have opened
+                    try {
+                        if ($original.data('aui-datepicker')) {
+                            $original.data('aui-datepicker').hide();
+                        }
+                    } catch(ex) {}
+
+                    if (isDateTimeField) {
+                        showPersianDateTimePicker($btn, $original, function (selectedDateTime) {
                             if (selectedDateTime) {
-                                // Format display value (Persian) - Use 24-hour format to avoid AM/PM issues
                                 var hour24 = selectedDateTime.hour;
                                 if (selectedDateTime.ampm === 'PM' && hour24 !== 12) hour24 += 12;
                                 if (selectedDateTime.ampm === 'AM' && hour24 === 12) hour24 = 0;
-                                
                                 var hStr = hour24 < 10 ? '0' + hour24 : '' + hour24;
                                 var minStr = selectedDateTime.minute < 10 ? '0' + selectedDateTime.minute : '' + selectedDateTime.minute;
                                 var timeStr = hStr + ':' + minStr;
-                                $persian.val(formatPersianDate(selectedDateTime.jy, selectedDateTime.jm, selectedDateTime.jd) + ' ' + timeStr);
+                                var pDisplay = formatPersianDate(selectedDateTime.jy, selectedDateTime.jm, selectedDateTime.jd) + ' ' + timeStr;
+                                $persianDisplay.text(pDisplay);
 
-                                // Format Jira value (Gregorian with time) - dd/MMM/yyyy h:mm a
                                 var gDate = toGregorian(selectedDateTime.jy, selectedDateTime.jm, selectedDateTime.jd);
                                 var formattedDate = formatJiraDateTime(gDate.gy, gDate.gm, gDate.gd, selectedDateTime.hour, selectedDateTime.minute, selectedDateTime.ampm);
                                 logInfo('DateTime saved to original input: ' + formattedDate);
                                 setInputAndTriggerEvents($original, formattedDate);
                             } else {
-                                $persian.val('');
+                                $persianDisplay.text('');
                                 logInfo('DateTime cleared');
                                 setInputAndTriggerEvents($original, '');
                             }
                         });
-                    });
-                } else {
-                    // Date-only picker
-                    $persian.on('click', function (e) {
-                        logInfo('Persian input clicked');
-                        e.preventDefault();
-                        e.stopPropagation();
-
-                        showPersianCalendar($persian, $original, function (selectedDate) {
+                    } else {
+                        showPersianCalendar($btn, $original, function (selectedDate) {
                             if (selectedDate) {
-                                $persian.val(formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
+                                $persianDisplay.text(formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
+                                
+                                var currentVal = $original.val();
+                                var exactFormat = null;
+                                if (currentVal) {
+                                    if (/^\d{1,2}\/[a-zA-Z]{3}\/\d{2}$/.test(currentVal)) exactFormat = 'd/MMM/yy';
+                                    else if (/^\d{1,2}\/[a-zA-Z]{3}\/\d{4}$/.test(currentVal)) exactFormat = 'd/MMM/yyyy';
+                                    else if (/^\d{4}-\d{2}-\d{2}$/.test(currentVal)) exactFormat = 'yyyy-MM-dd';
+                                }
+
                                 var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
                                 var formattedDate = exactFormat ? formatDateWithPattern(gDate.gy, gDate.gm, gDate.gd, exactFormat) : formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
                                 logInfo('Date saved to original input: ' + formattedDate);
                                 setInputAndTriggerEvents($original, formattedDate);
                             } else {
-                                $persian.val('');
+                                $persianDisplay.text('');
                                 logInfo('Date cleared');
                                 setInputAndTriggerEvents($original, '');
                             }
                         });
-                    });
-                }
+                    }
+                });
 
-                // Prevent original calendar from opening
-                $original.off('click focus');
-                $original.on('click focus', function (e) {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    return false;
+                // Prevent native calendar when original input is focused
+                $original.on('focus', function(e) {
+                    try {
+                        if ($original.data('aui-datepicker')) {
+                            $original.data('aui-datepicker').hide();
+                        }
+                    } catch(ex) {}
                 });
             }
         });
