@@ -1,6 +1,6 @@
 Manifest-Version: 1.0
-Atlassian-Build-Date: 2026-05-31T01:30:33+0330
-Bnd-LastModified: 1780178433894
+Atlassian-Build-Date: 2026-05-31T01:36:12+0330
+Bnd-LastModified: 1780178773058
 Build-Jdk: 21.0.11
 Built-By: Hossein
 Bundle-Description: Displays Due Date field with Persian/Shamsi calendar

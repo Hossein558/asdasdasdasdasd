@@ -4409,18 +4409,20 @@
         }, 500);
 
         // Re-run on AJAX content
+        var newContentTimer = null;
         if (typeof JIRA !== 'undefined' && JIRA.bind) {
             logInfo('JIRA framework detected, binding to NEW_CONTENT_ADDED');
             JIRA.bind(JIRA.Events.NEW_CONTENT_ADDED, function () {
                 logDebug('NEW_CONTENT_ADDED event fired');
-                setTimeout(function () {
+                if (newContentTimer) clearTimeout(newContentTimer);
+                newContentTimer = setTimeout(function () {
                     analyzePageForDateElements();
                     initPersianCalendar($);
                     convertViewPageDates($);
                     // v11.4.0: New date display converters
                     convertActivityStreamTime($);
                     convertAuditLogDates($);
-            convertIssueSearchDates($);
+                    convertIssueSearchDates($);
                     convertTimeSpentDurations($);
                 }, 200);
             });
@@ -4437,13 +4439,18 @@
                     // v11.4.0: New date display converters
                     convertActivityStreamTime($);
                     convertAuditLogDates($);
-            convertIssueSearchDates($);
+                    convertIssueSearchDates($);
                     convertTimeSpentDurations($);
                 }, delay);
             });
         }
 
         // Also observe DOM changes
+        var mutInitTimer = null;
+        var mutConvertTimer = null;
+        var pendingInit = false;
+        var pendingConvert = false;
+        
         var observer = new MutationObserver(function (mutations) {
             var shouldInit = false;
             var shouldConvertDates = false;
@@ -4490,16 +4497,25 @@
                 }
             });
 
-            if (shouldInit) {
-                setTimeout(function () { initPersianCalendar($); }, 100);
+            if (shouldInit) pendingInit = true;
+            if (shouldConvertDates) pendingConvert = true;
+
+            if (pendingInit) {
+                if (mutInitTimer) clearTimeout(mutInitTimer);
+                mutInitTimer = setTimeout(function () {
+                    pendingInit = false;
+                    initPersianCalendar($);
+                }, 100);
             }
-            if (shouldConvertDates) {
-                setTimeout(function () {
+            if (pendingConvert) {
+                if (mutConvertTimer) clearTimeout(mutConvertTimer);
+                mutConvertTimer = setTimeout(function () {
+                    pendingConvert = false;
                     convertViewPageDates($);
                     // v11.4.0: New date display converters
                     convertActivityStreamTime($);
                     convertAuditLogDates($);
-            convertIssueSearchDates($);
+                    convertIssueSearchDates($);
                     convertTimeSpentDurations($);
                 }, 100);
             }
