@@ -1,0 +1,1 @@
+cmd.exe /X /C "C:\Java\jdk-21.0.11\bin\javadoc.exe -J-Xmx1024m @options @argfile"

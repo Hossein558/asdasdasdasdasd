@@ -3116,11 +3116,11 @@
             console.log(PC_LOG_PREFIX + ' [CAPTURE-PHASE] Click recognized as calendar button! Button:', $btn[0]);
 
             // Check if inside datesmodule (Jira Core inline edit) OR JSM Customer Portal date picker
-            var $datesModuleNode = $btn.closest('#datesmodule');
+            var $datesModule = $btn.closest('#datesmodule');
             var $jsmDatePicker = $btn.closest('.cv-request-create-container, .sd-date-picker, .cp-date-picker, .field-group, [class*="date-picker"], form');
 
             // Allow either Jira Core (datesmodule) or JSM (various containers)
-            var isJiraCore = $datesModuleNode.length > 0;
+            var isJiraCore = $datesModule.length > 0;
             var isJSM = $jsmDatePicker.length > 0;
 
             console.log(PC_LOG_PREFIX + ' [CAPTURE-PHASE] Context detected: Jira Core=' + isJiraCore + ', JSM=' + isJSM);
@@ -3452,10 +3452,7 @@
 
                 // Try the icons container (Jira often uses icon buttons)
                 if (!$submitBtn || $submitBtn.length === 0) {
-                    var $datesModuleNode = $activeInput.closest('#datesmodule');
-                    if ($datesModuleNode.length > 0) {
-                        $submitBtn = $datesModuleNode.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
-                    }
+                    $submitBtn = $datesModule.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
                 }
 
                 if ($submitBtn && $submitBtn.length > 0) {
@@ -3788,10 +3785,7 @@
                 }
 
                 if (!$submitBtn || $submitBtn.length === 0) {
-                    var $datesModuleNode = $activeInput.closest('#datesmodule');
-                    if ($datesModuleNode.length > 0) {
-                        $submitBtn = $datesModuleNode.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
-                    }
+                    $submitBtn = $datesModule.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
                 }
 
                 if ($submitBtn && $submitBtn.length > 0) {
@@ -3867,19 +3861,18 @@
     // Helper to safely trigger React native events and jQuery events on inputs (Jira 10+ compatibility)
     function setInputAndTriggerEvents($input, valueStr) {
         var inputEl = $input[0];
-
-        // This is critical for React 16+ where valueTracker blocks change events if value hasn't "changed"
-        var lastValue = inputEl.value;
-
         try {
             var nativeInputValueSetter = Object.getOwnPropertyDescriptor(
                 window.HTMLInputElement.prototype, 'value'
             ).set;
             nativeInputValueSetter.call(inputEl, valueStr);
         } catch (ex) {
-            // fallback
             inputEl.value = valueStr;
         }
+        $input.attr('value', valueStr);
+
+        try { inputEl.dispatchEvent(new Event('input', { bubbles: true })); } catch(e) {}
+        try { inputEl.dispatchEvent(new Event('change', { bubbles: true })); } catch(e) {}
 
         // Also try to find React props and invoke onChange directly if tracker approach failed
         try {
@@ -3891,15 +3884,6 @@
             }
         } catch(e) {}
 
-        var tracker = inputEl._valueTracker;
-        if (tracker) {
-            tracker.setValue(lastValue);
-        }
-
-        $input.attr('value', valueStr);
-        
-        try { inputEl.dispatchEvent(new Event('input', { bubbles: true })); } catch(e) {}
-        try { inputEl.dispatchEvent(new Event('change', { bubbles: true })); } catch(e) {}
         try { 
             var ev = new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true });
             inputEl.dispatchEvent(ev);
