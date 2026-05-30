@@ -3279,8 +3279,12 @@
         // Create popup
         var popup = $('<div class="pc-popup react-datepicker-ignore-onclickoutside"></div>').appendTo('body');
 
-        // Prevent mousedown on popup from causing blur
+        // Prevent mousedown on popup from causing blur, except on interactive elements
         popup.on('mousedown', function (e) {
+            var tag = e.target.tagName ? e.target.tagName.toUpperCase() : '';
+            if (tag === 'SELECT' || tag === 'INPUT' || tag === 'BUTTON' || tag === 'TEXTAREA') {
+                return; // allow default behavior for interactive elements
+            }
             e.preventDefault();
             logInfo('Mousedown on popup - preventing default');
         });
@@ -3297,9 +3301,16 @@
         var viewportWidth = window.innerWidth;
 
         var spaceBelow = viewportHeight - rect.bottom;
-        var topPos = spaceBelow >= popupHeight ? rect.bottom + window.scrollY + 5 : rect.top + window.scrollY - popupHeight - 5;
+        var spaceAbove = rect.top;
+        var topPos;
+        if (spaceBelow >= popupHeight || spaceBelow > spaceAbove) {
+            topPos = rect.bottom + window.scrollY + 5;
+        } else {
+            topPos = rect.top + window.scrollY - popupHeight - 5;
+            if (topPos < window.scrollY + 10) topPos = window.scrollY + 10;
+        }
         var leftPos = Math.min(rect.left + window.scrollX, viewportWidth - popupWidth - 10);
-        if (leftPos < 10) leftPos = 10;
+        if (leftPos < window.scrollX + 10) leftPos = window.scrollX + 10;
 
         popup.css({
             position: 'absolute',
@@ -3624,8 +3635,12 @@
         var openTime = Date.now();
         var popup = $('<div class="pc-popup react-datepicker-ignore-onclickoutside"></div>').appendTo('body');
 
-        // Prevent mousedown on popup from causing blur
+        // Prevent mousedown on popup from causing blur, except on interactive elements
         popup.on('mousedown', function (e) {
+            var tag = e.target.tagName ? e.target.tagName.toUpperCase() : '';
+            if (tag === 'SELECT' || tag === 'INPUT' || tag === 'BUTTON' || tag === 'TEXTAREA') {
+                return; // allow default behavior for interactive elements
+            }
             e.preventDefault();
             logInfo('Mousedown on DateTime popup - preventing default');
         });
@@ -3641,9 +3656,16 @@
         var viewportWidth = window.innerWidth;
 
         var spaceBelow = viewportHeight - rect.bottom;
-        var topPos = spaceBelow >= popupHeight ? rect.bottom + window.scrollY + 5 : rect.top + window.scrollY - popupHeight - 5;
+        var spaceAbove = rect.top;
+        var topPos;
+        if (spaceBelow >= popupHeight || spaceBelow > spaceAbove) {
+            topPos = rect.bottom + window.scrollY + 5;
+        } else {
+            topPos = rect.top + window.scrollY - popupHeight - 5;
+            if (topPos < window.scrollY + 10) topPos = window.scrollY + 10;
+        }
         var leftPos = Math.min(rect.left + window.scrollX, viewportWidth - 320 - 10);
-        if (leftPos < 10) leftPos = 10;
+        if (leftPos < window.scrollX + 10) leftPos = window.scrollX + 10;
 
         popup.css({ position: 'absolute', top: topPos + 'px', left: leftPos + 'px', zIndex: 2000000001 });
 
