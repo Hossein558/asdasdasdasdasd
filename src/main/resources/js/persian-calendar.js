@@ -3823,7 +3823,10 @@
                 }
 
                 if (!$submitBtn || $submitBtn.length === 0) {
-                    $submitBtn = $datesModule.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                    var $datesModuleNode2 = $activeInput.closest('#datesmodule');
+                    if ($datesModuleNode2.length > 0) {
+                        $submitBtn = $datesModuleNode2.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                    }
                 }
 
                 if ($submitBtn && $submitBtn.length > 0) {
