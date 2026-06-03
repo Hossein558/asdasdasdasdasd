@@ -3078,7 +3078,9 @@
             '[class*="date-picker"]',
             // Tempo plugin Log Time Date field
             'input#started',
-            'input#endDate'
+            'input#endDate',
+            'input[name="startDate"]',
+            'input[name="endDate"]'
         ];
 
         // Remove old listener if exists
