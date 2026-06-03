@@ -3403,8 +3403,20 @@
             if (selectedDate) {
                 var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
                 logInfo('Converting Shamsi to Gregorian: ' + selectedDate.jy + '/' + selectedDate.jm + '/' + selectedDate.jd + ' -> ' + gDate.gy + '/' + gDate.gm + '/' + gDate.gd);
-                var gregorianStr = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
-                logInfo('Formatted Gregorian string: ' + gregorianStr);
+                // Detect the existing input's year format (2-digit vs 4-digit) and match it
+                var existingVal = $input ? $input.val() : '';
+                var use2DigitYear = existingVal && /\/\d{2}$/.test(existingVal.trim());
+                var gregorianStr;
+                if (use2DigitYear) {
+                    // Match 2-digit year format e.g. "04/Jun/26"
+                    var yy = String(gDate.gy).slice(-2);
+                    var mm = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][gDate.gm - 1];
+                    var dd = gDate.gd < 10 ? '0' + gDate.gd : gDate.gd;
+                    gregorianStr = dd + '/' + mm + '/' + yy;
+                } else {
+                    gregorianStr = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
+                }
+                logInfo('Formatted Gregorian string: ' + gregorianStr + ' (use2DigitYear=' + use2DigitYear + ')');
 
                 // Re-find the input field using smart proximity and fallback
                 var $activeInput = null;
@@ -3463,7 +3475,10 @@
 
                 // Try the icons container (Jira often uses icon buttons)
                 if (!$submitBtn || $submitBtn.length === 0) {
-                    $submitBtn = $datesModule.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                    var $datesModuleNode2 = $activeInput.closest('#datesmodule');
+                    if ($datesModuleNode2.length > 0) {
+                        $submitBtn = $datesModuleNode2.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                    }
                 }
 
                 if ($submitBtn && $submitBtn.length > 0) {
@@ -3892,9 +3907,20 @@
             inputEl.value = valueStr;
         }
         $input.attr('value', valueStr);
-        
+
         try { inputEl.dispatchEvent(new Event('input', { bubbles: true })); } catch(e) {}
         try { inputEl.dispatchEvent(new Event('change', { bubbles: true })); } catch(e) {}
+
+        // Also try to find React props and invoke onChange directly if tracker approach failed
+        try {
+            var reactPropsKey = Object.keys(inputEl).find(key => key.startsWith('__reactProps$') || key.startsWith('__reactEventHandlers$'));
+            if (reactPropsKey && inputEl[reactPropsKey] && inputEl[reactPropsKey].onChange) {
+                var syntheticEvent = { target: inputEl, currentTarget: inputEl, type: 'change' };
+                inputEl[reactPropsKey].onChange(syntheticEvent);
+                console.log(PC_LOG_PREFIX + ' [INFO] Invoked React onChange directly on ' + inputEl.id);
+            }
+        } catch(e) {}
+
         try { 
             var ev = new KeyboardEvent('keydown', { key: 'Enter', keyCode: 13, bubbles: true });
             inputEl.dispatchEvent(ev);
