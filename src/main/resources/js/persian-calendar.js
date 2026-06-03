@@ -3397,10 +3397,11 @@
                 var use2DigitYear = existingVal && /\/\d{2}$/.test(existingVal.trim());
                 var gregorianStr;
                 if (use2DigitYear) {
-                    // Match 2-digit year format e.g. "4/Jun/26"
+                    // Match 2-digit year format e.g. "04/Jun/26"
                     var yy = String(gDate.gy).slice(-2);
                     var mm = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][gDate.gm - 1];
-                    gregorianStr = gDate.gd + '/' + mm + '/' + yy;
+                    var dd = gDate.gd < 10 ? '0' + gDate.gd : gDate.gd;
+                    gregorianStr = dd + '/' + mm + '/' + yy;
                 } else {
                     gregorianStr = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
                 }
