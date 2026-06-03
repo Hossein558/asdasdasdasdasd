@@ -3077,7 +3077,8 @@
             '.sd-date-picker-gr',
             '[class*="date-picker"]',
             // Tempo plugin Log Time Date field
-            'input#started'
+            'input#started',
+            'input#endDate'
         ];
 
         // Remove old listener if exists
