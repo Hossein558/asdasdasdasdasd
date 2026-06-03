@@ -14,7 +14,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '11.4.19';
+    var PC_VERSION = '11.4.20';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     // IMMEDIATE GLOBAL CLICK DIAGNOSTIC (Writen to F12 Console)
@@ -3392,8 +3392,19 @@
             if (selectedDate) {
                 var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
                 logInfo('Converting Shamsi to Gregorian: ' + selectedDate.jy + '/' + selectedDate.jm + '/' + selectedDate.jd + ' -> ' + gDate.gy + '/' + gDate.gm + '/' + gDate.gd);
-                var gregorianStr = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
-                logInfo('Formatted Gregorian string: ' + gregorianStr);
+                // Detect the existing input's year format (2-digit vs 4-digit) and match it
+                var existingVal = $input ? $input.val() : '';
+                var use2DigitYear = existingVal && /\/\d{2}$/.test(existingVal.trim());
+                var gregorianStr;
+                if (use2DigitYear) {
+                    // Match 2-digit year format e.g. "4/Jun/26"
+                    var yy = String(gDate.gy).slice(-2);
+                    var mm = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'][gDate.gm - 1];
+                    gregorianStr = gDate.gd + '/' + mm + '/' + yy;
+                } else {
+                    gregorianStr = formatJiraDate(gDate.gy, gDate.gm, gDate.gd);
+                }
+                logInfo('Formatted Gregorian string: ' + gregorianStr + ' (use2DigitYear=' + use2DigitYear + ')');
 
                 // Re-find the input field using smart proximity and fallback
                 var $activeInput = null;
@@ -3452,7 +3463,10 @@
 
                 // Try the icons container (Jira often uses icon buttons)
                 if (!$submitBtn || $submitBtn.length === 0) {
-                    $submitBtn = $datesModule.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                    var $datesModuleNode2 = $activeInput.closest('#datesmodule');
+                    if ($datesModuleNode2.length > 0) {
+                        $submitBtn = $datesModuleNode2.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                    }
                 }
 
                 if ($submitBtn && $submitBtn.length > 0) {
