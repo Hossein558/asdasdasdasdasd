@@ -14,7 +14,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '11.4.20';
+    var PC_VERSION = '11.4.21';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
     // IMMEDIATE GLOBAL CLICK DIAGNOSTIC (Writen to F12 Console)
