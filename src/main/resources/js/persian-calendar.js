@@ -4255,6 +4255,8 @@
             'body.pc-calendar-is-open [role="dialog"] table[role="grid"] { display: none !important; }',
             'body.pc-calendar-is-open [role="dialog"]:has(table[role="grid"]) { display: none !important; }',
             'body.pc-calendar-is-open div[data-placement] { display: none !important; }',
+            'body.pc-calendar-is-open .react-datepicker-popper { display: none !important; }',
+            'body.pc-calendar-is-open .react-datepicker { display: none !important; }',
             '.pc-audit-hidden-calendar { display: none !important; visibility: hidden !important; pointer-events: none !important; height: 0 !important; overflow: hidden !important; }',
             '/* Style for our custom inputs */',
             '.pc-persian-audit-input { min-width: 150px; background-color: #FAFBFC; border: 2px solid #DFE1E6; border-radius: 3px; box-sizing: border-box; color: #091E42; font-family: inherit; font-size: 14px; margin: 0; padding: 4px 6px; }',
