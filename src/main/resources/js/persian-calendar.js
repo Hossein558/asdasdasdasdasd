@@ -3387,11 +3387,13 @@
         }
 
         function close() {
-            document.body.classList.remove('pc-calendar-is-open');
             // Cleanup blur prevention before closing
             cleanupBlurPrevention();
             popup.remove();
             overlay.remove();
+            setTimeout(function() {
+                document.body.classList.remove('pc-calendar-is-open');
+            }, 200);
         }
 
         function selectDay(day) {
@@ -3459,70 +3461,39 @@
 
                 logInfo('Input value after setting: ' + $activeInput.val());
 
-                // Find and click Jira's inline edit submit button (the checkmark icon)
-                var $form = $activeInput.closest('form');
-                var $editableField = $activeInput.closest('.editable-field');
-
-                // Look for the submit/save button - Jira uses various patterns
-                var $submitBtn = null;
-
-                // Try to find submit button in form first
-                if ($form.length > 0) {
-                    $submitBtn = $form.find('button[type="submit"], input[type="submit"], .aui-button.submit, button.submit').first();
-                }
-
-                // Try editable field container
-                if ((!$submitBtn || $submitBtn.length === 0) && $editableField.length > 0) {
-                    $submitBtn = $editableField.find('button[type="submit"], .aui-button.submit, .inline-edit-save, .save').first();
-                }
-
-                // Try the icons container (Jira often uses icon buttons)
-                if (!$submitBtn || $submitBtn.length === 0) {
-                    var $datesModuleNode2 = $activeInput.closest('#datesmodule');
-                    if ($datesModuleNode2.length > 0) {
-                        $submitBtn = $datesModuleNode2.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                var isInlineEdit = $activeInput.closest('.inline-edit-fields').length > 0 || $activeInput.closest('.editable-field').length > 0;
+                
+                if (isInlineEdit) {
+                    var $editableField = $activeInput.closest('.editable-field');
+                    var $submitBtn = $editableField.find('button[type="submit"], .aui-button.submit, .inline-edit-save, .save').first();
+                    
+                    if (!$submitBtn || $submitBtn.length === 0) {
+                        var $datesModuleNode2 = $activeInput.closest('#datesmodule');
+                        if ($datesModuleNode2.length > 0) {
+                            $submitBtn = $datesModuleNode2.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                        }
                     }
-                }
 
-                if ($submitBtn && $submitBtn.length > 0) {
-                    logInfo('Found submit button: ' + $submitBtn.attr('class') + ', clicking to save');
-                    setTimeout(function () {
-                        $submitBtn.click();
-                        $submitBtn.trigger('click');
-                    }, 50);
-                } else {
-                    // Trigger Enter key as fallback - this often submits inline edit forms
-                    logInfo('No submit button found, triggering Enter key on input');
-                    setTimeout(function () {
-                        // Focus the input first
-                        $activeInput[0].focus();
-
-                        // Simulate pressing Enter
-                        var enterEvent = new KeyboardEvent('keydown', {
-                            key: 'Enter',
-                            code: 'Enter',
-                            keyCode: 13,
-                            which: 13,
-                            bubbles: true,
-                            cancelable: true
-                        });
-                        $activeInput[0].dispatchEvent(enterEvent);
-
-                        var enterUp = new KeyboardEvent('keyup', {
-                            key: 'Enter',
-                            code: 'Enter',
-                            keyCode: 13,
-                            which: 13,
-                            bubbles: true
-                        });
-                        $activeInput[0].dispatchEvent(enterUp);
-
-                        // Also trigger blur which sometimes triggers save
+                    if ($submitBtn && $submitBtn.length > 0) {
+                        logInfo('Found inline submit button, clicking to save');
                         setTimeout(function () {
-                            $activeInput.trigger('blur');
-                            $activeInput[0].blur();
+                            $submitBtn.click();
+                            $submitBtn.trigger('click');
                         }, 50);
-                    }, 50);
+                    } else {
+                        logInfo('No inline submit button found, triggering Enter key on input');
+                        setTimeout(function () {
+                            $activeInput[0].focus();
+                            var enterEvent = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true });
+                            $activeInput[0].dispatchEvent(enterEvent);
+                            var enterUp = new KeyboardEvent('keyup', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true });
+                            $activeInput[0].dispatchEvent(enterUp);
+                            setTimeout(function () { $activeInput.trigger('blur'); $activeInput[0].blur(); }, 50);
+                        }, 50);
+                    }
+                } else {
+                    logInfo('Not an inline edit, just blurring input');
+                    setTimeout(function () { $activeInput.trigger('blur'); $activeInput[0].blur(); }, 50);
                 }
             }
             close();
@@ -3769,7 +3740,11 @@
         }
 
         function close() {
-            document.body.classList.remove('pc-calendar-is-open'); cleanupBlurPrevention(); popup.remove(); overlay.remove(); }
+            cleanupBlurPrevention(); 
+            popup.remove(); 
+            overlay.remove(); 
+            setTimeout(function() { document.body.classList.remove('pc-calendar-is-open'); }, 200);
+        }
 
         function selectDay(day) { selectedDate = { jy: viewYear, jm: viewMonth, jd: day }; render(); }
 
@@ -3812,50 +3787,37 @@
                 logInfo('DateTime value set: ' + $activeInput.val());
 
                 // Find submit button
-                var $form = $activeInput.closest('form');
-                var $editableField = $activeInput.closest('.editable-field');
-                var $submitBtn = null;
-
-                if ($form.length > 0) {
-                    $submitBtn = $form.find('button[type="submit"], input[type="submit"], .aui-button.submit').first();
-                }
-
-                if ((!$submitBtn || $submitBtn.length === 0) && $editableField.length > 0) {
-                    $submitBtn = $editableField.find('button[type="submit"], .aui-button.submit, .inline-edit-save').first();
-                }
-
-                if (!$submitBtn || $submitBtn.length === 0) {
-                    var $datesModuleNode2 = $activeInput.closest('#datesmodule');
-                    if ($datesModuleNode2.length > 0) {
-                        $submitBtn = $datesModuleNode2.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                var isInlineEdit = $activeInput.closest('.inline-edit-fields').length > 0 || $activeInput.closest('.editable-field').length > 0;
+                
+                if (isInlineEdit) {
+                    var $editableField = $activeInput.closest('.editable-field');
+                    var $submitBtn = $editableField.find('button[type="submit"], .aui-button.submit, .inline-edit-save, .save').first();
+                    
+                    if (!$submitBtn || $submitBtn.length === 0) {
+                        var $datesModuleNode2 = $activeInput.closest('#datesmodule');
+                        if ($datesModuleNode2.length > 0) {
+                            $submitBtn = $datesModuleNode2.find('.inline-edit-fields button[type="submit"], .aui-icon-check, [class*="save"]').first();
+                        }
                     }
-                }
 
-                if ($submitBtn && $submitBtn.length > 0) {
-                    logInfo('Found submit button for DateTime, clicking');
-                    setTimeout(function () {
-                        $submitBtn.click();
-                        $submitBtn.trigger('click');
-                    }, 50);
-                } else {
-                    logInfo('No submit button found for DateTime, triggering Enter');
-                    setTimeout(function () {
-                        $activeInput[0].focus();
-                        var enterEvent = new KeyboardEvent('keydown', {
-                            key: 'Enter',
-                            code: 'Enter',
-                            keyCode: 13,
-                            which: 13,
-                            bubbles: true,
-                            cancelable: true
-                        });
-                        $activeInput[0].dispatchEvent(enterEvent);
-
+                    if ($submitBtn && $submitBtn.length > 0) {
+                        logInfo('Found inline submit button for DateTime, clicking');
                         setTimeout(function () {
-                            $activeInput.trigger('blur');
-                            $activeInput[0].blur();
+                            $submitBtn.click();
+                            $submitBtn.trigger('click');
                         }, 50);
-                    }, 50);
+                    } else {
+                        logInfo('No inline submit button found for DateTime, triggering Enter');
+                        setTimeout(function () {
+                            $activeInput[0].focus();
+                            var enterEvent = new KeyboardEvent('keydown', { key: 'Enter', code: 'Enter', keyCode: 13, which: 13, bubbles: true, cancelable: true });
+                            $activeInput[0].dispatchEvent(enterEvent);
+                            setTimeout(function () { $activeInput.trigger('blur'); $activeInput[0].blur(); }, 50);
+                        }, 50);
+                    }
+                } else {
+                    logInfo('Not an inline edit for DateTime, just blurring input');
+                    setTimeout(function () { $activeInput.trigger('blur'); $activeInput[0].blur(); }, 50);
                 }
             }
             close();
