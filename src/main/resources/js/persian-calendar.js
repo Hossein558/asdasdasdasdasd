@@ -1480,8 +1480,12 @@
                 if (!text) return;
 
                 if (isConverted) {
-                    if (originalText && text === originalText.trim()) {
-                        // React reverted the text! Remove the flag to allow re-processing.
+                    var persianText = $this.attr('data-persian-text');
+                    if (persianText && text !== persianText.trim()) {
+                        // React has changed the text! Remove the flag so it can be re-processed.
+                        $this.removeAttr('data-persian-converted');
+                    } else if (!persianText && originalText && text === originalText.trim()) {
+                        // Fallback check if persian-text was not stored
                         $this.removeAttr('data-persian-converted');
                     } else {
                         return; // Still Persian, skip
@@ -1604,6 +1608,7 @@
                     
                     $this.text(replacement);
                     $this.attr('data-original-text', originalBeforeReplace);
+                    $this.attr('data-persian-text', replacement);
                     $this.attr('data-persian-converted', 'true');
                     $this.attr('title', originalBeforeReplace);
                     convertedCount++;
