@@ -1458,6 +1458,7 @@
 
     // Convert Advanced Audit Log and System Info dates to Persian format
     function convertAuditLogDates($) {
+        var convertedCount = 0;
         var ENGLISH_MONTHS_FULL = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
         
         function getMonthIndex(mStr) {
@@ -1609,6 +1610,10 @@
                 }
             }
         });
+
+        if (convertedCount > 0) {
+            logDebug('Audit Log dates converted: ' + convertedCount);
+        }
     }
 
     // Convert Issue Search/Navigator table dates to Persian format (YYYY/MM/DD)
