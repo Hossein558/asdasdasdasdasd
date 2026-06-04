@@ -3145,6 +3145,11 @@
             e.stopPropagation();
             e.stopImmediatePropagation();
 
+            // Force blur to close any React DatePicker that opened on mousedown/focus
+            try {
+                $input[0].blur();
+            } catch (ex) {}
+
             // Also disable Jira's datepicker on this input
             try {
                 if ($input.data('aui-datepicker')) {
@@ -3197,6 +3202,26 @@
 
         // Add listener with CAPTURE phase
         document.addEventListener('click', window.pcCalendarCaptureListener, true);
+
+        // Also intercept mousedown to prevent React DatePicker from getting focus and opening
+        document.addEventListener('mousedown', function (e) {
+            var $target = $(e.target);
+            var isCalendarButton = false;
+
+            for (var i = 0; i < calendarButtonSelectors.length; i++) {
+                if ($target.is(calendarButtonSelectors[i]) || $target.closest(calendarButtonSelectors[i]).length > 0) {
+                    isCalendarButton = true;
+                    break;
+                }
+            }
+
+            if (isCalendarButton) {
+                // By preventing default on mousedown, the input does NOT receive focus!
+                // This stops React DatePicker from opening in the first place.
+                e.preventDefault();
+                e.stopPropagation();
+            }
+        }, true);
 
         logInfo('Inline edit calendar initialized (with capture phase)');
     }
