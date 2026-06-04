@@ -1458,141 +1458,154 @@
 
     // Convert Advanced Audit Log and System Info dates to Persian format
     function convertAuditLogDates($) {
-        var auditDateRegex = /([a-z]+)\s+(\d{1,2}),\s+(\d{4}),\s+(\d{1,2}:\d{2}:\d{2}\s+[AP]M)\s+(GMT[+-]\d{1,2}:\d{2})/i;
-        var isoDateRegex = /(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2}:\d{2})/i;
-        var sysDateRegex1 = /(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday),\s+(\d{1,2})\s+([a-z]+)\s+(\d{4})/i;
-        var sysDateRegex2 = /(\d{1,2})\/([a-z]+)\/(\d{2})(?:\s+(\d{1,2}:\d{2}(?:\s*(?:AM|PM))?))?/i;
-        var sysDateRegex3 = /(?:mon|tue|wed|thu|fri|sat|sun)\s+([a-z]+)\s+(\d{1,2})\s+(\d{2}:\d{2}:\d{2})\s+[A-Z]+\s+(\d{4})/i;
-        var sysDateRegex4 = /(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s+(\d{1,2}:\d{2}(?:\s*(?:AM|PM))?)/i;
-        var sysDateRegex5 = /([a-z]{3,})\s+(\d{1,2}),\s+(\d{4})/i;
-        var sysDateRegex6 = /(\d{1,2})\/([a-z]{3,})/i;
         var ENGLISH_MONTHS_FULL = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
         
+        function getMonthIndex(mStr) {
+            mStr = mStr.toLowerCase();
+            for (var i = 0; i < ENGLISH_MONTHS_FULL.length; i++) {
+                if (ENGLISH_MONTHS_FULL[i].indexOf(mStr) === 0) return i;
+            }
+            return -1;
+        }
+
         $('td, span, div, p, time, a').each(function() {
             var $this = $(this);
-            if ($this.attr('data-persian-converted') === 'true') return;
+            var isConverted = $this.attr('data-persian-converted') === 'true';
+            var originalText = $this.attr('data-original-text') || $this.attr('title');
             
             // Only process leaf nodes (elements with no element children, only text)
             if ($this.children().length === 0) {
                 var text = $this.text().trim();
                 if (!text) return;
 
-                var match = text.match(auditDateRegex);
-                var isoMatch = text.match(isoDateRegex);
-                var sysMatch1 = text.match(sysDateRegex1);
-                var sysMatch2 = text.match(sysDateRegex2);
-                var sysMatch3 = text.match(sysDateRegex3);
-                var sysMatch4 = text.match(sysDateRegex4);
-                var sysMatch5 = text.match(sysDateRegex5);
-                var sysMatch6 = text.match(sysDateRegex6);
-
-                var yearStr, monthStr, dayStr, timeStr = '', tzStr = '';
-                var matchedOriginal = '';
-
-                if (match) {
-                    matchedOriginal = match[0];
-                    monthStr = match[1]; dayStr = match[2]; yearStr = match[3];
-                    timeStr = match[4]; tzStr = match[5];
-                } else if (sysMatch1) {
-                    matchedOriginal = sysMatch1[0];
-                    dayStr = sysMatch1[1]; monthStr = sysMatch1[2]; yearStr = sysMatch1[3];
-                } else if (sysMatch2) {
-                    matchedOriginal = sysMatch2[0];
-                    dayStr = sysMatch2[1]; monthStr = sysMatch2[2]; yearStr = "20" + sysMatch2[3];
-                    timeStr = sysMatch2[4] || '';
-                } else if (sysMatch3) {
-                    matchedOriginal = sysMatch3[0];
-                    monthStr = sysMatch3[1]; dayStr = sysMatch3[2]; timeStr = sysMatch3[3]; yearStr = sysMatch3[4];
-                } else if (sysMatch4) {
-                    matchedOriginal = sysMatch4[0];
-                    // US Format M/D/Y expected
-                    monthStr = sysMatch4[1]; dayStr = sysMatch4[2]; 
-                    yearStr = sysMatch4[3];
-                    if (yearStr.length === 2) yearStr = "20" + yearStr;
-                    timeStr = sysMatch4[4];
-                } else if (sysMatch5) {
-                    matchedOriginal = sysMatch5[0];
-                    monthStr = sysMatch5[1]; dayStr = sysMatch5[2]; yearStr = sysMatch5[3];
-                } else if (sysMatch6) {
-                    var mIdx = -1;
-                    var mStr = sysMatch6[2].toLowerCase();
-                    for (var i = 0; i < ENGLISH_MONTHS_FULL.length; i++) {
-                        if (ENGLISH_MONTHS_FULL[i].indexOf(mStr) === 0) {
-                            mIdx = i;
-                            break;
-                        }
+                if (isConverted) {
+                    if (originalText && text === originalText.trim()) {
+                        // React reverted the text! Remove the flag to allow re-processing.
+                        $this.removeAttr('data-persian-converted');
+                    } else {
+                        return; // Still Persian, skip
                     }
-                    if (mIdx !== -1 && typeof toJalaali !== 'undefined' && typeof PERSIAN_MONTHS !== 'undefined') {
-                        try {
-                            var gy = new Date().getFullYear();
-                            var gd = parseInt(sysMatch6[1], 10);
-                            var jDate = toJalaali(gy, mIdx + 1, gd);
-                            var persianDateStr = jDate.jd + '/' + PERSIAN_MONTHS[jDate.jm - 1];
-                            var replacement = text.replace(sysMatch6[0], persianDateStr);
-                            $this.text(replacement);
-                            $this.attr('data-persian-converted', 'true');
-                            $this.attr('title', text);
-                            convertedCount++;
-                        } catch (e) {}
-                    }
-                    return; // Skip the rest for sysMatch6
                 }
 
-                if (matchedOriginal) {
-                    var monthIndex = -1;
-                    if (sysMatch4) {
-                        // For numerical months
-                        monthIndex = parseInt(monthStr, 10) - 1;
-                    } else {
-                        monthStr = monthStr.toLowerCase();
-                        for (var i = 0; i < ENGLISH_MONTHS_FULL.length; i++) {
-                            if (ENGLISH_MONTHS_FULL[i].indexOf(monthStr) === 0) {
-                                monthIndex = i;
-                                break;
-                            }
-                        }
-                    }
-                    
-                    if (monthIndex !== -1 && typeof toJalaali !== 'undefined') {
-                        try {
-                            var jDate = toJalaali(parseInt(yearStr, 10), monthIndex + 1, parseInt(dayStr, 10));
-                            var persianDateStr = formatPersianDateSlash(jDate.jy, jDate.jm, jDate.jd);
-                            
-                            var finalStr = persianDateStr;
-                            if (timeStr) finalStr += ' ' + timeStr;
-                            if (tzStr) finalStr += ' ' + tzStr;
+                var originalBeforeReplace = text;
+                var changed = false;
+                var replacement = text;
 
-                            var replacement = text.replace(matchedOriginal, finalStr);
-                            replacement = replacement.replace(/Start:/gi, 'شروع:')
-                                                     .replace(/End:/gi, 'پایان:')
-                                                     .replace(/Target start:/gi, 'شروع هدف:')
-                                                     .replace(/Target end:/gi, 'پایان هدف:')
-                                                     .replace(/days ago/gi, 'روز پیش')
-                                                     .replace(/day ago/gi, 'روز پیش')
-                                                     .replace(/months ago/gi, 'ماه پیش')
-                                                     .replace(/month ago/gi, 'ماه پیش')
-                                                     .replace(/years ago/gi, 'سال پیش')
-                                                     .replace(/year ago/gi, 'سال پیش');
-                            $this.text(replacement);
-                            $this.attr('data-persian-converted', 'true');
-                            $this.attr('title', text);
-                        } catch (e) { }
+                // auditDateRegex
+                replacement = replacement.replace(/([a-z]+)\s+(\d{1,2}),\s+(\d{4}),\s+(\d{1,2}:\d{2}:\d{2}\s+[AP]M)\s+(GMT[+-]\d{1,2}:\d{2})/gi, function(m, monthStr, dayStr, yearStr, timeStr, tzStr) {
+                    var mIdx = getMonthIndex(monthStr);
+                    if (mIdx !== -1 && typeof toJalaali !== 'undefined') {
+                        var jDate = toJalaali(parseInt(yearStr, 10), mIdx + 1, parseInt(dayStr, 10));
+                        var pDateStr = formatPersianDateSlash(jDate.jy, jDate.jm, jDate.jd);
+                        changed = true;
+                        return pDateStr + ' ' + timeStr + ' ' + tzStr;
                     }
-                } else if (isoMatch) {
-                    try {
-                        var year = parseInt(isoMatch[1], 10);
-                        var month = parseInt(isoMatch[2], 10);
-                        var day = parseInt(isoMatch[3], 10);
-                        var time = isoMatch[4];
-                        if (typeof toJalaali !== 'undefined') {
-                            var jDate = toJalaali(year, month, day);
-                            var persianDateStr = formatPersianDateSlash(jDate.jy, jDate.jm, jDate.jd);
-                            var replacement = text.replace(isoMatch[0], persianDateStr + ' ' + time);
-                            $this.text(replacement);
-                            $this.attr('data-persian-converted', 'true');
-                            $this.attr('title', text);
-                        }
-                    } catch (e) {}
+                    return m;
+                });
+
+                // isoDateRegex
+                replacement = replacement.replace(/(\d{4})-(\d{2})-(\d{2})T(\d{2}:\d{2}:\d{2})/gi, function(m, yearStr, monthStr, dayStr, timeStr) {
+                    if (typeof toJalaali !== 'undefined') {
+                        var jDate = toJalaali(parseInt(yearStr, 10), parseInt(monthStr, 10), parseInt(dayStr, 10));
+                        var pDateStr = formatPersianDateSlash(jDate.jy, jDate.jm, jDate.jd);
+                        changed = true;
+                        return pDateStr + ' ' + timeStr;
+                    }
+                    return m;
+                });
+
+                // sysDateRegex1
+                replacement = replacement.replace(/(?:monday|tuesday|wednesday|thursday|friday|saturday|sunday),\s+(\d{1,2})\s+([a-z]+)\s+(\d{4})/gi, function(m, dayStr, monthStr, yearStr) {
+                    var mIdx = getMonthIndex(monthStr);
+                    if (mIdx !== -1 && typeof toJalaali !== 'undefined') {
+                        var jDate = toJalaali(parseInt(yearStr, 10), mIdx + 1, parseInt(dayStr, 10));
+                        changed = true;
+                        return formatPersianDateSlash(jDate.jy, jDate.jm, jDate.jd);
+                    }
+                    return m;
+                });
+
+                // sysDateRegex2 (e.g. 31/May/26 - 06/Jun/26)
+                replacement = replacement.replace(/(\d{1,2})\/([a-z]+)\/(\d{2,4})(?:\s+(\d{1,2}:\d{2}(?:\s*(?:AM|PM))?))?/gi, function(m, dayStr, monthStr, yearStr, timeStr) {
+                    var y = parseInt(yearStr, 10);
+                    if (yearStr.length === 2) y += 2000;
+                    var mIdx = getMonthIndex(monthStr);
+                    if (mIdx !== -1 && typeof toJalaali !== 'undefined') {
+                        var jDate = toJalaali(y, mIdx + 1, parseInt(dayStr, 10));
+                        var pDateStr = formatPersianDateSlash(jDate.jy, jDate.jm, jDate.jd);
+                        changed = true;
+                        return pDateStr + (timeStr ? ' ' + timeStr : '');
+                    }
+                    return m;
+                });
+
+                // sysDateRegex3
+                replacement = replacement.replace(/(?:mon|tue|wed|thu|fri|sat|sun)\s+([a-z]+)\s+(\d{1,2})\s+(\d{2}:\d{2}:\d{2})\s+[A-Z]+\s+(\d{4})/gi, function(m, monthStr, dayStr, timeStr, yearStr) {
+                    var mIdx = getMonthIndex(monthStr);
+                    if (mIdx !== -1 && typeof toJalaali !== 'undefined') {
+                        var jDate = toJalaali(parseInt(yearStr, 10), mIdx + 1, parseInt(dayStr, 10));
+                        var pDateStr = formatPersianDateSlash(jDate.jy, jDate.jm, jDate.jd);
+                        changed = true;
+                        return pDateStr + ' ' + timeStr;
+                    }
+                    return m;
+                });
+
+                // sysDateRegex4 (US Format: MM/DD/YYYY)
+                replacement = replacement.replace(/(\d{1,2})\/(\d{1,2})\/(\d{2,4})\s+(\d{1,2}:\d{2}(?:\s*(?:AM|PM))?)/gi, function(m, monthStr, dayStr, yearStr, timeStr) {
+                    var y = parseInt(yearStr, 10);
+                    if (yearStr.length === 2) y += 2000;
+                    var mIdx = parseInt(monthStr, 10) - 1;
+                    if (mIdx >= 0 && mIdx < 12 && typeof toJalaali !== 'undefined') {
+                        var jDate = toJalaali(y, mIdx + 1, parseInt(dayStr, 10));
+                        var pDateStr = formatPersianDateSlash(jDate.jy, jDate.jm, jDate.jd);
+                        changed = true;
+                        return pDateStr + ' ' + timeStr;
+                    }
+                    return m;
+                });
+
+                // sysDateRegex5
+                replacement = replacement.replace(/([a-z]{3,})\s+(\d{1,2}),\s+(\d{4})/gi, function(m, monthStr, dayStr, yearStr) {
+                    var mIdx = getMonthIndex(monthStr);
+                    if (mIdx !== -1 && typeof toJalaali !== 'undefined') {
+                        var jDate = toJalaali(parseInt(yearStr, 10), mIdx + 1, parseInt(dayStr, 10));
+                        changed = true;
+                        return formatPersianDateSlash(jDate.jy, jDate.jm, jDate.jd);
+                    }
+                    return m;
+                });
+
+                // sysDateRegex6 (e.g. 05/Jun)
+                replacement = replacement.replace(/(\d{1,2})\/([a-z]{3,})/gi, function(m, dayStr, monthStr) {
+                    var mIdx = getMonthIndex(monthStr);
+                    if (mIdx !== -1 && typeof toJalaali !== 'undefined' && typeof PERSIAN_MONTHS !== 'undefined') {
+                        var gy = new Date().getFullYear();
+                        var jDate = toJalaali(gy, mIdx + 1, parseInt(dayStr, 10));
+                        changed = true;
+                        return jDate.jd + '/' + PERSIAN_MONTHS[jDate.jm - 1];
+                    }
+                    return m;
+                });
+
+                if (changed) {
+                    // Common text replacements
+                    replacement = replacement.replace(/Start:/gi, 'شروع:')
+                                             .replace(/End:/gi, 'پایان:')
+                                             .replace(/Target start:/gi, 'شروع هدف:')
+                                             .replace(/Target end:/gi, 'پایان هدف:')
+                                             .replace(/days ago/gi, 'روز پیش')
+                                             .replace(/day ago/gi, 'روز پیش')
+                                             .replace(/months ago/gi, 'ماه پیش')
+                                             .replace(/month ago/gi, 'ماه پیش')
+                                             .replace(/years ago/gi, 'سال پیش')
+                                             .replace(/year ago/gi, 'سال پیش');
+                    
+                    $this.text(replacement);
+                    $this.attr('data-original-text', originalBeforeReplace);
+                    $this.attr('data-persian-converted', 'true');
+                    $this.attr('title', originalBeforeReplace);
+                    convertedCount++;
                 }
             }
         });
