@@ -215,8 +215,8 @@ public class LicenseResource {
         } catch (Exception e) {
             Map<String, Object> response = new HashMap<>();
             response.put("licenseKey", null);
-            response.put("error", e.getMessage());
-            return Response.ok(response).build();
+            response.put("error", "خطا در دریافت لایسنس فعلی");
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(response).build();
         }
     }
 }

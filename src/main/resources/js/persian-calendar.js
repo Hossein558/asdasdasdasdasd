@@ -343,8 +343,8 @@
      */
     function analyzePageForDateElements() {
         if (window.PC_DEBUG) { logInfo('=== Starting Page Analysis ==='); }
-        logInfo('Current URL: ' + window.location.href);
-        logInfo('Page Title: ' + document.title);
+        if (window.PC_DEBUG) { logInfo('Current URL: ' + window.location.href); }
+        if (window.PC_DEBUG) { logInfo('Page Title: ' + document.title); }
 
         // Check for date-related inputs
         var allInputs = document.querySelectorAll('input');
@@ -365,11 +365,11 @@
                 });
             }
         });
-        logInfo('Found date-related inputs: ' + dateInputs.length, dateInputs);
+        if (window.PC_DEBUG) { logInfo('Found date-related inputs: ' + dateInputs.length, dateInputs); }
 
         // Check for duedate specifically
         var duedateInputs = document.querySelectorAll('input#duedate, input[name="duedate"], input[id*="duedate"]');
-        logInfo('Found duedate inputs: ' + duedateInputs.length);
+        if (window.PC_DEBUG) { logInfo('Found duedate inputs: ' + duedateInputs.length); }
         duedateInputs.forEach(function (inp, idx) {
             logDebug('Duedate input #' + idx, {
                 id: inp.id,
@@ -383,13 +383,13 @@
 
         // Check for calendar-related classes
         var calendarElements = document.querySelectorAll('[class*="calendar"], [class*="date-picker"], .aui-date-picker');
-        logInfo('Found calendar-related elements: ' + calendarElements.length);
+        if (window.PC_DEBUG) { logInfo('Found calendar-related elements: ' + calendarElements.length); }
 
         // Check for search page specific elements
         var searchElements = document.querySelectorAll('.navigator-search, .search-options, .criteria-selector, .date-range');
-        logInfo('Found search-related elements: ' + searchElements.length);
+        if (window.PC_DEBUG) { logInfo('Found search-related elements: ' + searchElements.length); }
         if (searchElements.length > 0) {
-            logInfo('This appears to be a SEARCH page');
+            if (window.PC_DEBUG) { logInfo('This appears to be a SEARCH page'); }
             searchElements.forEach(function (el, idx) {
                 logDebug('Search element #' + idx, {
                     class: el.className,
@@ -399,7 +399,7 @@
             });
         }
 
-        logInfo('=== Page Analysis Complete ===');
+        if (window.PC_DEBUG) { logInfo('=== Page Analysis Complete ==='); }
     }
 
     // Wait for AJS and jQuery and DOM Ready
@@ -3066,7 +3066,7 @@
      * @returns {jQuery|null} The associated input element.
      */
     function findClosestInput($btn) {
-        console.log(PC_LOG_PREFIX + ' [findClosestInput] Searching proximity for element:', $btn[0]);
+        if (window.PC_DEBUG) { logDebug('[findClosestInput] Searching proximity for element'); }
         if ($btn.is('input')) return $btn;
 
         // Helper to check if an input is text-like
@@ -3091,7 +3091,7 @@
                     return isTextLikeInput(this);
                 });
                 if ($target.length > 0) {
-                    console.log(PC_LOG_PREFIX + ' [findClosestInput] Found input by trigger name match (' + baseName + '):', $target[0]);
+                    if (window.PC_DEBUG) { logDebug('[findClosestInput] Found input by trigger name match (' + baseName + ')'); }
                     return $target;
                 }
             }
@@ -3103,7 +3103,7 @@
         });
         if ($siblings.length > 0) {
             if ($siblings.length === 1) {
-                console.log(PC_LOG_PREFIX + ' [findClosestInput] Single text sibling found:', $siblings[0]);
+                if (window.PC_DEBUG) { logDebug('[findClosestInput] Single text sibling found'); }
                 return $siblings;
             }
             // If multiple, try the immediate previous sibling
@@ -3111,13 +3111,13 @@
                 return isTextLikeInput(this);
             }).first();
             if ($prevSib.length > 0) {
-                console.log(PC_LOG_PREFIX + ' [findClosestInput] Closest previous sibling found:', $prevSib[0]);
+                if (window.PC_DEBUG) { logDebug('[findClosestInput] Closest previous sibling found'); }
                 return $prevSib;
             }
             // Fallback to first visible sibling
             var $visibleSibs = $siblings.filter(':visible');
             if ($visibleSibs.length > 0) {
-                console.log(PC_LOG_PREFIX + ' [findClosestInput] First visible sibling found:', $visibleSibs[0]);
+                if (window.PC_DEBUG) { logDebug('[findClosestInput] First visible sibling found'); }
                 return $visibleSibs.first();
             }
             return $siblings.first();
@@ -3139,7 +3139,7 @@
             if ($inputs.length > 0) {
                 // If there is only one input in this container, return it
                 if ($inputs.length === 1) {
-                    console.log(PC_LOG_PREFIX + ' [findClosestInput] Single text input found in ancestor at level ' + i + ':', $inputs[0]);
+                    if (window.PC_DEBUG) { logDebug('[findClosestInput] Single text input found in ancestor at level ' + i); }
                     return $inputs;
                 }
                 
@@ -3149,7 +3149,7 @@
                     return isTextLikeInput(this);
                 }).first();
                 if ($prevInContainer.length > 0) {
-                    console.log(PC_LOG_PREFIX + ' [findClosestInput] Previous input in container found:', $prevInContainer[0]);
+                    if (window.PC_DEBUG) { logDebug('[findClosestInput] Previous input in container found'); }
                     return $prevInContainer;
                 }
                 
@@ -3165,22 +3165,22 @@
                     }
                 });
                 if (foundTarget) {
-                    console.log(PC_LOG_PREFIX + ' [findClosestInput] Input in preceding sibling container found:', foundTarget[0]);
+                    if (window.PC_DEBUG) { logDebug('[findClosestInput] Input in preceding sibling container found'); }
                     return foundTarget;
                 }
 
                 // Fallback to first visible input
                 var $visibleInputs = $inputs.filter(':visible');
                 if ($visibleInputs.length > 0) {
-                    console.log(PC_LOG_PREFIX + ' [findClosestInput] First visible input found in ancestor at level ' + i + ':', $visibleInputs.first()[0]);
+                    if (window.PC_DEBUG) { logDebug('[findClosestInput] First visible input found in ancestor at level ' + i); }
                     return $visibleInputs.first();
                 }
-                console.log(PC_LOG_PREFIX + ' [findClosestInput] First input found in ancestor at level ' + i + ':', $inputs.first()[0]);
+                if (window.PC_DEBUG) { logDebug('[findClosestInput] First input found in ancestor at level ' + i); }
                 return $inputs.first();
             }
         }
 
-        console.log(PC_LOG_PREFIX + ' [findClosestInput] No text-like input found within 5 levels');
+        if (window.PC_DEBUG) { logDebug('[findClosestInput] No text-like input found within 5 levels'); }
         return $();
     }
 
@@ -3225,7 +3225,7 @@
             var target = e.target;
             var $target = $(target);
 
-            console.log(PC_LOG_PREFIX + ' [CAPTURE-PHASE] Click detected on tag:', target.tagName, 'classes:', $target.attr('class'), 'id:', $target.attr('id'));
+            if (window.PC_DEBUG) { logDebug('[CAPTURE-PHASE] Click detected on tag: ' + target.tagName + ' classes: ' + $target.attr('class') + ' id: ' + $target.attr('id')); }
 
             // Check if clicked on calendar icon or its parent
             var isCalendarButton = false;
@@ -3248,7 +3248,7 @@
 
             if (!isCalendarButton) return;
 
-            console.log(PC_LOG_PREFIX + ' [CAPTURE-PHASE] Click recognized as calendar button! Button:', $btn[0]);
+            if (window.PC_DEBUG) { logDebug('[CAPTURE-PHASE] Click recognized as calendar button!'); }
 
             // Check if inside datesmodule (Jira Core inline edit) OR JSM Customer Portal date picker
             var $datesModule = $btn.closest('#datesmodule');
@@ -3258,7 +3258,7 @@
             var isJiraCore = $datesModule.length > 0;
             var isJSM = $jsmDatePicker.length > 0;
 
-            console.log(PC_LOG_PREFIX + ' [CAPTURE-PHASE] Context detected: Jira Core=' + isJiraCore + ', JSM=' + isJSM);
+            if (window.PC_DEBUG) { logDebug('[CAPTURE-PHASE] Context detected: Jira Core=' + isJiraCore + ', JSM=' + isJSM); }
 
             // Find the associated input field using a smart proximity search
             var $input = findClosestInput($btn);
@@ -4061,7 +4061,7 @@
             if (reactPropsKey && inputEl[reactPropsKey] && inputEl[reactPropsKey].onChange) {
                 var syntheticEvent = { target: inputEl, currentTarget: inputEl, type: 'change' };
                 inputEl[reactPropsKey].onChange(syntheticEvent);
-                console.log(PC_LOG_PREFIX + ' [INFO] Invoked React onChange directly on ' + inputEl.id);
+                if (window.PC_DEBUG) { logDebug('Invoked React onChange directly on ' + inputEl.id); }
             }
         } catch(e) {}
 
@@ -4381,9 +4381,6 @@
         logInfo('Initialization complete. Inputs processed: ' + foundCount);
     }
 
-    // ========================================================================
-    // Audit Log Date Picker - Replace Atlaskit Gregorian calendar with Persian
-    // ========================================================================
     // ========================================================================
     // Audit Log Date Picker - Replace Atlaskit Gregorian calendar with Persian
     // ========================================================================

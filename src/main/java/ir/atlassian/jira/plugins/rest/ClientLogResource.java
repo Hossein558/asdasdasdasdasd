@@ -17,6 +17,7 @@ import java.util.HashMap;
 import java.util.Iterator;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * REST Resource that receives client-side JavaScript log entries from the browser
@@ -227,8 +228,7 @@ public class ClientLogResource {
             rateLimitMap.put(username, new RateInfo(now, 1));
             return false;
         }
-        info.count++;
-        return info.count > MAX_LOGS_PER_MINUTE;
+        return info.count.incrementAndGet() > MAX_LOGS_PER_MINUTE;
     }
 
     /**
@@ -236,10 +236,10 @@ public class ClientLogResource {
      */
     private static class RateInfo {
         /** The absolute timestamp (ms) when the current window began. */
-        long windowStart;
+        final long windowStart;
 
-        /** The number of log entries accepted during the current window. */
-        int count;
+        /** The number of log entries accepted during the current window (thread-safe). */
+        final AtomicInteger count;
 
         /**
          * Constructs a new rate tracking record.
@@ -249,7 +249,7 @@ public class ClientLogResource {
          */
         RateInfo(long windowStart, int count) {
             this.windowStart = windowStart;
-            this.count = count;
+            this.count = new AtomicInteger(count);
         }
     }
 }
