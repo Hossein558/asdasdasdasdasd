@@ -4874,9 +4874,9 @@
         }
 
         /**
-     * Processes a JXL iframe to intercept calendars and convert dates.
-     * @param {HTMLIFrameElement} iframe - The target iframe.
-     */
+         * Processes a JXL iframe to intercept calendars and convert dates.
+         * @param {HTMLIFrameElement} iframe - The target iframe.
+         */
     function processJXLIframe(iframe) {
             try {
                 var iframeDoc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
@@ -5040,10 +5040,10 @@
             }, true);
 
             /**
-     * Safely sets the value on a JXL input element, attempting to trigger React events.
-     * @param {HTMLElement} input - Target input.
-     * @param {string} value - New value.
-     */
+             * Safely sets the value on a JXL input element, attempting to trigger React events.
+             * @param {HTMLElement} input - Target input.
+             * @param {string} value - New value.
+             */
     function setJXLInputValue(input, value) {
                 if (input.tagName === 'INPUT' || input.tagName === 'TEXTAREA') {
                     input.value = value;
