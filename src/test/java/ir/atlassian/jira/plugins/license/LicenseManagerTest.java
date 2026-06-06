@@ -4,8 +4,21 @@ import org.junit.Test;
 import java.time.LocalDate;
 import static org.junit.Assert.*;
 
+/**
+ * Unit tests for {@link LicenseManager}.
+ * <p>
+ * This class specifically verifies the standalone license key generation logic
+ * which is utilized by both internal checks and the external license generation tool.
+ * </p>
+ */
 public class LicenseManagerTest {
 
+    /**
+     * Tests the generation of a FULL license key.
+     * Verifies that the generated string follows the correct format,
+     * uses the 'F' type code, and correctly embeds the server hash,
+     * expiration date, and signature block.
+     */
     @Test
     public void testGenerateLicenseKeyFull() {
         LicenseManager.LicenseType type = LicenseManager.LicenseType.FULL;
@@ -23,6 +36,11 @@ public class LicenseManagerTest {
         assertEquals(8, parts[3].length()); // Signature length
     }
 
+    /**
+     * Tests the generation of a TRIAL license key.
+     * Verifies that the generated string uses the 'T' type code
+     * and adheres to the expected formatting structure.
+     */
     @Test
     public void testGenerateLicenseKeyTrial() {
         LicenseManager.LicenseType type = LicenseManager.LicenseType.TRIAL;
@@ -40,6 +58,10 @@ public class LicenseManagerTest {
         assertEquals(8, parts[3].length()); // Signature length
     }
 
+    /**
+     * Tests the behavior of the license generator when provided with null inputs.
+     * Verifies that a {@link NullPointerException} is appropriately thrown.
+     */
     @Test
     public void testGenerateLicenseKeyNullValues() {
         try {

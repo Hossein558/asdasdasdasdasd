@@ -169,6 +169,12 @@
 
     logInfo('Server-side logging system initialized. Errors will be sent to atlassian-jira.log');
 
+    /**
+     * Safely sets the value of an input element, firing necessary events.
+     * Handles React controlled components by bypassing the value setter prototype.
+     * @param {HTMLElement} element - The input element.
+     * @param {string} val - The new value.
+     */
     function setElementValueSafely(element, val) {
         if (!element) return;
         try {
@@ -220,6 +226,11 @@
         } catch (e) { return false; }
     }
 
+    /**
+     * Asynchronously checks the license status from the backend.
+     * Uses local storage cache to minimize requests.
+     * @param {Function} callback - Callback function receiving the status object.
+     */
     function checkLicenseStatus(callback) {
         // Security: Verify code integrity first
         if (!_pcIntegrity()) {
@@ -272,6 +283,9 @@
         }
     }
 
+    /**
+     * Displays a modal overlay warning the user that their license has expired.
+     */
     function showLicenseExpiredMessage() {
         var overlay = document.createElement('div');
         overlay.className = 'pc-overlay';
@@ -324,6 +338,10 @@
     }
 
     // ========== DOM ANALYSIS ==========
+    /**
+     * Scans the page to discover input elements that might require calendar interception.
+     * Outputs diagnostics to the console.
+     */
     function analyzePageForDateElements() {
         logInfo('=== Starting Page Analysis ===');
         logInfo('Current URL: ' + window.location.href);
@@ -387,6 +405,10 @@
 
     // Wait for AJS and jQuery
     // Wait for AJS and jQuery and DOM Ready
+    /**
+     * Waits for the Jira core JavaScript libraries (AJS, jQuery) to be ready.
+     * @param {Function} callback - Function to execute when Jira is ready.
+     */
     function waitForJira(callback) {
         logDebug('Waiting for Jira framework...');
         if (typeof AJS !== 'undefined' && AJS.toInit) {
@@ -461,6 +483,11 @@
     // Convert English numerals to Persian numerals
     var PERSIAN_NUMERALS = ['۰', '۱', '۲', '۳', '۴', '۵', '۶', '۷', '۸', '۹'];
 
+    /**
+     * Converts English digits in a string to Persian digits.
+     * @param {string|number} str - The input string or number.
+     * @returns {string} The converted string with Persian digits.
+     */
     function toPersianNumerals(str) {
         if (!str) return str;
         return String(str).replace(/[0-9]/g, function (d) {
@@ -469,6 +496,13 @@
     }
 
     // Format Persian date as YYYY/MM/DD (exactly 10 characters)
+    /**
+     * Formats a Persian date as YYYY/MM/DD.
+     * @param {number} jy - Jalaali year.
+     * @param {number} jm - Jalaali month.
+     * @param {number} jd - Jalaali day.
+     * @returns {string} Formatted date string with Persian numerals.
+     */
     function formatPersianDateSlash(jy, jm, jd) {
         var year = String(jy);
         var month = jm < 10 ? '0' + jm : String(jm);
@@ -477,6 +511,15 @@
     }
 
     // Format Persian DateTime as YYYY/MM/DD HH:MM (24-hour format)
+    /**
+     * Formats a Persian date and time in 24-hour format (YYYY/MM/DD HH:mm).
+     * @param {number} jy - Jalaali year.
+     * @param {number} jm - Jalaali month.
+     * @param {number} jd - Jalaali day.
+     * @param {number} hour24 - Hour in 24-hour format.
+     * @param {number} minute - Minute.
+     * @returns {string} Formatted date and time string with Persian numerals.
+     */
     function formatPersianDateTime24(jy, jm, jd, hour24, minute) {
         var dateStr = formatPersianDateSlash(jy, jm, jd);
         var hourStr = hour24 < 10 ? '0' + hour24 : String(hour24);
@@ -568,6 +611,12 @@
     }
 
     // Recursive text node walker to process all text content including siblings
+    /**
+     * Traverses the DOM tree and executes a callback on all text nodes.
+     * Ignores scripts, styles, textareas, and other specific nodes.
+     * @param {HTMLElement} element - The root element to start walking from.
+     * @param {Function} callback - The callback function to apply to each text node.
+     */
     function walkTextNodes(element, callback) {
         var node = element.firstChild;
         while (node) {
@@ -1125,6 +1174,10 @@
     }
 
     // Convert Activity Stream timestamps to Persian
+    /**
+     * Converts relative timestamps in the Jira Activity Stream to Persian.
+     * @param {jQuery} $ - The jQuery instance.
+     */
     function convertActivityStreamTime($) {
         logInfo('=== Converting Activity Stream Timestamps ===');
 
@@ -1269,6 +1322,10 @@
     }
 
     // Setup observer specifically for livestamp elements that update dynamically
+    /**
+     * Sets up a MutationObserver to catch dynamically updated dates (livestamps).
+     * @param {jQuery} $ - The jQuery instance.
+     */
     function setupLivestampObserver($) {
         if (window.pcLivestampObserver) return; // Already setup
 
@@ -1325,6 +1382,10 @@
     }
 
     // Convert Time Spent / Duration fields to Persian (e.g., "15 minutes" -> "۱۵ دقیقه")
+    /**
+     * Converts time spent duration strings (e.g., "1h 30m") into Persian equivalent.
+     * @param {jQuery} $ - The jQuery instance.
+     */
     function convertTimeSpentDurations($) {
         logInfo('=== Converting Time Spent / Durations ===');
 
@@ -1721,6 +1782,9 @@
     };
 
     // Fetch date format settings from REST API
+    /**
+     * Fetches user and system date format settings via REST API.
+     */
     function fetchDateFormatSettings() {
         if (DATE_FORMAT_CACHE.loaded) {
             logDebug('Date format settings already loaded from cache');
@@ -1765,6 +1829,14 @@
     // ... (rest of the code)
 
     // Parse date format pattern and format a date accordingly
+    /**
+     * Formats a given date according to a specific string pattern.
+     * @param {number} year - The year.
+     * @param {number} month - The month.
+     * @param {number} day - The day.
+     * @param {string} pattern - The formatting pattern.
+     * @returns {string} The formatted date string.
+     */
     function formatDateWithPattern(year, month, day, pattern) {
         // pattern examples: d/MMM/yy, dd/MMM/yyyy, yyyy-MM-dd
         var yyyy = year.toString();
@@ -2089,6 +2161,13 @@
     }
 
     // Create and show Persian calendar popup
+    /**
+     * Renders the Persian Date Picker popup.
+     * @param {jQuery} $input - The input field where the date is displayed.
+     * @param {jQuery} $originalInput - The underlying input field where the Gregorian date should be stored.
+     * @param {Function} onSelect - Callback when a date is selected.
+     * @param {boolean} hideButtons - Whether to hide the Today/Clear buttons.
+     */
     function showPersianCalendar($input, $originalInput, onSelect, hideButtons) {
         // Check license before showing calendar
         checkLicenseStatus(function (license) {
@@ -2100,6 +2179,13 @@
         });
     }
 
+    /**
+     * Internal implementation of rendering the Persian Date Picker.
+     * @param {jQuery} $input - Target input element.
+     * @param {jQuery} $originalInput - Underlying Gregorian input element.
+     * @param {Function} onSelect - Selection callback.
+     * @param {boolean} hideButtons - Visibility of control buttons.
+     */
     function _showPersianCalendarImpl($input, $originalInput, onSelect, hideButtons) {
         logInfo('Opening Persian calendar popup (hideButtons: ' + !!hideButtons + ')');
 
@@ -2357,6 +2443,13 @@
     }
 
     // Create and show Persian DateTime picker popup (Date + Time)
+    /**
+     * Renders the Persian Date AND Time Picker popup.
+     * @param {jQuery} $input - Target input.
+     * @param {jQuery} $originalInput - Gregorian input.
+     * @param {Function} onSelect - Selection callback.
+     * @param {boolean} hideButtons - Visibility of buttons.
+     */
     function showPersianDateTimePicker($input, $originalInput, onSelect, hideButtons) {
         // Check license before showing calendar
         checkLicenseStatus(function (license) {
@@ -2668,6 +2761,11 @@
     }
 
     // Convert date displays on View page (sidebar dates like Due, Plan Date, etc.)
+    /**
+     * Scans the issue view page and converts all static display dates to Persian.
+     * Uses custom fallback mechanisms to avoid interfering with Jira inline editing.
+     * @param {jQuery} $ - The jQuery instance.
+     */
     function convertViewPageDates($) {
         logInfo('=== Converting View Page Dates ===');
 
@@ -2961,6 +3059,11 @@
     }
 
     // Helper to find the closest input in DOM proximity to a button/element
+    /**
+     * Locates the input field most closely associated with a clicked calendar button.
+     * @param {jQuery} $btn - The clicked button.
+     * @returns {jQuery|null} The associated input element.
+     */
     function findClosestInput($btn) {
         console.log(PC_LOG_PREFIX + ' [findClosestInput] Searching proximity for element:', $btn[0]);
         if ($btn.is('input')) return $btn;
@@ -3081,6 +3184,11 @@
     }
 
     // Initialize Persian calendar for inline edit mode (intercept Jira's calendar buttons)
+    /**
+     * Attaches global event listeners to intercept Jira inline edit calendar popups.
+     * Uses event capturing to stop native handlers.
+     * @param {jQuery} $ - The jQuery instance.
+     */
     function initInlineEditCalendar($) {
         logInfo('=== Initializing Inline Edit Calendar ===');
 
@@ -3250,6 +3358,13 @@
     }
 
     // Show Persian calendar popup for inline edit (Date only)
+    /**
+     * Dedicated rendering function for inline edit scenarios.
+     * Heavily manages focus and blur events to prevent premature popup dismissal.
+     * @param {jQuery} $ - The jQuery instance.
+     * @param {jQuery} $btn - The trigger button.
+     * @param {jQuery} $input - The target input field.
+     */
     function showPersianCalendarForInlineEdit($, $btn, $input) {
         logInfo('Opening Persian calendar for inline edit');
 
@@ -3581,6 +3696,12 @@
     }
 
     // Show Persian DateTime picker popup for inline edit (Date + Time)
+    /**
+     * Dedicated rendering function for inline edit scenarios (Date and Time).
+     * @param {jQuery} $ - The jQuery instance.
+     * @param {jQuery} $btn - The trigger button.
+     * @param {jQuery} $input - The target input field.
+     */
     function showPersianDateTimePickerForInlineEdit($, $btn, $input) {
         logInfo('Opening Persian DateTime picker for inline edit');
 
@@ -3912,6 +4033,12 @@
     }
 
     // Helper to safely trigger React native events and jQuery events on inputs (Jira 10+ compatibility)
+    /**
+     * Sets the value on an input element and dispatches standard change/input events.
+     * Uses the safe setter for React compatibility.
+     * @param {jQuery} $input - The target input.
+     * @param {string} valueStr - The new value.
+     */
     function setInputAndTriggerEvents($input, valueStr) {
         var inputEl = $input[0];
         try {
@@ -3947,6 +4074,11 @@
     }
 
     // Initialize Persian calendar for date inputs
+    /**
+     * Main initialization routine for injecting the Persian Calendar UI into Jira.
+     * Locates target fields and overrides their triggers.
+     * @param {jQuery} $ - The jQuery instance.
+     */
     function initPersianCalendar($) {
         logInfo('=== Initializing Persian Calendar ===');
         addStyles();
@@ -4254,6 +4386,11 @@
     // ========================================================================
     // Audit Log Date Picker - Replace Atlaskit Gregorian calendar with Persian
     // ========================================================================
+    /**
+     * Specialized initialization routine for the Jira Audit Log.
+     * The audit log uses React/Atlaskit inputs that require different interception logic.
+     * @param {jQuery} $ - The jQuery instance.
+     */
     function initAuditLogDatePicker($) {
         // Only run on audit log page
         if (window.location.pathname.indexOf('/plugins/servlet/audit') === -1) {
@@ -4605,6 +4742,11 @@
     // ========== NON-AGGRESSIVE REACT PORTAL SUPPORT ==========
     // The aggressive scanner has been removed for better stability.
     // ========== JXL (Jira eXtensible List) SUPPORT ==========
+    /**
+     * Initializes support for JXL for Jira plugin.
+     * Captures and converts dates inside JXL iframes.
+     * @param {jQuery} $ - The jQuery instance.
+     */
     function initJXLSupport($) {
         logInfo('JXL: initJXLSupport function called');
 
@@ -4731,7 +4873,11 @@
             }
         }
 
-        function processJXLIframe(iframe) {
+        /**
+     * Processes a JXL iframe to intercept calendars and convert dates.
+     * @param {HTMLIFrameElement} iframe - The target iframe.
+     */
+    function processJXLIframe(iframe) {
             try {
                 var iframeDoc = iframe.contentDocument || (iframe.contentWindow && iframe.contentWindow.document);
                 if (!iframeDoc) {
@@ -4893,7 +5039,12 @@
 
             }, true);
 
-            function setJXLInputValue(input, value) {
+            /**
+     * Safely sets the value on a JXL input element, attempting to trigger React events.
+     * @param {HTMLElement} input - Target input.
+     * @param {string} value - New value.
+     */
+    function setJXLInputValue(input, value) {
                 if (input.tagName === 'INPUT' || input.tagName === 'TEXTAREA') {
                     input.value = value;
                     input.dispatchEvent(new Event('input', { bubbles: true }));

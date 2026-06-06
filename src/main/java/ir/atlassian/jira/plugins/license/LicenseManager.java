@@ -14,21 +14,49 @@ import java.time.temporal.ChronoUnit;
 import java.util.Base64;
 
 /**
- * License Manager for Persian Calendar Plugin
- * Handles license validation, expiration, and grace period
+ * License Manager for the Persian Calendar Plugin.
+ * <p>
+ * This class is responsible for managing the plugin's licensing system.
+ * It handles license validation, tracks expiration dates, and manages grace periods
+ * for full licenses. The license string is stored globally using Jira's
+ * {@link PluginSettingsFactory}.
+ * </p>
  */
 public class LicenseManager {
 
+    /**
+     * The core plugin key used as a prefix for storing settings.
+     */
     private static final String PLUGIN_KEY = "ir.atlassian.jira.plugins.persian-calendar-plugin";
+
+    /**
+     * The key under which the license string is stored in plugin settings.
+     */
     private static final String LICENSE_KEY_SETTING = PLUGIN_KEY + ".license.key";
+
+    /**
+     * The number of days a FULL license remains usable after its expiration date.
+     */
     private static final int GRACE_PERIOD_DAYS = 10;
+
+    /**
+     * The expected date format for license expiration strings.
+     */
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
 
     /**
-     * Secret key retrieval logic.
-     * Uses system properties to securely load the secret key, falling back to an obfuscated default.
-     * The environment variable can be set via Jira startup options:
-     * -Dpersian.calendar.secret=YOUR_SECURE_KEY
+     * Retrieves the secret key used for HMAC signature generation and validation.
+     * <p>
+     * This method attempts to load a custom secret key from the system property
+     * {@code persian.calendar.secret}. If no property is set, it falls back to an
+     * obfuscated default key to prevent simple static string extraction from the bytecode.
+     * </p>
+     * <p>
+     * The property can be configured via Jira startup options:
+     * {@code -Dpersian.calendar.secret=YOUR_SECURE_KEY}
+     * </p>
+     *
+     * @return A {@link String} containing the secret key.
      */
     private static String getSecretKey() {
         String sysKey = System.getProperty("persian.calendar.secret");
@@ -41,8 +69,18 @@ public class LicenseManager {
         return new String(k, StandardCharsets.UTF_8);
     }
 
+    /**
+     * Enumeration of supported license types.
+     */
     public enum LicenseType {
+        /**
+         * Represents a paid, full license. Includes a grace period upon expiration.
+         */
         FULL("F"),
+
+        /**
+         * Represents a temporary, trial license. Expires immediately with no grace period.
+         */
         TRIAL("T");
 
         private final String code;
@@ -54,27 +92,55 @@ public class LicenseManager {
             }
         }
 
+        /**
+         * Constructs a new LicenseType with the corresponding string code.
+         *
+         * @param code The string code representing the license type.
+         */
         LicenseType(String code) {
             this.code = code;
         }
 
+        /**
+         * Gets the single-character string code associated with this license type.
+         *
+         * @return The license code (e.g., "F" or "T").
+         */
         public String getCode() {
             return code;
         }
 
+        /**
+         * Looks up a {@link LicenseType} based on its string code.
+         *
+         * @param code The code to search for.
+         * @return The corresponding {@link LicenseType}, or {@code null} if no match is found.
+         */
         public static LicenseType fromCode(String code) {
             return CODE_MAP.get(code);
         }
     }
 
+    /**
+     * Enumeration representing the current validation state of a license.
+     */
     public enum LicenseStatus {
+        /** The license is valid and active. */
         VALID,
+        /** The license has expired but is still within its allowed grace period. */
         EXPIRED_IN_GRACE,
+        /** The license is fully expired and no longer provides access. */
         EXPIRED,
+        /** The license key is structurally invalid, corrupt, or signature verification failed. */
         INVALID,
+        /** No license key is currently stored or configured. */
         NOT_FOUND
     }
 
+    /**
+     * A Data Transfer Object (DTO) containing detailed information about
+     * the current state, type, and expiration details of a license.
+     */
     public static class LicenseInfo {
         private LicenseStatus status;
         private LicenseType type;
@@ -131,19 +197,39 @@ public class LicenseManager {
             this.message = message;
         }
 
+        /**
+         * Determines if the Persian Calendar features should remain enabled based
+         * on the current license status.
+         *
+         * @return {@code true} if the status is {@link LicenseStatus#VALID} or {@link LicenseStatus#EXPIRED_IN_GRACE}; {@code false} otherwise.
+         */
         public boolean isCalendarEnabled() {
             return status == LicenseStatus.VALID || status == LicenseStatus.EXPIRED_IN_GRACE;
         }
     }
 
+    /**
+     * Factory used for retrieving global plugin settings.
+     */
     private final PluginSettingsFactory pluginSettingsFactory;
 
+    /**
+     * Constructs a new {@link LicenseManager} instance.
+     *
+     * @param pluginSettingsFactory The {@link PluginSettingsFactory} injected by Jira.
+     */
     public LicenseManager(PluginSettingsFactory pluginSettingsFactory) {
         this.pluginSettingsFactory = pluginSettingsFactory;
     }
 
     /**
-     * Get the current Jira Server ID
+     * Retrieves the current Jira Server ID.
+     * <p>
+     * This method fetches the server ID from the Jira License Manager.
+     * If an error occurs or the ID is missing, it returns a default "00000000" string.
+     * </p>
+     *
+     * @return The Jira Server ID as a {@link String}.
      */
     public String getServerIdHash() {
         try {
@@ -159,7 +245,19 @@ public class LicenseManager {
     }
 
     /**
-     * Validate and get license info
+     * Validates the currently stored license key and returns comprehensive license information.
+     * <p>
+     * The validation process includes:
+     * <ol>
+     *   <li>Performing an integrity check on the core plugin files.</li>
+     *   <li>Retrieving the stored license key.</li>
+     *   <li>Parsing the license string components (Type, Server Hash, Expiry, Signature).</li>
+     *   <li>Verifying the signature using HMAC-SHA256.</li>
+     *   <li>Calculating remaining days and applying grace periods if applicable.</li>
+     * </ol>
+     * </p>
+     *
+     * @return A populated {@link LicenseInfo} object reflecting the current license state.
      */
     public LicenseInfo validateLicense() {
         LicenseInfo info = new LicenseInfo();
@@ -266,7 +364,16 @@ public class LicenseManager {
     }
 
     /**
-     * Generate HMAC signature for license validation
+     * Generates an HMAC-SHA256 signature for a set of license parameters.
+     * <p>
+     * The signature is derived from combining the license type code, server hash,
+     * and expiration date string, and hashing it with the secret key.
+     * </p>
+     *
+     * @param type       The single-character license type code (e.g., "F" or "T").
+     * @param serverHash The Server ID associated with the license.
+     * @param expiry     The expiration date string formatted as "yyyyMMdd".
+     * @return The first 8 uppercase hexadecimal characters of the generated signature, or an empty string on error.
      */
     private String generateSignature(String type, String serverHash, String expiry) {
         try {
@@ -291,7 +398,9 @@ public class LicenseManager {
     }
 
     /**
-     * Get stored license key
+     * Retrieves the stored license key from the global plugin settings.
+     *
+     * @return The stored license key string, or {@code null} if no key exists.
      */
     public String getLicenseKey() {
         PluginSettings settings = pluginSettingsFactory.createGlobalSettings();
@@ -300,7 +409,9 @@ public class LicenseManager {
     }
 
     /**
-     * Store license key
+     * Saves a new license key into the global plugin settings.
+     *
+     * @param licenseKey The raw license key string to store.
      */
     public void setLicenseKey(String licenseKey) {
         PluginSettings settings = pluginSettingsFactory.createGlobalSettings();
@@ -308,7 +419,17 @@ public class LicenseManager {
     }
 
     /**
-     * Generate a new license key (for use in separate generator tool)
+     * Generates a complete, new license key.
+     * <p>
+     * This method is primarily intended for use in an external or separate
+     * license generator tool. It constructs the full license string formatted as:
+     * {@code [TYPE]-[SERVER_ID]-[EXPIRY_DATE]-[SIGNATURE]}.
+     * </p>
+     *
+     * @param type       The {@link LicenseType} (e.g., FULL or TRIAL).
+     * @param serverHash The target Jira Server ID.
+     * @param expiryDate The {@link LocalDate} when the license should expire.
+     * @return The newly generated license key string, or {@code null} if an error occurs.
      */
     public static String generateLicenseKey(LicenseType type, String serverHash, LocalDate expiryDate) {
         String typeCode = type.getCode();
