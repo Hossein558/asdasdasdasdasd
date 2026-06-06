@@ -82,7 +82,7 @@ public class DateFormatResource {
             formats.put("dateTimeFormat", "dd/MMM/yy h:mm a");
             formats.put("dateFormatJS", "%e/%b/%y");
             formats.put("dateTimeFormatJS", "%e/%b/%y %I:%M %p");
-            formats.put("error", e.getMessage());
+            formats.put("error", "خطا در دریافت تنظیمات تاریخ");
         }
 
         return Response.ok(formats).build();
