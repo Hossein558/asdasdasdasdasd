@@ -13,7 +13,6 @@
     <web-resource key="persian-calendar-resources" name="Persian Calendar Resources">
         <description>JavaScript and CSS for Persian Calendar</description>
         <dependency>com.atlassian.auiplugin:ajs</dependency>
-        <dependency>com.atlassian.jira.jira-dnd-parent:jira-dnd-common</dependency>
 
         <resource type="download" name="persian-calendar.js" location="/js/persian-calendar.js"/>
         <resource type="download" name="persian-calendar.css" location="/css/persian-calendar.css"/>

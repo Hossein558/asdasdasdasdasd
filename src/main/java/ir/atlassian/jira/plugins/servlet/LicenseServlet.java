@@ -28,6 +28,18 @@ import java.io.PrintWriter;
 public class LicenseServlet extends HttpServlet {
 
     /**
+     * Escapes HTML special characters to prevent XSS attacks.
+     *
+     * @param input The raw input string.
+     * @return The escaped HTML-safe string.
+     */
+    private String escapeHtml(String input) {
+        if (input == null) return "";
+        return input.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                .replace("\"", "&quot;").replace("'", "&#39;");
+    }
+
+    /**
      * Initializes and returns an instance of {@link LicenseManager}.
      * <p>
      * Retrieves the {@link PluginSettingsFactory} from Jira's OSGi component
@@ -128,7 +140,7 @@ public class LicenseServlet extends HttpServlet {
 
         // Message
         if (message != null && !message.isEmpty()) {
-            out.println("<div class='message-" + (messageType != null ? messageType : "success") + "'>" + message
+            out.println("<div class='message-" + escapeHtml(messageType != null ? messageType : "success") + "'>" + escapeHtml(message)
                     + "</div>");
         }
 
@@ -153,11 +165,11 @@ public class LicenseServlet extends HttpServlet {
         out.println("<div class='section'>");
         out.println("<div class='section-title'>📊 وضعیت لایسنس</div>");
         String statusClass = licenseInfo.isCalendarEnabled() ? "status-valid"
-                : (licenseInfo.getStatus().name().equals("NO_LICENSE") ? "status-none" : "status-invalid");
+                : (licenseInfo.getStatus().name().equals("NOT_FOUND") ? "status-none" : "status-invalid");
         String statusIcon = licenseInfo.isCalendarEnabled() ? "✅"
-                : (licenseInfo.getStatus().name().equals("NO_LICENSE") ? "⚪" : "❌");
+                : (licenseInfo.getStatus().name().equals("NOT_FOUND") ? "⚪" : "❌");
         String statusText = licenseInfo.isCalendarEnabled() ? "فعال"
-                : (licenseInfo.getStatus().name().equals("NO_LICENSE") ? "بدون لایسنس" : "غیرفعال");
+                : (licenseInfo.getStatus().name().equals("NOT_FOUND") ? "بدون لایسنس" : "غیرفعال");
         out.println("<div class='status-box " + statusClass + "'>");
         out.println("<div style='font-size: 24px;'>" + statusIcon + "</div>");
         out.println("<div style='font-weight: bold; font-size: 16px;'>" + statusText + "</div>");
@@ -232,6 +244,6 @@ public class LicenseServlet extends HttpServlet {
         }
 
         response.sendRedirect(request.getRequestURI() + "?message=" +
-                java.net.URLEncoder.encode(message, "UTF-8") + "&type=" + messageType);
+                java.net.URLEncoder.encode(message, "UTF-8") + "&type=" + java.net.URLEncoder.encode(messageType, "UTF-8"));
     }
 }

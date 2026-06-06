@@ -11,7 +11,7 @@ import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.Base64;
+// Base64 import removed - was unused
 
 /**
  * License Manager for the Persian Calendar Plugin.
@@ -49,11 +49,12 @@ public class LicenseManager {
      * <p>
      * This method attempts to load a custom secret key from the system property
      * {@code persian.calendar.secret}. If no property is set, it falls back to an
-     * obfuscated default key to prevent simple static string extraction from the bytecode.
+     * XOR-deobfuscated default key to prevent simple static string extraction from the bytecode.
      * </p>
      * <p>
-     * The property can be configured via Jira startup options:
+     * <b>WARNING:</b> For production deployments, always set a custom key via:
      * {@code -Dpersian.calendar.secret=YOUR_SECURE_KEY}
+     * Relying on the embedded fallback key is NOT recommended for high-security environments.
      * </p>
      *
      * @return A {@link String} containing the secret key.
@@ -64,9 +65,14 @@ public class LicenseManager {
             return sysKey.trim();
         }
 
-        // Obfuscated fallback key representation to prevent simple static string extraction
-        byte[] k = new byte[] {80, 101, 114, 115, 105, 97, 110, 67, 97, 108, 101, 110, 100, 97, 114, 50, 48, 50, 52, 83, 101, 99, 114, 101, 116, 75, 101, 121, 33, 64, 35, 36};
-        return new String(k, StandardCharsets.UTF_8);
+        // XOR-deobfuscated fallback key — harder to extract than plain byte array
+        byte[] encoded = new byte[] {117, 70, 31, 6, 24, 64, 27, 38, 66, 45, 70, 27, 35, 66, 51, 69, 95, 69, 93, 32, 70, 68, 51, 70, 43, 48, 70, 56, 112, 29, 100, 71};
+        byte xorKey = 0x25;
+        byte[] decoded = new byte[encoded.length];
+        for (int i = 0; i < encoded.length; i++) {
+            decoded[i] = (byte) (encoded[i] ^ xorKey ^ (i % 7));
+        }
+        return new String(decoded, StandardCharsets.UTF_8);
     }
 
     /**
@@ -343,7 +349,7 @@ public class LicenseManager {
             // Grace period ONLY for FULL licenses, NOT for Trial
             if (type == LicenseType.FULL) {
                 long graceDaysRemaining = GRACE_PERIOD_DAYS - daysSinceExpiry;
-                info.setGraceDaysRemaining(graceDaysRemaining);
+                info.setGraceDaysRemaining(Math.max(0, graceDaysRemaining));
 
                 if (graceDaysRemaining > 0) {
                     info.setStatus(LicenseStatus.EXPIRED_IN_GRACE);
@@ -383,9 +389,9 @@ public class LicenseManager {
             hmac.init(keySpec);
             byte[] hash = hmac.doFinal(data.getBytes(StandardCharsets.UTF_8));
 
-            // Return first 8 characters of hex
+            // Return first 16 characters of hex (64-bit signature)
             StringBuilder hexString = new StringBuilder();
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 8; i++) {
                 String hex = Integer.toHexString(0xff & hash[i]);
                 if (hex.length() == 1)
                     hexString.append('0');
@@ -444,7 +450,7 @@ public class LicenseManager {
             byte[] hash = hmac.doFinal(data.getBytes(StandardCharsets.UTF_8));
 
             StringBuilder hexString = new StringBuilder();
-            for (int i = 0; i < 4; i++) {
+            for (int i = 0; i < 8; i++) {
                 String hex = Integer.toHexString(0xff & hash[i]);
                 if (hex.length() == 1)
                     hexString.append('0');

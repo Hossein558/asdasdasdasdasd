@@ -96,9 +96,8 @@ public class LicenseResource {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("status", "ERROR");
             errorResponse.put("enabled", false);
-            errorResponse.put("message", "خطا در بررسی لایسنس: " + e.getMessage());
-            errorResponse.put("error", e.getClass().getSimpleName());
-            return Response.ok(errorResponse).build();
+            errorResponse.put("message", "خطا در بررسی لایسنس");
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(errorResponse).build();
         }
     }
 
@@ -126,8 +125,8 @@ public class LicenseResource {
         } catch (Exception e) {
             Map<String, String> errorResponse = new HashMap<>();
             errorResponse.put("serverId", "ERROR");
-            errorResponse.put("error", e.getMessage());
-            return Response.ok(errorResponse).build();
+            errorResponse.put("error", "خطا در دریافت شناسه سرور");
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(errorResponse).build();
         }
     }
 
@@ -174,8 +173,8 @@ public class LicenseResource {
         } catch (Exception e) {
             Map<String, Object> errorResponse = new HashMap<>();
             errorResponse.put("success", false);
-            errorResponse.put("error", e.getMessage());
-            return Response.ok(errorResponse).build();
+            errorResponse.put("error", "خطا در فعال‌سازی لایسنس");
+            return Response.status(Response.Status.INTERNAL_SERVER_ERROR).entity(errorResponse).build();
         }
     }
 

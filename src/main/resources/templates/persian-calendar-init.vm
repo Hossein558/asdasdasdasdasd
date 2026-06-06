@@ -1,9 +1,8 @@
 ## Persian Calendar Initialization
 <script type="text/javascript">
-    // Ensure Persian Calendar is initialized after page load
-    if (typeof AJS !== 'undefined' && AJS.$) {
-        AJS.$(document).ready(function() {
-            console.log('Persian Calendar Plugin loaded');
-        });
-    }
+    // Provide server-side configuration to Persian Calendar plugin
+    window.PersianCalendarConfig = window.PersianCalendarConfig || {};
+    window.PersianCalendarConfig.contextPath = '$!{req.contextPath}';
+    window.PersianCalendarConfig.version = '${project.version}';
+    window.PersianCalendarConfig.initialized = true;
 </script>

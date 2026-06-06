@@ -15,7 +15,7 @@
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
     var PC_VERSION = '11.4.21';
-    console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
+    if (window.PC_DEBUG) { console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.'); }
 
     // DIAGNOSTIC CLICK LOGGING (disabled in production to avoid performance impact)
     // To enable: set window.PC_DEBUG = true in browser console before page load
@@ -170,7 +170,7 @@
         sendLogToServer('ERROR', 'Unhandled Promise Rejection: ' + reason, '', 'Promise');
     });
 
-    logInfo('Server-side logging system initialized. Errors will be sent to atlassian-jira.log');
+    if (window.PC_DEBUG) { logInfo('Server-side logging system initialized. Errors will be sent to atlassian-jira.log'); }
 
     /**
      * Safely sets the value of an input element, firing necessary events.
@@ -342,7 +342,7 @@
      * Outputs diagnostics to the console.
      */
     function analyzePageForDateElements() {
-        logInfo('=== Starting Page Analysis ===');
+        if (window.PC_DEBUG) { logInfo('=== Starting Page Analysis ==='); }
         logInfo('Current URL: ' + window.location.href);
         logInfo('Page Title: ' + document.title);
 
@@ -771,10 +771,10 @@
         }
         
         if (original.indexOf('in ') === 0) {
-            var durationPart = original.substring(3).trim();
-            var compoundParsed = parseCompoundDuration(durationPart);
-            if (compoundParsed) {
-                return 'در ' + compoundParsed;
+            var futureDurationPart = original.substring(3).trim();
+            var futureCompoundParsed = parseCompoundDuration(futureDurationPart);
+            if (futureCompoundParsed) {
+                return 'در ' + futureCompoundParsed;
             }
         }
 
@@ -1180,7 +1180,7 @@
      * @param {jQuery} $ - The jQuery instance.
      */
     function convertActivityStreamTime($) {
-        logInfo('=== Converting Activity Stream Timestamps ===');
+        if (window.PC_DEBUG) { logInfo('=== Converting Activity Stream Timestamps ==='); }
 
         var timestampSelectors = [
             '.livestamp',
@@ -1264,12 +1264,12 @@
                     'direction': 'rtl',
                     'unicode-bidi': 'embed'
                 });
-                logInfo('Converted time: ' + text + ' → ' + persianTime);
+                if (window.PC_DEBUG) { logInfo('Converted time: ' + text + ' → ' + persianTime); }
                 convertedCount++;
             }
         });
 
-        logInfo('Activity Stream times converted: ' + convertedCount);
+        if (window.PC_DEBUG) { logInfo('Activity Stream times converted: ' + convertedCount); }
 
         // Also do aggressive text-based conversion for any missed elements
         convertAllRelativeTimesInPage($);
@@ -1280,7 +1280,7 @@
 
     // Aggressive text-based conversion - find ALL elements with relative time text
     function convertAllRelativeTimesInPage($) {
-        logInfo('=== Aggressive Text-Based Relative Time Conversion ===');
+        if (window.PC_DEBUG) { logInfo('=== Aggressive Text-Based Relative Time Conversion ==='); }
 
         var convertedCount = 0;
 
@@ -1319,7 +1319,7 @@
             });
         });
 
-        logInfo('Text-based conversion completed: ' + convertedCount);
+        if (window.PC_DEBUG) { logInfo('Text-based conversion completed: ' + convertedCount); }
     }
 
     // Setup observer specifically for livestamp elements that update dynamically
@@ -1388,7 +1388,7 @@
      * @param {jQuery} $ - The jQuery instance.
      */
     function convertTimeSpentDurations($) {
-        logInfo('=== Converting Time Spent / Durations ===');
+        if (window.PC_DEBUG) { logInfo('=== Converting Time Spent / Durations ==='); }
 
         var durationSelectors = [
             // Time Spent in Issue tables

@@ -15,11 +15,6 @@ import java.security.MessageDigest;
 public class IntegrityChecker {
 
     /**
-     * A special hardcoded verification key used for internal integrity checks.
-     */
-    private static final String VERIFICATION_KEY = "PC2024SEC";
-
-    /**
      * Array of hexadecimal characters used for byte-to-hex string conversion.
      */
     private static final char[] HEX_ARRAY = "0123456789abcdef".toCharArray();
@@ -45,15 +40,24 @@ public class IntegrityChecker {
         }
 
         try {
-            // Verify this class hasn't been modified
-            String selfCheck = getSelfVerificationCode();
-            if (!selfCheck.equals(VERIFICATION_KEY)) {
+            // Check if we're running in a known good environment
+            if (!verifyClassLoader()) {
                 integrityValid = false;
                 return false;
             }
 
-            // Check if we're running in a known good environment
-            if (!verifyClassLoader()) {
+            // Verify that the plugin descriptor resource exists and is readable
+            String pluginXmlHash = calculateResourceHash("atlassian-plugin.xml");
+            if (pluginXmlHash == null || pluginXmlHash.length() != 64) {
+                integrityValid = false;
+                return false;
+            }
+
+            // Verify that the core LicenseManager class is loadable
+            try {
+                Class.forName("ir.atlassian.jira.plugins.license.LicenseManager",
+                        false, IntegrityChecker.class.getClassLoader());
+            } catch (ClassNotFoundException e) {
                 integrityValid = false;
                 return false;
             }
@@ -66,30 +70,6 @@ public class IntegrityChecker {
         }
     }
 
-    /**
-     * Retrieves a self-verification code in an obfuscated manner.
-     * <p>
-     * This method constructs the verification key character by character
-     * to make it more difficult for attackers to find and modify the key
-     * directly in the bytecode.
-     * </p>
-     *
-     * @return The expected verification key as a {@link String}.
-     */
-    private static String getSelfVerificationCode() {
-        // Obfuscated way to return "PC2024SEC"
-        char[] c = new char[9];
-        c[0] = (char) (80); // P
-        c[1] = (char) (67); // C
-        c[2] = (char) (50); // 2
-        c[3] = (char) (48); // 0
-        c[4] = (char) (50); // 2
-        c[5] = (char) (52); // 4
-        c[6] = (char) (83); // S
-        c[7] = (char) (69); // E
-        c[8] = (char) (67); // C
-        return new String(c);
-    }
 
     /**
      * Verifies that the class loader used to load this class is legitimate.

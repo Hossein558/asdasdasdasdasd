@@ -12,8 +12,8 @@
     <description>Displays Due Date field with Persian/Shamsi calendar while storing in Gregorian format</description>
 
     <organization>
-        <name>Atlassian Jira IR</name>
-        <url>https://atlassian-jira.ir/</url>
+        <name>DesktopCenter</name>
+        <url>https://desktopcenter.ir/</url>
     </organization>
 
     <properties>
