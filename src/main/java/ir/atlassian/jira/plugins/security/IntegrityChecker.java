@@ -5,26 +5,51 @@ import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 
 /**
- * Security Integrity Checker
- * Verifies that plugin files haven't been tampered with
+ * Security Integrity Checker.
+ * <p>
+ * This class provides utility methods to verify that the core plugin files
+ * and resources have not been tampered with. It employs self-verification
+ * and class loader checks to prevent simple decompile-modify-recompile attacks.
+ * </p>
  */
 public class IntegrityChecker {
 
-    // Hash of critical files - updated at build time
-    // These are SHA-256 hashes of the original files
+    /**
+     * Pre-calculated SHA-256 hash of the LicenseManager class.
+     * This value is intended to be updated during the build process.
+     */
     private static final String LICENSE_MANAGER_HASH = "RUNTIME_CALCULATED";
+
+    /**
+     * Pre-calculated SHA-256 hash of the LicenseResource class.
+     * This value is intended to be updated during the build process.
+     */
     private static final String LICENSE_RESOURCE_HASH = "RUNTIME_CALCULATED";
 
-    // Special verification key embedded in code
+    /**
+     * A special hardcoded verification key used for internal integrity checks.
+     */
     private static final String VERIFICATION_KEY = "PC2024SEC";
 
+    /**
+     * Array of hexadecimal characters used for byte-to-hex string conversion.
+     */
     private static final char[] HEX_ARRAY = "0123456789abcdef".toCharArray();
 
+    /**
+     * Cached result of the integrity validation to avoid redundant checks.
+     */
     private static Boolean integrityValid = null;
 
     /**
-     * Check if core plugin files are intact
-     * This prevents simple decompile-modify-recompile attacks
+     * Verifies whether the core plugin files remain intact and untampered.
+     * <p>
+     * This method performs a self-verification check and ensures that the
+     * class is loaded by a legitimate environment class loader. It prevents
+     * basic reverse-engineering attacks. The result is cached for subsequent calls.
+     * </p>
+     *
+     * @return {@code true} if the integrity checks pass or fail-open conditions apply; {@code false} otherwise.
      */
     public static boolean verifyIntegrity() {
         if (integrityValid != null) {
@@ -54,7 +79,14 @@ public class IntegrityChecker {
     }
 
     /**
-     * Self-verification code that's hard to find and modify
+     * Retrieves a self-verification code in an obfuscated manner.
+     * <p>
+     * This method constructs the verification key character by character
+     * to make it more difficult for attackers to find and modify the key
+     * directly in the bytecode.
+     * </p>
+     *
+     * @return The expected verification key as a {@link String}.
      */
     private static String getSelfVerificationCode() {
         // Obfuscated way to return "PC2024SEC"
@@ -72,7 +104,14 @@ public class IntegrityChecker {
     }
 
     /**
-     * Verify the class loader is legitimate
+     * Verifies that the class loader used to load this class is legitimate.
+     * <p>
+     * The method checks if the class loader's name contains known safe
+     * keywords such as "atlassian", "plugin", "osgi", or "felix".
+     * If an exception occurs, it defaults to a fail-open behavior.
+     * </p>
+     *
+     * @return {@code true} if the class loader is deemed legitimate or the check fails open; {@code false} otherwise.
      */
     private static boolean verifyClassLoader() {
         try {
@@ -92,7 +131,15 @@ public class IntegrityChecker {
     }
 
     /**
-     * Calculate SHA-256 hash of a resource
+     * Calculates the SHA-256 hash of a given resource within the classpath.
+     * <p>
+     * Reads the resource specified by the path as an {@link InputStream}
+     * and computes its cryptographic hash using the SHA-256 algorithm.
+     * The resulting byte array is then converted to a hexadecimal string.
+     * </p>
+     *
+     * @param resourcePath The relative path to the resource to be hashed.
+     * @return A hexadecimal {@link String} representing the SHA-256 hash, or {@code null} if the resource cannot be found or an error occurs.
      */
     public static String calculateResourceHash(String resourcePath) {
         try {
@@ -122,8 +169,14 @@ public class IntegrityChecker {
     }
 
     /**
-     * Verify JavaScript file hasn't been modified
-     * Returns true if file is intact or check cannot be performed
+     * Verifies the integrity of the core JavaScript file associated with the plugin.
+     * <p>
+     * This method calculates the SHA-256 hash of the {@code js/persian-calendar.js}
+     * resource and checks if it exists and has the expected hash length.
+     * In a full production scenario, this hash would be compared against a known good value.
+     * </p>
+     *
+     * @return {@code true} if the JavaScript file appears intact or if the verification check fails open; {@code false} otherwise.
      */
     public static boolean verifyJavaScriptIntegrity() {
         try {

@@ -13,14 +13,33 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * REST Resource to expose Jira's date format settings to the Persian Calendar
- * plugin.
- * This allows the plugin to dynamically adapt to any date format configured by
- * the admin.
+ * REST Resource to expose Jira's system date and time format settings to the
+ * client-side components of the Persian Calendar plugin.
+ * <p>
+ * By providing these settings dynamically, the plugin's UI elements (like pickers
+ * and display text) can adapt to whatever custom date formats the Jira administrator
+ * has configured in the system settings, avoiding hardcoded format assumptions.
+ * </p>
  */
 @Path("/date-formats")
 public class DateFormatResource {
 
+    /**
+     * Retrieves a collection of configured Jira date and time formats.
+     * <p>
+     * This endpoint is accessible anonymously because the date picker scripts
+     * run on many pages (including login or anonymous portal pages) and require
+     * format configuration to correctly parse and display dates.
+     * </p>
+     * <p>
+     * The response payload includes properties for both Java (server-side)
+     * and JavaScript (client-side) representations of the configured patterns.
+     * If any properties are unset or an error occurs during retrieval,
+     * standard Jira default formats are provided as fallbacks.
+     * </p>
+     *
+     * @return A JSON response mapping format setting keys to their string patterns.
+     */
     @GET
     @AnonymousAllowed
     @Produces(MediaType.APPLICATION_JSON)
@@ -69,6 +88,18 @@ public class DateFormatResource {
         return Response.ok(formats).build();
     }
 
+    /**
+     * Helper method to safely retrieve a string property from Jira's application properties.
+     * <p>
+     * If the property corresponding to the given key is null, empty, or an exception
+     * is thrown during retrieval, the specified default value is returned instead.
+     * </p>
+     *
+     * @param props        The active {@link ApplicationProperties} instance.
+     * @param key          The key of the property to retrieve.
+     * @param defaultValue The fallback value to return if the property is missing or inaccessible.
+     * @return The retrieved property value or the default fallback.
+     */
     private String getPropertyOrDefault(ApplicationProperties props, String key, String defaultValue) {
         try {
             String value = props.getString(key);

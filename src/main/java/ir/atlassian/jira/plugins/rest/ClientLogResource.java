@@ -19,24 +19,57 @@ import java.util.Map;
 /**
  * REST Resource that receives client-side JavaScript log entries from the browser
  * and writes them to the Jira server log (atlassian-jira.log).
- *
- * Endpoint: POST /rest/persian-calendar/1.0/client-log
- *
- * This allows administrators to diagnose JavaScript issues that occur in users'
- * browsers without needing direct access to the browser console.
- *
- * Security: Only logged-in users can submit logs. Rate-limited to prevent abuse.
+ * <p>
+ * <b>Endpoint:</b> POST /rest/persian-calendar/1.0/client-log
+ * </p>
+ * <p>
+ * This functionality allows Jira administrators to remotely diagnose JavaScript issues
+ * that occur within users' browsers, eliminating the need to physically access the
+ * client machine's browser console.
+ * </p>
+ * <p>
+ * <b>Security Considerations:</b>
+ * <ul>
+ *   <li>Requires an active, authenticated Jira session.</li>
+ *   <li>Enforces per-user rate limiting to prevent log spamming or DoS attacks.</li>
+ *   <li>Sanitizes incoming strings to prevent log injection vulnerability (CWE-117).</li>
+ * </ul>
+ * </p>
  */
 @Path("/client-log")
 public class ClientLogResource {
 
+    /**
+     * Specialized SLF4J Logger targeted specifically for Persian Calendar client events.
+     */
     private static final Logger log = LoggerFactory.getLogger("ir.atlassian.jira.plugins.persian-calendar.CLIENT");
 
-    // Simple rate limiting: max logs per user per minute
+    /**
+     * The maximum number of log requests an individual user can send within a single time window.
+     */
     private static final int MAX_LOGS_PER_MINUTE = 30;
+
+    /**
+     * The duration of the rate-limiting sliding window in milliseconds (default: 1 minute).
+     */
     private static final long RATE_WINDOW_MS = 60_000; // 1 minute
+
+    /**
+     * In-memory cache holding rate limit counters mapped by Jira username.
+     */
     private static final Map<String, RateInfo> rateLimitMap = new HashMap<>();
 
+    /**
+     * Receives a log entry payload from the client browser and securely writes it to the server log.
+     * <p>
+     * Before logging, this method verifies user authentication, checks rate limits,
+     * and aggressively sanitizes the payload data to remove newline characters and
+     * control codes that could facilitate log forging attacks.
+     * </p>
+     *
+     * @param logEntry The incoming {@link ClientLogModel} populated via Jackson JSON deserialization.
+     * @return A {@link Response} indicating the outcome (200 OK, 401 Unauthorized, 429 Too Many Requests, or 400 Bad Request).
+     */
     @POST
     @Consumes(MediaType.APPLICATION_JSON)
     @Produces(MediaType.APPLICATION_JSON)
@@ -126,8 +159,15 @@ public class ClientLogResource {
     }
 
     /**
-     * Sanitize strings to prevent log injection attacks.
-     * Removes newlines and control characters that could fake log entries.
+     * Sanitizes input strings to prevent log forging and injection attacks.
+     * <p>
+     * Replaces carriage returns, newlines, and non-printable ASCII control characters
+     * with spaces or strips them entirely. Also truncates overly long strings to
+     * prevent excessive memory consumption or log flooding.
+     * </p>
+     *
+     * @param input The raw, untrusted string received from the client.
+     * @return A sanitized, safe string, or an empty string if the input was null.
      */
     private String sanitize(String input) {
         if (input == null) return "";
@@ -141,7 +181,14 @@ public class ClientLogResource {
     }
 
     /**
-     * Simple per-user rate limiting using a sliding window.
+     * Evaluates whether a specific user has exceeded their log submission quota.
+     * <p>
+     * Implements a simple fixed-window rate limiting algorithm. The block is synchronized
+     * to ensure thread-safe read/write operations against the shared {@code rateLimitMap}.
+     * </p>
+     *
+     * @param username The authenticated Jira username attempting to log.
+     * @return {@code true} if the user has exceeded the limit; {@code false} otherwise.
      */
     private synchronized boolean isRateLimited(String username) {
         long now = System.currentTimeMillis();
@@ -159,12 +206,21 @@ public class ClientLogResource {
     }
 
     /**
-     * Simple rate tracking structure.
+     * A simple state-holding structure used internally to track rate limits per user.
      */
     private static class RateInfo {
+        /** The absolute timestamp (ms) when the current window began. */
         long windowStart;
+
+        /** The number of log entries accepted during the current window. */
         int count;
 
+        /**
+         * Constructs a new rate tracking record.
+         *
+         * @param windowStart Timestamp representing window initialization.
+         * @param count       Initial count of log entries.
+         */
         RateInfo(long windowStart, int count) {
             this.windowStart = windowStart;
             this.count = count;

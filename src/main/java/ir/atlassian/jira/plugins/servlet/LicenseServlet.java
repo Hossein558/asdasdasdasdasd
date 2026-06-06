@@ -16,16 +16,48 @@ import java.io.IOException;
 import java.io.PrintWriter;
 
 /**
- * License Administration Servlet
- * Provides UI for viewing Server ID and activating license
+ * License Administration Servlet.
+ * <p>
+ * This servlet acts as the backend for the plugin's license management UI.
+ * It provides a web interface where Jira administrators can view their unique
+ * Server ID, input a new license key, and check the current license validity status.
+ * All operations within this servlet are strictly protected and require global
+ * administrative permissions.
+ * </p>
  */
 public class LicenseServlet extends HttpServlet {
 
+    /**
+     * Initializes and returns an instance of {@link LicenseManager}.
+     * <p>
+     * Retrieves the {@link PluginSettingsFactory} from Jira's OSGi component
+     * accessor to supply the LicenseManager with the necessary persistence context.
+     * </p>
+     *
+     * @return A ready-to-use {@link LicenseManager}.
+     */
     private LicenseManager getLicenseManager() {
         PluginSettingsFactory psf = ComponentAccessor.getOSGiComponentInstanceOfType(PluginSettingsFactory.class);
         return new LicenseManager(psf);
     }
 
+    /**
+     * Handles HTTP GET requests to render the License Administration UI.
+     * <p>
+     * Before rendering, this method enforces authentication and authorization checks.
+     * If the user is unauthenticated, they are redirected to the Jira login page.
+     * If they lack administrative permissions, a 403 Forbidden error is returned.
+     * </p>
+     * <p>
+     * The response consists of dynamically generated HTML containing the server ID,
+     * license activation form, and current license status.
+     * </p>
+     *
+     * @param request  The {@link HttpServletRequest} containing the client request.
+     * @param response The {@link HttpServletResponse} where the HTML will be written.
+     * @throws ServletException If a servlet-specific error occurs.
+     * @throws IOException      If an input or output error is detected when the servlet handles the GET request.
+     */
     @Override
     protected void doGet(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {
@@ -142,6 +174,24 @@ public class LicenseServlet extends HttpServlet {
         out.println("</html>");
     }
 
+    /**
+     * Handles HTTP POST requests submitted via the license activation form.
+     * <p>
+     * Like the GET handler, this method strictly enforces authentication and
+     * administrative authorization. It expects a {@code licenseKey} parameter
+     * in the request body. The key is cleaned, stored via {@link LicenseManager},
+     * and validated.
+     * </p>
+     * <p>
+     * Upon completion, the client is redirected back to the GET endpoint with
+     * a success or error message appended as query parameters.
+     * </p>
+     *
+     * @param request  The {@link HttpServletRequest} containing the submitted form data.
+     * @param response The {@link HttpServletResponse} used to issue a redirect.
+     * @throws ServletException If a servlet-specific error occurs.
+     * @throws IOException      If an input or output error is detected during the POST request.
+     */
     @Override
     protected void doPost(HttpServletRequest request, HttpServletResponse response)
             throws ServletException, IOException {

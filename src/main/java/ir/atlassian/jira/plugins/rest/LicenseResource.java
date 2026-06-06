@@ -16,16 +16,39 @@ import java.util.HashMap;
 import java.util.Map;
 
 /**
- * REST API for License Management
+ * REST API for License Management.
+ * <p>
+ * Exposes endpoints for managing and retrieving the plugin's license information.
+ * This includes checking current license status, fetching the server ID for license generation,
+ * and activating new licenses.
+ * </p>
  */
 @Path("/license")
 public class LicenseResource {
 
+    /**
+     * Instantiates and retrieves the {@link LicenseManager}.
+     * <p>
+     * Obtains the {@link PluginSettingsFactory} from the OSGi component system
+     * to initialize the manager with the correct context.
+     * </p>
+     *
+     * @return A new instance of {@link LicenseManager}.
+     */
     private LicenseManager getLicenseManager() {
         PluginSettingsFactory psf = ComponentAccessor.getOSGiComponentInstanceOfType(PluginSettingsFactory.class);
         return new LicenseManager(psf);
     }
 
+    /**
+     * Checks if the currently authenticated user possesses administrative privileges.
+     * <p>
+     * Verifies that there is a logged-in user and that the user holds the
+     * {@link GlobalPermissionKey#ADMINISTER} global permission within Jira.
+     * </p>
+     *
+     * @return {@code true} if the current user is an administrator; {@code false} otherwise.
+     */
     private boolean isAdmin() {
         JiraAuthenticationContext authContext = ComponentAccessor.getJiraAuthenticationContext();
         ApplicationUser user = authContext.getLoggedInUser();
@@ -33,7 +56,14 @@ public class LicenseResource {
     }
 
     /**
-     * Get license status (called by frontend)
+     * Retrieves the current license status.
+     * <p>
+     * This endpoint is called by the frontend (often anonymously) to determine
+     * if the calendar functionality should be enabled. It returns the validation
+     * status, remaining days, and any applicable warning messages.
+     * </p>
+     *
+     * @return A JSON representation of the {@link LicenseInfo} mapped properties.
      */
     @GET
     @Path("/status")
@@ -73,7 +103,13 @@ public class LicenseResource {
     }
 
     /**
-     * Get Server ID hash (for license generation)
+     * Retrieves the current Jira Server ID.
+     * <p>
+     * This endpoint requires administrative privileges. The server ID is necessary
+     * for generating a valid, node-locked license key for this specific instance.
+     * </p>
+     *
+     * @return A JSON response containing the server ID string.
      */
     @GET
     @Path("/server-id")
@@ -96,7 +132,15 @@ public class LicenseResource {
     }
 
     /**
-     * Set license key (admin only)
+     * Activates a newly provided license key.
+     * <p>
+     * This endpoint requires administrative privileges. It accepts a JSON payload
+     * containing the "licenseKey" field, stores it via the {@link LicenseManager},
+     * and performs an immediate validation check.
+     * </p>
+     *
+     * @param request A map containing the "licenseKey" string to activate.
+     * @return A JSON response indicating the success status and message.
      */
     @POST
     @Path("/activate")
@@ -136,7 +180,14 @@ public class LicenseResource {
     }
 
     /**
-     * Get current license key (masked)
+     * Retrieves the currently stored license key in a masked format.
+     * <p>
+     * This endpoint requires administrative privileges. For security purposes,
+     * the returned license string has its middle sections obscured (e.g.,
+     * showing only the first 4 and last 4 characters).
+     * </p>
+     *
+     * @return A JSON response containing the masked "licenseKey" string.
      */
     @GET
     @Path("/current")
