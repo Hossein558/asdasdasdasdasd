@@ -15,18 +15,6 @@ import java.security.MessageDigest;
 public class IntegrityChecker {
 
     /**
-     * Pre-calculated SHA-256 hash of the LicenseManager class.
-     * This value is intended to be updated during the build process.
-     */
-    private static final String LICENSE_MANAGER_HASH = "RUNTIME_CALCULATED";
-
-    /**
-     * Pre-calculated SHA-256 hash of the LicenseResource class.
-     * This value is intended to be updated during the build process.
-     */
-    private static final String LICENSE_RESOURCE_HASH = "RUNTIME_CALCULATED";
-
-    /**
      * A special hardcoded verification key used for internal integrity checks.
      */
     private static final String VERIFICATION_KEY = "PC2024SEC";
@@ -142,8 +130,7 @@ public class IntegrityChecker {
      * @return A hexadecimal {@link String} representing the SHA-256 hash, or {@code null} if the resource cannot be found or an error occurs.
      */
     public static String calculateResourceHash(String resourcePath) {
-        try {
-            InputStream is = IntegrityChecker.class.getClassLoader().getResourceAsStream(resourcePath);
+        try (InputStream is = IntegrityChecker.class.getClassLoader().getResourceAsStream(resourcePath)) {
             if (is == null)
                 return null;
 
@@ -153,7 +140,6 @@ public class IntegrityChecker {
             while ((read = is.read(buffer)) > 0) {
                 md.update(buffer, 0, read);
             }
-            is.close();
 
             byte[] hash = md.digest();
             char[] hexChars = new char[hash.length * 2];
@@ -172,18 +158,24 @@ public class IntegrityChecker {
      * Verifies the integrity of the core JavaScript file associated with the plugin.
      * <p>
      * This method calculates the SHA-256 hash of the {@code js/persian-calendar.js}
-     * resource and checks if it exists and has the expected hash length.
-     * In a full production scenario, this hash would be compared against a known good value.
+     * resource and checks if it exists and produces a valid hash.
+     * </p>
+     * <p>
+     * <b>Note:</b> Currently performs an existence and readability check only.
+     * A future enhancement should compare the hash against a build-time generated value.
      * </p>
      *
-     * @return {@code true} if the JavaScript file appears intact or if the verification check fails open; {@code false} otherwise.
+     * @return {@code true} if the JavaScript file exists and is readable; {@code false} otherwise.
      */
     public static boolean verifyJavaScriptIntegrity() {
         try {
             String jsHash = calculateResourceHash("js/persian-calendar.js");
-            // For now, just check the file exists and is readable
-            // In production, compare with known hash
-            return jsHash != null && jsHash.length() == 64;
+            if (jsHash == null || jsHash.length() != 64) {
+                return false;
+            }
+            // TODO: Compare jsHash against a build-time generated known-good hash
+            // for full tamper detection. Currently only validates file existence.
+            return true;
         } catch (Exception e) {
             return true; // Fail open
         }

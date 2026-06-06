@@ -1,6 +1,6 @@
 /**
  * Persian Calendar Integration for Jira
- * Version 1.1 - With Detailed Logging
+ * Version 11.4.21 - With Detailed Logging
  * Replaces the default Gregorian date picker with Persian/Shamsi calendar
  * Stores data in Gregorian format
  */
@@ -17,18 +17,21 @@
     var PC_VERSION = '11.4.21';
     console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.');
 
-    // IMMEDIATE GLOBAL CLICK DIAGNOSTIC (Writen to F12 Console)
-    window.addEventListener('click', function(e) {
-        var t = e.target;
-        var classes = t.className || '';
-        var id = t.id || '';
-        console.log('[PC-DIAGNOSTIC-CLICK]', {
-            tagName: t.tagName,
-            id: id,
-            className: classes,
-            element: t
-        });
-    }, true);
+    // DIAGNOSTIC CLICK LOGGING (disabled in production to avoid performance impact)
+    // To enable: set window.PC_DEBUG = true in browser console before page load
+    var PC_DEBUG_MODE = window.PC_DEBUG || false;
+    if (PC_DEBUG_MODE) {
+        window.addEventListener('click', function(e) {
+            var t = e.target;
+            var classes = t.className || '';
+            var id = t.id || '';
+            console.log('[PC-DIAGNOSTIC-CLICK]', {
+                tagName: t.tagName,
+                id: id,
+                className: classes
+            });
+        }, true);
+    }
 
     // ========== SERVER-SIDE LOG SENDING ==========
     var _serverLogQueue = [];
@@ -172,21 +175,32 @@
     /**
      * Safely sets the value of an input element, firing necessary events.
      * Handles React controlled components by bypassing the value setter prototype.
+     * Uses a WeakMap cache to avoid repeated prototype chain traversal.
      * @param {HTMLElement} element - The input element.
      * @param {string} val - The new value.
      */
+    var _nativeSetterCache = typeof WeakMap !== 'undefined' ? new WeakMap() : null;
     function setElementValueSafely(element, val) {
         if (!element) return;
         try {
             var nativeInputValueSetter = null;
-            var proto = element;
-            while (proto) {
-                var desc = Object.getOwnPropertyDescriptor(proto, 'value');
-                if (desc && desc.set) {
-                    nativeInputValueSetter = desc.set;
-                    break;
+            // Check cache first
+            if (_nativeSetterCache && _nativeSetterCache.has(element.constructor)) {
+                nativeInputValueSetter = _nativeSetterCache.get(element.constructor);
+            } else {
+                var proto = element;
+                while (proto) {
+                    var desc = Object.getOwnPropertyDescriptor(proto, 'value');
+                    if (desc && desc.set) {
+                        nativeInputValueSetter = desc.set;
+                        break;
+                    }
+                    proto = Object.getPrototypeOf(proto);
                 }
-                proto = Object.getPrototypeOf(proto);
+                // Cache the result for this element type
+                if (_nativeSetterCache && nativeInputValueSetter) {
+                    _nativeSetterCache.set(element.constructor, nativeInputValueSetter);
+                }
             }
             if (nativeInputValueSetter) {
                 nativeInputValueSetter.call(element, val);
@@ -202,46 +216,29 @@
     }
 
     // ========== LICENSE SYSTEM ==========
-    // Security: Obfuscated integrity verification
-    var _0x4f2a = ['\x65\x6e\x61\x62\x6c\x65\x64', '\x73\x74\x61\x74\x75\x73'];
-    var _pcv = function () { return String.fromCharCode(80, 67, 50, 48, 50, 52); };
-    var _chk = function () { return _pcv() === 'PC2024'; };
-
     var LICENSE_CACHE = {
         checked: false,
         enabled: false,  // Default to disabled (fail-closed)
         status: 'UNKNOWN',
         message: 'در حال بررسی وضعیت لایسنس...',
         daysRemaining: 0,
-        _v: _chk  // Hidden verification function
+        lastCheckTime: 0  // Timestamp of last server check
     };
-
-    // Integrity check function (obfuscated)
-    function _pcIntegrity() {
-        try {
-            if (typeof LICENSE_CACHE._v !== 'function') return false;
-            if (!LICENSE_CACHE._v()) return false;
-            if (_0x4f2a.length !== 2) return false;
-            return true;
-        } catch (e) { return false; }
-    }
 
     /**
      * Asynchronously checks the license status from the backend.
-     * Uses local storage cache to minimize requests.
+     * Uses a 5-minute in-memory cache to minimize server requests.
      * @param {Function} callback - Callback function receiving the status object.
      */
+    var LICENSE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
     function checkLicenseStatus(callback) {
-        // Security: Verify code integrity first
-        if (!_pcIntegrity()) {
-            LICENSE_CACHE.checked = true;
-            LICENSE_CACHE.enabled = false;
-            LICENSE_CACHE.message = 'خطای امنیتی: کد دستکاری شده';
+        // Return cached result if still fresh
+        var now = Date.now();
+        if (LICENSE_CACHE.checked && (now - LICENSE_CACHE.lastCheckTime) < LICENSE_CACHE_TTL_MS) {
             callback(LICENSE_CACHE);
             return;
         }
 
-        // Always check fresh (no cache) - ensures license changes take effect immediately
         var baseUrl = AJS && AJS.contextPath ? AJS.contextPath() : '';
         var apiUrl = baseUrl + '/rest/persian-calendar/1.0/license/status';
 
@@ -252,6 +249,7 @@
             xhr.open('GET', apiUrl, true);
             xhr.onreadystatechange = function () {
                 if (xhr.readyState === 4) {
+                    LICENSE_CACHE.lastCheckTime = Date.now();
                     if (xhr.status === 200) {
                         try {
                             var data = JSON.parse(xhr.responseText);
@@ -279,6 +277,7 @@
             logError('License check error: ' + e.message);
             LICENSE_CACHE.checked = true;
             LICENSE_CACHE.enabled = false; // Fail-closed for errors
+            LICENSE_CACHE.lastCheckTime = Date.now();
             callback(LICENSE_CACHE);
         }
     }
@@ -403,7 +402,6 @@
         logInfo('=== Page Analysis Complete ===');
     }
 
-    // Wait for AJS and jQuery
     // Wait for AJS and jQuery and DOM Ready
     /**
      * Waits for the Jira core JavaScript libraries (AJS, jQuery) to be ready.
@@ -434,6 +432,9 @@
 
     // Official Iranian Holidays (1403 - 1407)
     // Format: 'YYYY-MM-DD': 'Occasion Name'
+    // WARNING: Holiday data is hardcoded and only covers years 1403-1407.
+    // After 1407, holidays will not be displayed. Consider fetching from an API
+    // or updating this list periodically.
     var IRAN_HOLIDAYS = {
         // 1403
         '1403-1-1': 'عید نوروز', '1403-1-2': 'عید نوروز', '1403-1-3': 'عید نوروز', '1403-1-4': 'عید نوروز', '1403-1-12': 'روز جمهوری اسلامی', '1403-1-13': 'شهادت حضرت علی (ع) و روز طبیعت', '1403-1-22': 'عید سعید فطر', '1403-1-23': 'تعطیل به مناسبت عید سعید فطر',

@@ -14,7 +14,9 @@ import javax.ws.rs.Produces;
 import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 
 /**
  * REST Resource that receives client-side JavaScript log entries from the browser
@@ -56,8 +58,19 @@ public class ClientLogResource {
 
     /**
      * In-memory cache holding rate limit counters mapped by Jira username.
+     * Uses ConcurrentHashMap for thread-safe access without external synchronization.
      */
-    private static final Map<String, RateInfo> rateLimitMap = new HashMap<>();
+    private static final Map<String, RateInfo> rateLimitMap = new ConcurrentHashMap<>();
+
+    /**
+     * Timestamp of the last cleanup run for stale rate limit entries.
+     */
+    private static volatile long lastCleanupTime = System.currentTimeMillis();
+
+    /**
+     * Interval between stale entry cleanups (5 minutes).
+     */
+    private static final long CLEANUP_INTERVAL_MS = 300_000;
 
     /**
      * Receives a log entry payload from the client browser and securely writes it to the server log.
@@ -75,7 +88,7 @@ public class ClientLogResource {
     @Produces(MediaType.APPLICATION_JSON)
     public Response receiveClientLog(ClientLogModel logEntry) {
         // Security: require authenticated user
-        String username = "anonymous";
+        String username;
         try {
             JiraAuthenticationContext authContext = ComponentAccessor.getJiraAuthenticationContext();
             ApplicationUser user = authContext.getLoggedInUser();
@@ -87,6 +100,9 @@ public class ClientLogResource {
             username = user.getUsername();
         } catch (Exception e) {
             log.warn("[PERSIAN-CALENDAR-CLIENT] Could not determine authenticated user: {}", e.getMessage());
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity("{\"error\":\"Authentication required\"}")
+                    .build();
         }
 
         // Rate limiting
@@ -190,8 +206,21 @@ public class ClientLogResource {
      * @param username The authenticated Jira username attempting to log.
      * @return {@code true} if the user has exceeded the limit; {@code false} otherwise.
      */
-    private synchronized boolean isRateLimited(String username) {
+    private boolean isRateLimited(String username) {
         long now = System.currentTimeMillis();
+
+        // Periodic cleanup of stale entries to prevent memory leak
+        if (now - lastCleanupTime > CLEANUP_INTERVAL_MS) {
+            lastCleanupTime = now;
+            Iterator<Map.Entry<String, RateInfo>> it = rateLimitMap.entrySet().iterator();
+            while (it.hasNext()) {
+                Map.Entry<String, RateInfo> entry = it.next();
+                if (now - entry.getValue().windowStart > RATE_WINDOW_MS * 2) {
+                    it.remove();
+                }
+            }
+        }
+
         RateInfo info = rateLimitMap.get(username);
         if (info == null || (now - info.windowStart) > RATE_WINDOW_MS) {
             // New window
@@ -199,10 +228,7 @@ public class ClientLogResource {
             return false;
         }
         info.count++;
-        if (info.count > MAX_LOGS_PER_MINUTE) {
-            return true;
-        }
-        return false;
+        return info.count > MAX_LOGS_PER_MINUTE;
     }
 
     /**
