@@ -230,7 +230,7 @@ The plugin uses the standard **Jira Server ID** (`JiraLicenseManager.getServerId
 2. Run these PowerShell commands to get the hashes from the compiled target folder:
    - `(Get-FileHash -Algorithm SHA256 target\classes\atlassian-plugin.xml).Hash.ToLower()`
    - `(Get-FileHash -Algorithm SHA256 target\classes\js\persian-calendar.js).Hash.ToLower()`
-3. Copy the output and update the constants in `src/main/java/ir/atlassian/jira/plugins/security/IntegrityChecker.java`.
+3. Copy the generated lowercase hashes and update the `EXPECTED_XML_HASH` and `EXPECTED_JS_HASH` string constants in `src/main/java/ir/atlassian/jira/plugins/security/IntegrityChecker.java` (around line 28).
 
 ---
 
