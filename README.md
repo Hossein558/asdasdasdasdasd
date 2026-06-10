@@ -67,7 +67,7 @@ Jira's inline edit fields are dynamically loaded. To prevent the native calendar
 ## 🚀 Build & Deployment
 
 ### Prerequisites
-*   Java JDK 17 (or compatible version for your Jira instance)
+*   Java JDK 11 (Recommended for Jira 9 compatibility) or JDK 17
 *   Maven (Wrapper included in project)
 
 ### Building the Plugin
