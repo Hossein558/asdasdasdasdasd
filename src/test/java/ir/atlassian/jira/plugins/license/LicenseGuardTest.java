@@ -12,30 +12,27 @@ import static org.junit.Assert.*;
 /**
  * Tests for {@link LicenseGuard}.
  *
- * <p>In a unit-test environment, {@code ComponentAccessor.getOSGiComponentInstanceOfType()}
- * returns null (no OSGi container running). LicenseGuard is designed to
- * <em>fail open</em> in that case — meaning it returns {@code Optional.empty()}
- * so that the OSGi startup itself is never blocked by a license check.
+ * <p>Fail-open policy (narrowed from original):
+ * <ul>
+ *   <li>OSGi unavailable (psf == null): fail open — do not block Jira startup.</li>
+ *   <li>Any other exception during license check: fail CLOSED — return 402.</li>
+ * </ul>
  *
- * <p>These tests verify:
- * <ol>
- *   <li>The guard fails open (returns empty) when the plugin settings factory is unavailable.</li>
- *   <li>The guard returns a 402 response when the license is explicitly invalid.</li>
- *   <li>The guard returns empty when the license is explicitly valid.</li>
- * </ol>
+ * <p>In unit tests, {@code ComponentAccessor.getOSGiComponentInstanceOfType()}
+ * returns null (no OSGi container). This exercises the startup fail-open path.
  */
 public class LicenseGuardTest {
 
     /**
-     * When the OSGi container is unavailable (e.g. unit tests, startup),
-     * LicenseGuard must fail open — not block the request.
+     * When OSGi is unavailable (psf == null, e.g. plugin startup or unit test env),
+     * LicenseGuard must fail OPEN — not block the request.
      */
     @Test
     public void testCheck_failsOpenWhenOSGiUnavailable() {
         // ComponentAccessor returns null in unit test env — guard must not throw
         Optional<Response> result = LicenseGuard.check();
-        // Fails open = empty (proceed)
-        assertFalse("Guard should fail open when OSGi is unavailable", result.isPresent());
+        // OSGi-null path → fail open = empty (proceed)
+        assertFalse("Guard should fail open when OSGi is unavailable (startup)", result.isPresent());
     }
 
     /**

@@ -46,15 +46,23 @@ public final class LicenseGuard {
      *         an {@link Optional} containing a ready-to-return HTTP 402 {@link Response} if not.
      */
     public static Optional<Response> check() {
+        // --- Step 1: obtain OSGi service (fail open if unavailable) ---
+        PluginSettingsFactory psf;
         try {
-            PluginSettingsFactory psf =
-                    ComponentAccessor.getOSGiComponentInstanceOfType(PluginSettingsFactory.class);
-            if (psf == null) {
-                // Cannot retrieve settings — fail open to avoid blocking legitimate users
-                // when the OSGi container is still starting up.
-                return Optional.empty();
-            }
+            psf = ComponentAccessor.getOSGiComponentInstanceOfType(PluginSettingsFactory.class);
+        } catch (Exception e) {
+            // ComponentAccessor itself threw — OSGi container not ready (plugin startup).
+            // Fail open: do not block Jira while the container is initialising.
+            return Optional.empty();
+        }
 
+        if (psf == null) {
+            // OSGi returned null — same startup condition as above.
+            return Optional.empty();
+        }
+
+        // --- Step 2: validate license (fail closed if anything goes wrong) ---
+        try {
             LicenseManager licenseManager = new LicenseManager(psf);
             LicenseManager.LicenseInfo info = licenseManager.validateLicense();
 
@@ -62,11 +70,11 @@ public final class LicenseGuard {
                 return Optional.empty(); // license OK — proceed
             }
 
-            // License invalid / expired — refuse to serve calendar data.
             return Optional.of(buildBlockResponse());
         } catch (Exception e) {
-            // Fail open: unexpected errors should not break Jira for end users.
-            return Optional.empty();
+            // OSGi was ready but the license check itself failed unexpectedly.
+            // Fail CLOSED: do not silently grant calendar access on error.
+            return Optional.of(buildBlockResponse());
         }
     }
 

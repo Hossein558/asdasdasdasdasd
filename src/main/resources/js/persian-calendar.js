@@ -1826,6 +1826,21 @@
                         } catch (e) {
                             logWarn('Failed to parse date format response: ' + e.message);
                         }
+                    } else if (xhr.status === 402) {
+                        // HTTP 402 = server-side license guard (LicenseGuard.java).
+                        // This is a hard, server-authoritative block — the server refuses
+                        // to serve calendar data. Poison the license cache so that ALL
+                        // subsequent checkLicenseStatus() calls see the calendar as disabled,
+                        // regardless of what /license/status says.
+                        // A user who patches checkLicenseStatus() in DevTools still hits this.
+                        logWarn('[LICENSE] Server returned 402 on /date-formats — license invalid. Disabling calendar.');
+                        LICENSE_CACHE.enabled = false;
+                        LICENSE_CACHE.checked = true;
+                        LICENSE_CACHE.status = 'BLOCKED';
+                        LICENSE_CACHE.message = 'لایسنس معتبر نیست. تقویم فارسی غیرفعال شد.';
+                        LICENSE_CACHE.lastCheckTime = Date.now();
+                        DATE_FORMAT_CACHE.loaded = false; // Do not mark as loaded; calendar will not proceed.
+                        showLicenseExpiredMessage();
                     } else {
                         logWarn('Failed to fetch date formats (status ' + xhr.status + '), using defaults');
                     }
