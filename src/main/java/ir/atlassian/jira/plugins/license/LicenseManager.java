@@ -201,7 +201,7 @@ public class LicenseManager {
      * Retrieves the current Jira Server ID.
      * <p>
      * This method fetches the server ID from the Jira License Manager.
-     * If an error occurs or the ID is missing, it returns a default "00000000" string.
+     * If an error occurs or the ID is missing, it returns {@code null} to enforce strict license binding.
      * </p>
      *
      * @return The Jira Server ID as a {@link String}.
@@ -214,9 +214,9 @@ public class LicenseManager {
             if (serverId != null && !serverId.isEmpty()) {
                 return serverId;
             }
-            return "00000000";
+            return null; // Fail closed
         } catch (Exception e) {
-            return "00000000";
+            return null; // Fail closed
         }
     }
 
