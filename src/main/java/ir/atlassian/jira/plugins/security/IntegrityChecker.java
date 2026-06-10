@@ -24,6 +24,10 @@ public class IntegrityChecker {
      */
     private static Boolean integrityValid = null;
 
+    // Known-good SHA-256 hashes generated at build time
+    private static final String EXPECTED_XML_HASH = "7449b9378510e7e84b0dc5483b421784c027a2dd1f6c9acd5e8cce2dbf27c530";
+    private static final String EXPECTED_JS_HASH = "80222a0311ee98c8e061cf11cb49046a7cee79f9b67724d30d023f27e2f749cc";
+
     /**
      * Verifies whether the core plugin files remain intact and untampered.
      * <p>
@@ -46,9 +50,9 @@ public class IntegrityChecker {
                 return false;
             }
 
-            // Verify that the plugin descriptor resource exists and is readable
+            // Verify that the plugin descriptor resource exists and matches known hash
             String pluginXmlHash = calculateResourceHash("atlassian-plugin.xml");
-            if (pluginXmlHash == null || pluginXmlHash.length() != 64) {
+            if (pluginXmlHash == null || !pluginXmlHash.equals(EXPECTED_XML_HASH)) {
                 integrityValid = false;
                 return false;
             }
@@ -150,14 +154,12 @@ public class IntegrityChecker {
     public static boolean verifyJavaScriptIntegrity() {
         try {
             String jsHash = calculateResourceHash("js/persian-calendar.js");
-            if (jsHash == null || jsHash.length() != 64) {
+            if (jsHash == null || !jsHash.equals(EXPECTED_JS_HASH)) {
                 return false;
             }
-            // TODO: Compare jsHash against a build-time generated known-good hash
-            // for full tamper detection. Currently only validates file existence.
             return true;
         } catch (Exception e) {
-            return true; // Fail open
+            return false; // Fail CLOSED: if JS can't be read, integrity is broken
         }
     }
 }
