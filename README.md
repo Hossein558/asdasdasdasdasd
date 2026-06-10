@@ -75,10 +75,10 @@ You can build the project using the included Maven Wrapper:
 
 ```bash
 # On Windows
-.\mvnw.cmd clean package -DskipTests
+.\mvnw.cmd clean package
 
 # On Linux/Mac
-./mvnw clean package -DskipTests
+./mvnw clean package
 ```
 
 This will generate a JAR file in the `target/` directory (e.g., `persian-calendar-plugin-10.4.12.jar`).
