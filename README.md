@@ -115,8 +115,7 @@ Example: `F-A1B2C3D4-20261231-8F3E2A1B`
 ### Customer Flow
 
 1. **Customer gets Server ID**: Navigate to `https://<jira-host>/plugins/servlet/persian-calendar/license`
-2. **Customer sends Server ID**: The customer sends the 8-character Server ID to you
-3. **You generate license**: Use the License Generator tool (see below)
+2. **Customer sends Server ID**: The customer sends their Jira Server ID (e.g., `BPT3-4S1P-7QGE-5M9S`) to you.3. **You generate license**: Use the License Generator tool (see below)
 4. **Customer activates**: Customer enters the license key in the same page and clicks "Activate"
 
 ### Generating a License
@@ -138,16 +137,12 @@ Interactive prompts:
 ║   Persian Calendar License Generator     ║
 ╚══════════════════════════════════════════╝
 
-Enter Server ID (8 chars, e.g., A1B2C3D4): A1B2C3D4
-License Type (F=Full, T=Trial): F
-Expiry Date (YYYY-MM-DD): 2026-12-31
-
+    Enter Server ID (e.g., BPT3-4S1P-7QGE-5M9S): BPT3-4S1P-7QGE-5M9S
+    Enter Expiry Date (YYYY-MM-DD): 2026-12-31
 ════════════════════════════════════════════
 Generated License Key:
 
   F-A1B2C3D4-20261231-8F3E2A1B
-
-════════════════════════════════════════════
 ```
 
 ### License Admin Panel
@@ -172,8 +167,7 @@ Features:
 | Endpoint | Method | Description |
 |:---|:---|:---|
 | `/rest/persian-calendar/1.0/license/status` | GET | Get license status (used by JavaScript) |
-| `/rest/persian-calendar/1.0/license/server-id` | GET | Get Server ID hash |
-| `/rest/persian-calendar/1.0/license/activate` | POST | Activate a license key |
+| `/rest/persian-calendar/1.0/license/server-id` | GET | Get Jira Server ID || `/rest/persian-calendar/1.0/license/activate` | POST | Activate a license key |
 | `/rest/persian-calendar/1.0/license/current` | GET | Get current license (masked) |
 
 **Example Response from `/license/status`:**
@@ -211,12 +205,9 @@ WHERE pe.property_key LIKE '%persian-calendar%';
 The plugin employs a multi-layered security approach:
 
 #### 1. Unique Server Identification
-Server ID is calculated using multiple factors including a **unique installation UUID**:
-```
-Server ID = SHA256(jira.home + hostname + OS + InstallationUUID)
-```
-- **InstallationUUID**: A 16-char unique ID generated once per installation and stored in the database.
-- Prevents license copying between servers even with identical hostnames.
+The plugin uses the standard **Jira Server ID** (`JiraLicenseManager.getServerId()`) to bind licenses. This ensures the license is tied specifically to the customer's Jira instance.
+
+> **Note**: Unlike older versions of this plugin, the Server ID is no longer a custom hardware hash. It is the exact same Server ID found in Jira's System Information page.
 
 #### 2. Defense-in-Depth
 | Layer | Mechanism | Protection Against |
@@ -250,8 +241,7 @@ Server ID = SHA256(jira.home + hostname + OS + InstallationUUID)
     *   **History Tab**: Supports standard Jira history format (handles "Original:" and "New:" prefixes).
 *   **v11.3.1**: **Security Hardening** - Added **Build-time JavaScript Obfuscation**. JS files are now obfuscated inside the JAR to prevent reverse engineering.
 *   **v11.3.0**: **Integrity Checks** - Added `IntegrityChecker` for Java (self-verification) and JavaScript (runtime integrity check).
-*   **v11.2.3**: **Enhanced Server ID** - Added unique **Installation UUID** to Server ID calculation to prevent license cloning.
-*   **v11.2.2**: **REST API Fix** - Use `ComponentAccessor` for `PluginSettingsFactory` to fix license status check.
+*   **v11.2.3**: **Enhanced Server ID** - Switched back to standard Jira Server ID to simplify licensing for customers running Data Center nodes.*   **v11.2.2**: **REST API Fix** - Use `ComponentAccessor` for `PluginSettingsFactory` to fix license status check.
 *   **v11.2.1**: **Grace Period Fix** - Trial licenses expire immediately (no grace period). Removed license cache for immediate updates.
 *   **v11.2.0**: **License Enforcement** - Plugin now fails-closed (disabled) if no valid license is present.
 *   **v11.1.0**: Added **License Admin Panel** - Customers can view Server ID and activate licenses via `/plugins/servlet/persian-calendar/license`.
