@@ -69,6 +69,7 @@ Jira's inline edit fields are dynamically loaded. To prevent the native calendar
 ### Prerequisites
 *   Java JDK 11 (Recommended for Jira 9 compatibility) or JDK 17
 *   Maven (Wrapper included in project)
+*   Node.js (Provides `npx` required for Javascript obfuscation during build)
 
 ### Building the Plugin
 You can build the project using the included Maven Wrapper:
