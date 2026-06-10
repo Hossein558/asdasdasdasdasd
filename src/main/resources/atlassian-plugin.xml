@@ -46,6 +46,15 @@
         <resource name="view" type="velocity" location="/templates/persian-calendar-init.vm"/>
     </web-panel>
 
+    <!-- Universal License Security Filter -->
+    <servlet-filter name="License Filter" key="license-filter" class="ir.atlassian.jira.plugins.filter.LicenseFilter" location="before-dispatch" weight="100">
+        <description>Blocks access to plugin resources if license is invalid.</description>
+        <!-- Guard all REST endpoints -->
+        <url-pattern>/rest/persian-calendar/1.0/*</url-pattern>
+        <!-- Guard direct access to static web-resources -->
+        <url-pattern>/download/resources/ir.atlassian.jira.plugins.persian-calendar-plugin:*</url-pattern>
+    </servlet-filter>
+
     <!-- License Admin Servlet -->
     <servlet key="license-servlet" name="Persian Calendar License Admin" class="ir.atlassian.jira.plugins.servlet.LicenseServlet">
         <description>License management page for Persian Calendar</description>
