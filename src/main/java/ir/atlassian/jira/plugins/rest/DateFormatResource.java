@@ -3,6 +3,7 @@ package ir.atlassian.jira.plugins.rest;
 import com.atlassian.jira.component.ComponentAccessor;
 import com.atlassian.jira.config.properties.ApplicationProperties;
 import com.atlassian.plugins.rest.common.security.AnonymousAllowed;
+import ir.atlassian.jira.plugins.license.LicenseGuard;
 
 import javax.ws.rs.GET;
 import javax.ws.rs.Path;
@@ -11,6 +12,7 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * REST Resource to expose Jira's system date and time format settings to the
@@ -44,6 +46,14 @@ public class DateFormatResource {
     @AnonymousAllowed
     @Produces(MediaType.APPLICATION_JSON)
     public Response getDateFormats() {
+        // Server-side license enforcement.
+        // Even if client-side JS is patched to ignore /license/status,
+        // this guard ensures the server never serves calendar data without a valid license.
+        Optional<Response> licenseBlock = LicenseGuard.check();
+        if (licenseBlock.isPresent()) {
+            return licenseBlock.get();
+        }
+
         Map<String, String> formats = new HashMap<>();
 
         try {
