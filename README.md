@@ -221,6 +221,17 @@ The plugin uses the standard **Jira Server ID** (`JiraLicenseManager.getServerId
 - **JavaScript**: Obfuscated during build using `javascript-obfuscator` (variables renamed, control flow flattened, strings encoded).
 - **Java**: Self-verification code embedded to detect class modification.
 
+#### 4. Hardcoded Integrity Hashes (Important Development Rule)
+
+**FUTURE DEVELOPMENT RULE: Because we have hardcoded these hashes to lock down the security, if you or your team ever legitimately edit `js/persian-calendar.js` or change the plugin's version number in the `pom.xml` (which affects `atlassian-plugin.xml`), you will need to recalculate the SHA-256 hashes for those files and update the `EXPECTED_XML_HASH` and `EXPECTED_JS_HASH` variables in `IntegrityChecker.java` before building the final JAR.**
+
+**How to calculate the hashes:**
+1. Generate the final files using Maven: `.\mvnw clean process-resources`
+2. Run these PowerShell commands to get the hashes from the compiled target folder:
+   - `(Get-FileHash -Algorithm SHA256 target\classes\atlassian-plugin.xml).Hash.ToLower()`
+   - `(Get-FileHash -Algorithm SHA256 target\classes\js\persian-calendar.js).Hash.ToLower()`
+3. Copy the output and update the constants in `src/main/java/ir/atlassian/jira/plugins/security/IntegrityChecker.java`.
+
 ---
 
 ## 📝 Version History
