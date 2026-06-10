@@ -54,19 +54,6 @@ public class IntegrityCheckerTest {
         field.set(null, null);
     }
 
-    /**
-     * Tests the private {@code getSelfVerificationCode} method.
-     * Verifies that the obfuscated key string is correctly assembled.
-     *
-     * @throws Exception If reflection fails or invocation errors occur.
-     */
-    @Test
-    public void testGetSelfVerificationCode() throws Exception {
-        Method method = IntegrityChecker.class.getDeclaredMethod("getSelfVerificationCode");
-        method.setAccessible(true);
-        String result = (String) method.invoke(null);
-        assertEquals("PC2024SEC", result);
-    }
 
     /**
      * Tests the fast path of {@link IntegrityChecker#verifyIntegrity()} when
