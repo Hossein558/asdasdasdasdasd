@@ -14,6 +14,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.io.PrintWriter;
+import com.atlassian.jira.security.xsrf.XsrfTokenGenerator;
 
 /**
  * License Administration Servlet.
@@ -152,9 +153,13 @@ public class LicenseServlet extends HttpServlet {
         out.println("</div>");
 
         // License Input Section
+        XsrfTokenGenerator xsrfGenerator = ComponentAccessor.getComponent(XsrfTokenGenerator.class);
+        String atlToken = xsrfGenerator.generateToken(request);
+        
         out.println("<div class='section'>");
         out.println("<div class='section-title'>🔐 فعال‌سازی لایسنس</div>");
         out.println("<form method='POST'>");
+        out.println("<input type='hidden' name='atl_token' value='" + escapeHtml(atlToken) + "'>");
         out.println(
                 "<input type='text' name='licenseKey' class='license-input' placeholder='کلید لایسنس (مثال: F-A1B2C3D4-20261231-8F3E2A1B)'>");
         out.println("<button type='submit' class='activate-btn'>🔓 فعال‌سازی لایسنس</button>");
@@ -218,6 +223,14 @@ public class LicenseServlet extends HttpServlet {
 
         if (!ComponentAccessor.getGlobalPermissionManager().hasPermission(GlobalPermissionKey.ADMINISTER, user)) {
             response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: Administrator permissions required.");
+            return;
+        }
+
+        // CSRF Check
+        XsrfTokenGenerator xsrfGenerator = ComponentAccessor.getComponent(XsrfTokenGenerator.class);
+        String atlToken = request.getParameter("atl_token");
+        if (atlToken == null || !atlToken.equals(xsrfGenerator.getToken(request))) {
+            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Access Denied: CSRF validation failed.");
             return;
         }
 
