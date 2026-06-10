@@ -4,14 +4,9 @@ import com.atlassian.jira.component.ComponentAccessor;
 import com.atlassian.sal.api.pluginsettings.PluginSettings;
 import com.atlassian.sal.api.pluginsettings.PluginSettingsFactory;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
-import java.security.MessageDigest;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-// Base64 import removed - was unused
 
 /**
  * License Manager for the Persian Calendar Plugin.
@@ -21,6 +16,10 @@ import java.time.temporal.ChronoUnit;
  * for full licenses. The license string is stored globally using Jira's
  * {@link PluginSettingsFactory}.
  * </p>
+ *
+ * <p><strong>Crypto note:</strong> All HMAC key retrieval and signature generation
+ * is delegated to {@link LicenseCrypto} — the single source of truth for
+ * cryptographic operations. Do NOT add inline crypto here.</p>
  */
 public class LicenseManager {
 
@@ -43,37 +42,6 @@ public class LicenseManager {
      * The expected date format for license expiration strings.
      */
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
-
-    /**
-     * Retrieves the secret key used for HMAC signature generation and validation.
-     * <p>
-     * This method attempts to load a custom secret key from the system property
-     * {@code persian.calendar.secret}. If no property is set, it falls back to an
-     * XOR-deobfuscated default key to prevent simple static string extraction from the bytecode.
-     * </p>
-     * <p>
-     * <b>WARNING:</b> For production deployments, always set a custom key via:
-     * {@code -Dpersian.calendar.secret=YOUR_SECURE_KEY}
-     * Relying on the embedded fallback key is NOT recommended for high-security environments.
-     * </p>
-     *
-     * @return A {@link String} containing the secret key.
-     */
-    private static String getSecretKey() {
-        String sysKey = System.getProperty("persian.calendar.secret");
-        if (sysKey != null && !sysKey.trim().isEmpty()) {
-            return sysKey.trim();
-        }
-
-        // XOR-deobfuscated fallback key — harder to extract than plain byte array
-        byte[] encoded = new byte[] {117, 70, 31, 6, 24, 64, 27, 38, 66, 45, 70, 27, 35, 66, 51, 69, 95, 69, 93, 32, 70, 68, 51, 70, 43, 48, 70, 56, 112, 29, 100, 71};
-        byte xorKey = 0x25;
-        byte[] decoded = new byte[encoded.length];
-        for (int i = 0; i < encoded.length; i++) {
-            decoded[i] = (byte) (encoded[i] ^ xorKey ^ (i % 7));
-        }
-        return new String(decoded, StandardCharsets.UTF_8);
-    }
 
     /**
      * Enumeration of supported license types.
@@ -207,7 +175,8 @@ public class LicenseManager {
          * Determines if the Persian Calendar features should remain enabled based
          * on the current license status.
          *
-         * @return {@code true} if the status is {@link LicenseStatus#VALID} or {@link LicenseStatus#EXPIRED_IN_GRACE}; {@code false} otherwise.
+         * @return {@code true} if the status is {@link LicenseStatus#VALID} or
+         *         {@link LicenseStatus#EXPIRED_IN_GRACE}; {@code false} otherwise.
          */
         public boolean isCalendarEnabled() {
             return status == LicenseStatus.VALID || status == LicenseStatus.EXPIRED_IN_GRACE;
@@ -239,7 +208,8 @@ public class LicenseManager {
      */
     public String getServerIdHash() {
         try {
-            com.atlassian.jira.license.JiraLicenseManager jiraLicenseManager = ComponentAccessor.getComponent(com.atlassian.jira.license.JiraLicenseManager.class);
+            com.atlassian.jira.license.JiraLicenseManager jiraLicenseManager =
+                    ComponentAccessor.getComponent(com.atlassian.jira.license.JiraLicenseManager.class);
             String serverId = jiraLicenseManager.getServerId();
             if (serverId != null && !serverId.isEmpty()) {
                 return serverId;
@@ -258,7 +228,7 @@ public class LicenseManager {
      *   <li>Performing an integrity check on the core plugin files.</li>
      *   <li>Retrieving the stored license key.</li>
      *   <li>Parsing the license string components (Type, Server Hash, Expiry, Signature).</li>
-     *   <li>Verifying the signature using HMAC-SHA256.</li>
+     *   <li>Verifying the signature using HMAC-SHA256 via {@link LicenseCrypto}.</li>
      *   <li>Calculating remaining days and applying grace periods if applicable.</li>
      * </ol>
      * </p>
@@ -315,7 +285,7 @@ public class LicenseManager {
             return info;
         }
 
-        // Validate signature
+        // Validate signature — delegates to LicenseCrypto (single source of truth)
         String expectedSignature = generateSignature(typeCode, serverHash, expiryStr);
         if (!signature.equalsIgnoreCase(expectedSignature)) {
             info.setStatus(LicenseStatus.INVALID);
@@ -340,7 +310,8 @@ public class LicenseManager {
 
         if (daysUntilExpiry >= 0) {
             info.setStatus(LicenseStatus.VALID);
-            info.setMessage(type == LicenseType.TRIAL ? "لایسنس آزمایشی - " + daysUntilExpiry + " روز باقیمانده"
+            info.setMessage(type == LicenseType.TRIAL
+                    ? "لایسنس آزمایشی - " + daysUntilExpiry + " روز باقیمانده"
                     : "لایسنس معتبر - " + daysUntilExpiry + " روز باقیمانده");
         } else {
             // License has expired
@@ -359,7 +330,7 @@ public class LicenseManager {
                     info.setMessage("لایسنس منقضی شده است. لطفاً تمدید کنید.");
                 }
             } else {
-                // Trial license - NO grace period
+                // Trial license — NO grace period
                 info.setGraceDaysRemaining(0);
                 info.setStatus(LicenseStatus.EXPIRED);
                 info.setMessage("لایسنس آزمایشی منقضی شده است. لطفاً لایسنس کامل تهیه کنید.");
@@ -370,37 +341,11 @@ public class LicenseManager {
     }
 
     /**
-     * Generates an HMAC-SHA256 signature for a set of license parameters.
-     * <p>
-     * The signature is derived from combining the license type code, server hash,
-     * and expiration date string, and hashing it with the secret key.
-     * </p>
-     *
-     * @param type       The single-character license type code (e.g., "F" or "T").
-     * @param serverHash The Server ID associated with the license.
-     * @param expiry     The expiration date string formatted as "yyyyMMdd".
-     * @return The first 8 uppercase hexadecimal characters of the generated signature, or an empty string on error.
+     * Generate HMAC signature for license validation.
+     * Delegates to {@link LicenseCrypto#generateSignature(String, String, String)}.
      */
     private String generateSignature(String type, String serverHash, String expiry) {
-        try {
-            String data = type + "-" + serverHash + "-" + expiry;
-            Mac hmac = Mac.getInstance("HmacSHA256");
-            SecretKeySpec keySpec = new SecretKeySpec(getSecretKey().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-            hmac.init(keySpec);
-            byte[] hash = hmac.doFinal(data.getBytes(StandardCharsets.UTF_8));
-
-            // Return first 16 characters of hex (64-bit signature)
-            StringBuilder hexString = new StringBuilder();
-            for (int i = 0; i < 8; i++) {
-                String hex = Integer.toHexString(0xff & hash[i]);
-                if (hex.length() == 1)
-                    hexString.append('0');
-                hexString.append(hex);
-            }
-            return hexString.toString().toUpperCase();
-        } catch (Exception e) {
-            return "";
-        }
+        return LicenseCrypto.generateSignature(type, serverHash, expiry);
     }
 
     /**
@@ -431,6 +376,10 @@ public class LicenseManager {
      * license generator tool. It constructs the full license string formatted as:
      * {@code [TYPE]-[SERVER_ID]-[EXPIRY_DATE]-[SIGNATURE]}.
      * </p>
+     * <p>
+     * Signature generation is delegated to
+     * {@link LicenseCrypto#generateSignature(String, String, String)}.
+     * </p>
      *
      * @param type       The {@link LicenseType} (e.g., FULL or TRIAL).
      * @param serverHash The target Jira Server ID.
@@ -440,27 +389,10 @@ public class LicenseManager {
     public static String generateLicenseKey(LicenseType type, String serverHash, LocalDate expiryDate) {
         String typeCode = type.getCode();
         String expiryStr = expiryDate.format(DATE_FORMAT);
-
-        // Generate signature
-        try {
-            String data = typeCode + "-" + serverHash + "-" + expiryStr;
-            Mac hmac = Mac.getInstance("HmacSHA256");
-            SecretKeySpec keySpec = new SecretKeySpec(getSecretKey().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-            hmac.init(keySpec);
-            byte[] hash = hmac.doFinal(data.getBytes(StandardCharsets.UTF_8));
-
-            StringBuilder hexString = new StringBuilder();
-            for (int i = 0; i < 8; i++) {
-                String hex = Integer.toHexString(0xff & hash[i]);
-                if (hex.length() == 1)
-                    hexString.append('0');
-                hexString.append(hex);
-            }
-            String signature = hexString.toString().toUpperCase();
-
-            return typeCode + "-" + serverHash + "-" + expiryStr + "-" + signature;
-        } catch (Exception e) {
+        String signature = LicenseCrypto.generateSignature(typeCode, serverHash, expiryStr);
+        if (signature.isEmpty()) {
             return null;
         }
+        return typeCode + "-" + serverHash + "-" + expiryStr + "-" + signature;
     }
 }
