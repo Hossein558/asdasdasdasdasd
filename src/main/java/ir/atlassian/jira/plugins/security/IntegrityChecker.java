@@ -13,6 +13,15 @@ import java.util.Properties;
  * and class loader checks to prevent simple decompile-modify-recompile attacks.
  * </p>
  * <p>
+ * <strong>Active security layers (all enforced inside {@link #verifyIntegrity()}):</strong>
+ * <ol>
+ *   <li>Class-loader environment check — rejects non-OSGi/Atlassian runtimes.</li>
+ *   <li>SHA-256 hash of {@code atlassian-plugin.xml} — detects descriptor tampering.</li>
+ *   <li>SHA-256 hash of {@code js/persian-calendar.js} — detects client-side code tampering.</li>
+ *   <li>Loadability check of {@code LicenseManager} — ensures core classes are present.</li>
+ * </ol>
+ * </p>
+ * <p>
  * <strong>Hash management:</strong> SHA-256 hashes for {@code atlassian-plugin.xml}
  * and {@code js/persian-calendar.js} are <em>not</em> hard-coded in source.
  * Instead, they are written into {@code integrity.properties} by the Maven build
@@ -75,12 +84,20 @@ public class IntegrityChecker {
     /**
      * Verifies whether the core plugin files remain intact and untampered.
      * <p>
-     * This method performs a self-verification check and ensures that the
-     * class is loaded by a legitimate environment class loader. It prevents
-     * basic reverse-engineering attacks. The result is cached for subsequent calls.
+     * Performs all four active security layers in sequence:
+     * </p>
+     * <ol>
+     *   <li>Class-loader environment check.</li>
+     *   <li>SHA-256 hash of {@code atlassian-plugin.xml}.</li>
+     *   <li>SHA-256 hash of {@code js/persian-calendar.js} (previously dead code — now active).</li>
+     *   <li>Loadability of {@code LicenseManager}.</li>
+     * </ol>
+     * <p>
+     * The result is cached after the first evaluation to avoid redundant checks
+     * on every license validation call.
      * </p>
      *
-     * @return {@code true} if the integrity checks pass or fail-open conditions apply; {@code false} otherwise.
+     * @return {@code true} if all integrity checks pass or fail-open conditions apply; {@code false} otherwise.
      */
     public static boolean verifyIntegrity() {
         if (integrityValid != null) {
@@ -88,15 +105,14 @@ public class IntegrityChecker {
         }
 
         try {
-            // Check if we're running in a known good environment
+            // Layer 1: Class-loader environment check
             if (!verifyClassLoader()) {
                 integrityValid = false;
                 return false;
             }
 
-            // Verify that the plugin descriptor resource exists and matches known hash.
-            // If EXPECTED_XML_HASH is null the integrity.properties file was not bundled
-            // (development build without atlas-package) — skip the check and continue.
+            // Layer 2: Verify atlassian-plugin.xml has not been tampered with.
+            // Skipped if integrity.properties was not bundled (development build).
             if (EXPECTED_XML_HASH != null) {
                 String pluginXmlHash = calculateResourceHash("atlassian-plugin.xml");
                 if (pluginXmlHash == null || !pluginXmlHash.equals(EXPECTED_XML_HASH)) {
@@ -105,7 +121,17 @@ public class IntegrityChecker {
                 }
             }
 
-            // Verify that the core LicenseManager class is loadable
+            // Layer 3: Verify js/persian-calendar.js has not been tampered with.
+            // Skipped if integrity.properties was not bundled (development build).
+            if (EXPECTED_JS_HASH != null) {
+                String jsHash = calculateResourceHash("js/persian-calendar.js");
+                if (jsHash == null || !jsHash.equals(EXPECTED_JS_HASH)) {
+                    integrityValid = false;
+                    return false;
+                }
+            }
+
+            // Layer 4: Verify that the core LicenseManager class is loadable
             try {
                 Class.forName("ir.atlassian.jira.plugins.license.LicenseManager",
                         false, IntegrityChecker.class.getClassLoader());
@@ -189,15 +215,16 @@ public class IntegrityChecker {
     /**
      * Verifies the integrity of the core JavaScript file associated with the plugin.
      * <p>
-     * This method calculates the SHA-256 hash of the {@code js/persian-calendar.js}
-     * resource and checks if it exists and produces a valid hash.
-     * </p>
-     * <p>
-     * <b>Note:</b> Currently performs an existence and readability check only.
-     * A future enhancement should compare the hash against a build-time generated value.
+     * This is a convenience wrapper that re-evaluates the JS hash check independently
+     * of the cached {@link #verifyIntegrity()} result — useful for on-demand spot
+     * checks (e.g., diagnostics endpoints). The authoritative enforcement of this
+     * check during license validation happens inside {@link #verifyIntegrity()},
+     * which includes the JS hash as Layer 3.
      * </p>
      *
-     * @return {@code true} if the JavaScript file exists and is readable; {@code false} otherwise.
+     * @return {@code true} if the JavaScript file matches the expected hash, or if
+     *         the hash is not available (development build without atlas-package);
+     *         {@code false} if the file is missing or the hash does not match.
      */
     public static boolean verifyJavaScriptIntegrity() {
         try {
@@ -207,10 +234,7 @@ public class IntegrityChecker {
                 return true;
             }
             String jsHash = calculateResourceHash("js/persian-calendar.js");
-            if (jsHash == null || !jsHash.equals(EXPECTED_JS_HASH)) {
-                return false;
-            }
-            return true;
+            return jsHash != null && jsHash.equals(EXPECTED_JS_HASH);
         } catch (Exception e) {
             return false; // Fail CLOSED: if JS can't be read, integrity is broken
         }
