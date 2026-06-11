@@ -34,3 +34,8 @@ build_log.txt
 
 # Maven logs
 *.log
+
+# Build-generated security files — hashes are computed at build time by
+# maven-antrun-plugin and written into target/classes/integrity.properties.
+# Never commit this file; it must be freshly generated on every build.
+integrity.properties

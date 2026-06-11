@@ -151,6 +151,56 @@
                 </executions>
             </plugin>
 
+            <!-- ============================================================
+                 Build-time integrity hash generation
+                 Runs AFTER the JS-obfuscation step (same phase, later order)
+                 so that the hash reflects the final, obfuscated bytes.
+                 Writes integrity.properties into target/classes so it is
+                 automatically included in the JAR by the package phase.
+                 ============================================================ -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-antrun-plugin</artifactId>
+                <version>3.1.0</version>
+                <executions>
+                    <execution>
+                        <id>generate-integrity-hashes</id>
+                        <!-- Must run AFTER obfuscate-js in the same phase -->
+                        <phase>prepare-package</phase>
+                        <goals>
+                            <goal>run</goal>
+                        </goals>
+                        <configuration>
+                            <target>
+                                <!-- Compute SHA-256 of atlassian-plugin.xml -->
+                                <checksum
+                                    file="${project.build.outputDirectory}/atlassian-plugin.xml"
+                                    algorithm="SHA-256"
+                                    property="xml.sha256" />
+
+                                <!-- Compute SHA-256 of the (possibly obfuscated) JS file -->
+                                <checksum
+                                    file="${project.build.outputDirectory}/js/persian-calendar.js"
+                                    algorithm="SHA-256"
+                                    property="js.sha256" />
+
+                                <!-- Write both hashes into integrity.properties -->
+                                <propertyfile
+                                    file="${project.build.outputDirectory}/integrity.properties"
+                                    comment="Build-time integrity hashes — DO NOT EDIT MANUALLY">
+                                    <entry key="integrity.xml.sha256" value="${xml.sha256}" />
+                                    <entry key="integrity.js.sha256"  value="${js.sha256}" />
+                                    <entry key="build.version"        value="${project.version}" />
+                                </propertyfile>
+
+                                <echo message="[integrity] XML hash : ${xml.sha256}" />
+                                <echo message="[integrity] JS  hash : ${js.sha256}" />
+                            </target>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+
             <!-- Eclipse Transformer Plugin to generate Jira 10/11 compatible Jakarta artifact -->
             <plugin>
                 <groupId>org.eclipse.transformer</groupId>

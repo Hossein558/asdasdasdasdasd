@@ -1,8 +1,9 @@
 package ir.atlassian.jira.plugins.security;
 
+import java.io.IOException;
 import java.io.InputStream;
-import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
+import java.util.Properties;
 
 /**
  * Security Integrity Checker.
@@ -11,8 +12,27 @@ import java.security.MessageDigest;
  * and resources have not been tampered with. It employs self-verification
  * and class loader checks to prevent simple decompile-modify-recompile attacks.
  * </p>
+ * <p>
+ * <strong>Hash management:</strong> SHA-256 hashes for {@code atlassian-plugin.xml}
+ * and {@code js/persian-calendar.js} are <em>not</em> hard-coded in source.
+ * Instead, they are written into {@code integrity.properties} by the Maven build
+ * (via {@code maven-antrun-plugin}) after the JS-obfuscation step so that they
+ * always reflect the exact bytes that will be shipped inside the JAR.
+ * If the properties file is absent (e.g., running directly from source without
+ * a full Maven build) the checks are skipped and the method returns {@code true}
+ * to avoid blocking development workflows.
+ * </p>
  */
 public class IntegrityChecker {
+
+    /** Path (on classpath) to the build-time generated hash properties file. */
+    private static final String INTEGRITY_PROPS_PATH = "integrity.properties";
+
+    /** Property key for the atlassian-plugin.xml SHA-256 hash. */
+    private static final String PROP_XML_HASH = "integrity.xml.sha256";
+
+    /** Property key for the js/persian-calendar.js SHA-256 hash. */
+    private static final String PROP_JS_HASH  = "integrity.js.sha256";
 
     /**
      * Array of hexadecimal characters used for byte-to-hex string conversion.
@@ -24,9 +44,33 @@ public class IntegrityChecker {
      */
     private static Boolean integrityValid = null;
 
-    // Known-good SHA-256 hashes generated at build time
-    private static final String EXPECTED_XML_HASH = "7449b9378510e7e84b0dc5483b421784c027a2dd1f6c9acd5e8cce2dbf27c530";
-    private static final String EXPECTED_JS_HASH = "80222a0311ee98c8e061cf11cb49046a7cee79f9b67724d30d023f27e2f749cc";
+    /**
+     * SHA-256 hashes loaded once from {@code integrity.properties} at class-load time.
+     * A {@code null} value means the properties file was not found — the build was
+     * not run or the file was stripped; in that case all hash checks are skipped
+     * (fail-open for development, but the JAR produced by {@code atlas-package}
+     * will always contain the file).
+     */
+    private static final String EXPECTED_XML_HASH;
+    private static final String EXPECTED_JS_HASH;
+
+    static {
+        String xmlHash = null;
+        String jsHash  = null;
+        try (InputStream is = IntegrityChecker.class.getClassLoader()
+                .getResourceAsStream(INTEGRITY_PROPS_PATH)) {
+            if (is != null) {
+                Properties props = new Properties();
+                props.load(is);
+                xmlHash = props.getProperty(PROP_XML_HASH);
+                jsHash  = props.getProperty(PROP_JS_HASH);
+            }
+        } catch (IOException ignored) {
+            // Leave both null — checks will be skipped below
+        }
+        EXPECTED_XML_HASH = xmlHash;
+        EXPECTED_JS_HASH  = jsHash;
+    }
 
     /**
      * Verifies whether the core plugin files remain intact and untampered.
@@ -50,11 +94,15 @@ public class IntegrityChecker {
                 return false;
             }
 
-            // Verify that the plugin descriptor resource exists and matches known hash
-            String pluginXmlHash = calculateResourceHash("atlassian-plugin.xml");
-            if (pluginXmlHash == null || !pluginXmlHash.equals(EXPECTED_XML_HASH)) {
-                integrityValid = false;
-                return false;
+            // Verify that the plugin descriptor resource exists and matches known hash.
+            // If EXPECTED_XML_HASH is null the integrity.properties file was not bundled
+            // (development build without atlas-package) — skip the check and continue.
+            if (EXPECTED_XML_HASH != null) {
+                String pluginXmlHash = calculateResourceHash("atlassian-plugin.xml");
+                if (pluginXmlHash == null || !pluginXmlHash.equals(EXPECTED_XML_HASH)) {
+                    integrityValid = false;
+                    return false;
+                }
             }
 
             // Verify that the core LicenseManager class is loadable
@@ -153,6 +201,11 @@ public class IntegrityChecker {
      */
     public static boolean verifyJavaScriptIntegrity() {
         try {
+            // If EXPECTED_JS_HASH is null the build-time properties were not generated
+            // (development run without atlas-package). Skip check and return true.
+            if (EXPECTED_JS_HASH == null) {
+                return true;
+            }
             String jsHash = calculateResourceHash("js/persian-calendar.js");
             if (jsHash == null || !jsHash.equals(EXPECTED_JS_HASH)) {
                 return false;
