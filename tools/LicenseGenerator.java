@@ -29,11 +29,11 @@ public class LicenseGenerator {
         System.out.println();
 
         // Get Server ID
-        System.out.print("Enter Server ID (8 chars, e.g., A1B2C3D4): ");
+        System.out.print("Enter Server ID (e.g., BPT3-4S1P-7QGE-5M9S): ");
         String serverId = scanner.nextLine().trim().toUpperCase();
 
-        if (serverId.length() != 8) {
-            System.out.println("Error: Server ID must be exactly 8 characters!");
+        if (serverId.isEmpty()) {
+            System.out.println("Error: Server ID cannot be empty!");
             return;
         }
 
