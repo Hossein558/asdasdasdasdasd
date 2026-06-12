@@ -241,7 +241,7 @@ public class LicenseServlet extends HttpServlet {
         LicenseManager licenseManager = getLicenseManager();
 
         if (licenseKey != null && !licenseKey.trim().isEmpty()) {
-            licenseManager.setLicenseKey(licenseKey.trim().toUpperCase());
+            licenseManager.setLicenseKey(licenseKey.trim());
             LicenseInfo info = licenseManager.validateLicense();
 
             if (info.isCalendarEnabled()) {

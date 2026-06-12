@@ -214,13 +214,13 @@ public class LicenseManager {
     }
 
     /**
-     * Retrieves the current Jira Server ID.
+     * Retrieves the current Jira Server ID and hashes it using SHA-256.
      * <p>
      * This method fetches the server ID from the Jira License Manager.
      * If an error occurs or the ID is missing, it returns {@code null} to enforce strict license binding.
      * </p>
      *
-     * @return The Jira Server ID as a {@link String}.
+     * @return The SHA-256 hash of Jira Server ID as a Hex {@link String}.
      */
     public String getServerIdHash() {
         try {
@@ -228,7 +228,16 @@ public class LicenseManager {
                     ComponentAccessor.getComponent(com.atlassian.jira.license.JiraLicenseManager.class);
             String serverId = jiraLicenseManager.getServerId();
             if (serverId != null && !serverId.isEmpty()) {
-                return serverId;
+                MessageDigest md = MessageDigest.getInstance("SHA-256");
+                byte[] hash = md.digest(serverId.getBytes("UTF-8"));
+                StringBuilder hexString = new StringBuilder();
+                for (byte b : hash) {
+                    String hex = Integer.toHexString(0xff & b);
+                    if (hex.length() == 1) hexString.append('0');
+                    hexString.append(hex);
+                }
+                // Return uppercase to keep format consistent
+                return hexString.toString().toUpperCase();
             }
             return null; // Fail closed
         } catch (Exception e) {

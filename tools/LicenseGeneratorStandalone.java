@@ -64,7 +64,13 @@ public class LicenseGeneratorStandalone {
         }
 
         String expiryStr = expiryDate.format(DATE_FORMAT);
-        String payload = typeInput + "-" + serverId + "-" + expiryStr;
+        String serverHash = hashServerId(serverId);
+        if (serverHash == null) {
+            System.out.println("Error: Failed to hash Server ID.");
+            return;
+        }
+
+        String payload = typeInput + "-" + serverHash + "-" + expiryStr;
         String signature = generateHexSignature(payload);
         
         if (signature == null) {
@@ -109,6 +115,22 @@ public class LicenseGeneratorStandalone {
             // Convert to Hex
             StringBuilder hexString = new StringBuilder();
             for (byte b : signatureBytes) {
+                String hex = Integer.toHexString(0xff & b);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString().toUpperCase();
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    private static String hashServerId(String serverId) {
+        try {
+            java.security.MessageDigest md = java.security.MessageDigest.getInstance("SHA-256");
+            byte[] hash = md.digest(serverId.getBytes("UTF-8"));
+            StringBuilder hexString = new StringBuilder();
+            for (byte b : hash) {
                 String hex = Integer.toHexString(0xff & b);
                 if (hex.length() == 1) hexString.append('0');
                 hexString.append(hex);

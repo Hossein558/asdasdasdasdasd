@@ -116,7 +116,6 @@ public class IntegrityChecker {
         try {
             // Layer 1: Class-loader environment check
             if (!verifyClassLoader()) {
-                integrityValid = false;
                 return false;
             }
 
@@ -125,7 +124,6 @@ public class IntegrityChecker {
             if (EXPECTED_XML_HASH != null) {
                 String pluginXmlHash = calculateResourceHash("atlassian-plugin.xml");
                 if (pluginXmlHash == null || !pluginXmlHash.equals(EXPECTED_XML_HASH)) {
-                    integrityValid = false;
                     return false;
                 }
             }
@@ -135,7 +133,6 @@ public class IntegrityChecker {
             if (EXPECTED_JS_HASH != null) {
                 String jsHash = calculateResourceHash("js/persian-calendar.js");
                 if (jsHash == null || !jsHash.equals(EXPECTED_JS_HASH)) {
-                    integrityValid = false;
                     return false;
                 }
             }
@@ -145,14 +142,12 @@ public class IntegrityChecker {
                 Class.forName("ir.atlassian.jira.plugins.license.LicenseManager",
                         false, IntegrityChecker.class.getClassLoader());
             } catch (ClassNotFoundException e) {
-                integrityValid = false;
                 return false;
             }
 
             integrityValid = true;
             return true;
         } catch (Exception e) {
-            integrityValid = false;
             return false;
         }
     }

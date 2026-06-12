@@ -244,11 +244,11 @@
             <snapshots>
                 <enabled>true</enabled>
                 <updatePolicy>never</updatePolicy>
-                <checksumPolicy>warn</checksumPolicy>
+                <checksumPolicy>fail</checksumPolicy>
             </snapshots>
             <releases>
                 <enabled>true</enabled>
-                <checksumPolicy>warn</checksumPolicy>
+                <checksumPolicy>fail</checksumPolicy>
             </releases>
         </repository>
         <repository>
@@ -269,11 +269,11 @@
             <url>https://packages.atlassian.com/maven/repository/public</url>
             <releases>
                 <enabled>true</enabled>
-                <checksumPolicy>warn</checksumPolicy>
+                <checksumPolicy>fail</checksumPolicy>
             </releases>
             <snapshots>
                 <updatePolicy>never</updatePolicy>
-                <checksumPolicy>warn</checksumPolicy>
+                <checksumPolicy>fail</checksumPolicy>
             </snapshots>
         </pluginRepository>
     </pluginRepositories>

@@ -165,7 +165,7 @@ public class LicenseResource {
             }
 
             LicenseManager licenseManager = getLicenseManager();
-            licenseManager.setLicenseKey(licenseKey.trim().toUpperCase());
+            licenseManager.setLicenseKey(licenseKey.trim());
             LicenseInfo info = licenseManager.validateLicense();
 
             Map<String, Object> response = new HashMap<>();
