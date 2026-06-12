@@ -1,82 +1,84 @@
 package ir.atlassian.jira.plugins.license;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
+import java.security.KeyFactory;
+import java.security.PublicKey;
+import java.security.Signature;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Base64;
 import java.nio.charset.StandardCharsets;
 
 /**
- * Shared cryptographic utilities for license generation and validation.
+ * Shared cryptographic utilities for license validation.
  *
- * <p>This is the <strong>single source of truth</strong> for:
+ * <p>This class uses asymmetric RSA cryptography.
  * <ul>
- *   <li>Secret key retrieval</li>
- *   <li>HMAC-SHA256 signature generation</li>
+ *   <li>The <strong>Public Key</strong> is embedded here and used to verify signatures.</li>
+ *   <li>The <strong>Private Key</strong> is kept externally and used by the standalone generator.</li>
  * </ul>
- *
- * <p><strong>Standalone tools:</strong> {@code tools/LicenseGeneratorStandalone.java}
- * contains an inlined copy of the crypto logic.  Any change made here MUST be
- * applied there identically to keep license generation and validation in sync.
  */
 public final class LicenseCrypto {
+
+    // The Base64 encoded RSA-2048 public key
+    private static final String PUBLIC_KEY_BASE64 = 
+        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuIV8IU9fkUg6CwDVpPLx" +
+        "fGn3G+WVKmjBImKFjlHqZzzNma3fVzhSPlbJXl+H0LBeQX9Vdj+sPiw+moOTtKJS" +
+        "ywvSJn/p1RkSAJeT4HYdgUYMrzNUEj7FSRbZyZTSxiqFrr9fJdajqCbN29WAK8PP" +
+        "QLMJvBdx/NOFfNsDuMc6ZQCPL/r2zCNX2dVV3xUp0ScE931ozd1f2HuM1skmYt09" +
+        "EHuwX1Z9V4PA3ImgxIO9frKXju1idzwiX3WZogrxdNqyWppJtnRq4aei3UKoXkHX" +
+        "FVJmRX5ZOTDphtSietHb2TJFDHbuMI/USNaaw5HVBtJhDypLyrK6cYgwntcWjc21" +
+        "UQIDAQAB";
+
+    private static PublicKey publicKey;
+
+    static {
+        try {
+            byte[] keyBytes = Base64.getDecoder().decode(PUBLIC_KEY_BASE64);
+            X509EncodedKeySpec spec = new X509EncodedKeySpec(keyBytes);
+            KeyFactory kf = KeyFactory.getInstance("RSA");
+            publicKey = kf.generatePublic(spec);
+        } catch (Exception e) {
+            // Should never happen unless the hardcoded key is corrupted
+            publicKey = null;
+        }
+    }
 
     private LicenseCrypto() {
         // utility class
     }
 
     /**
-     * Retrieve the HMAC secret key.
+     * Verifies an RSA signature encoded as a Hex string.
      *
-     * <p>Priority order:
-     * <ol>
-     *   <li>System property {@code persian.calendar.secret}
-     *       (set via Jira startup: {@code -Dpersian.calendar.secret=YOUR_SECURE_KEY})</li>
-     *   <li>Obfuscated compile-time fallback (development / unset environments)</li>
-     * </ol>
-     *
-     * @return the secret key string; never null
+     * @param payload      the signed string (e.g. "F-SERVERID-20261231")
+     * @param hexSignature the 512-character hex signature
+     * @return true if the signature is valid
      */
-    public static String getSecretKey() {
-        String sysKey = System.getProperty("persian.calendar.secret");
-        if (sysKey != null && !sysKey.trim().isEmpty()) {
-            return sysKey.trim();
+    public static boolean verifySignature(String payload, String hexSignature) {
+        if (publicKey == null || hexSignature == null || hexSignature.isEmpty()) {
+            return false;
         }
-        // Obfuscated fallback — avoids plain-text extraction from bytecode.
-        // Decodes to: PersianCalendar2024SecretKey!@#$
-        byte[] k = new byte[]{
-            80, 101, 114, 115, 105, 97, 110, 67, 97, 108, 101, 110, 100, 97, 114,
-            50, 48, 50, 52, 83, 101, 99, 114, 101, 116, 75, 101, 121, 33, 64, 35, 36
-        };
-        return new String(k, StandardCharsets.UTF_8);
+
+        try {
+            byte[] signatureBytes = hexStringToByteArray(hexSignature);
+            Signature sig = Signature.getInstance("SHA256withRSA");
+            sig.initVerify(publicKey);
+            sig.update(payload.getBytes(StandardCharsets.UTF_8));
+            return sig.verify(signatureBytes);
+        } catch (Exception e) {
+            return false;
+        }
     }
 
     /**
-     * Generate an 8-character (4-byte) uppercase HMAC-SHA256 hex signature.
-     *
-     * <p>The signed payload is: {@code type + "-" + serverHash + "-" + expiry}
-     *
-     * @param type       license type code ("F" or "T")
-     * @param serverHash server ID hash
-     * @param expiry     expiry date in {@code yyyyMMdd} format
-     * @return 8-character uppercase hex string, or {@code ""} on error
+     * Helper to convert Hex string to byte array.
      */
-    public static String generateSignature(String type, String serverHash, String expiry) {
-        try {
-            String data = type + "-" + serverHash + "-" + expiry;
-            Mac hmac = Mac.getInstance("HmacSHA256");
-            SecretKeySpec keySpec = new SecretKeySpec(
-                    getSecretKey().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-            hmac.init(keySpec);
-            byte[] hash = hmac.doFinal(data.getBytes(StandardCharsets.UTF_8));
-
-            StringBuilder hexString = new StringBuilder(8);
-            for (int i = 0; i < 4; i++) {
-                String hex = Integer.toHexString(0xff & hash[i]);
-                if (hex.length() == 1) hexString.append('0');
-                hexString.append(hex);
-            }
-            return hexString.toString().toUpperCase();
-        } catch (Exception e) {
-            return "";
+    private static byte[] hexStringToByteArray(String s) {
+        int len = s.length();
+        byte[] data = new byte[len / 2];
+        for (int i = 0; i < len; i += 2) {
+            data[i / 2] = (byte) ((Character.digit(s.charAt(i), 16) << 4)
+                                 + Character.digit(s.charAt(i+1), 16));
         }
+        return data;
     }
 }

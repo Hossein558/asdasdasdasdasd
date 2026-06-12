@@ -161,7 +161,7 @@ public class LicenseServlet extends HttpServlet {
         out.println("<form method='POST'>");
         out.println("<input type='hidden' name='atl_token' value='" + escapeHtml(atlToken) + "'>");
         out.println(
-                "<input type='text' name='licenseKey' class='license-input' placeholder='کلید لایسنس (مثال: F-B4HQ-JU68-R0KP-ABCD-20261231-8F3E2A1B)'>");
+                "<textarea name='licenseKey' class='license-input' rows='4' style='resize: vertical; font-family: monospace; font-size: 11px; word-break: break-all;' placeholder='کلید لایسنس (حاوی امضای رمزنگاری شده)'></textarea>");
         out.println("<button type='submit' class='activate-btn'>🔓 فعال‌سازی لایسنس</button>");
         out.println("</form>");
         out.println("</div>");

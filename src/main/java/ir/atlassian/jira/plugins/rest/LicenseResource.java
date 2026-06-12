@@ -206,9 +206,9 @@ public class LicenseResource {
 
             Map<String, Object> response = new HashMap<>();
             if (licenseKey != null && !licenseKey.isEmpty()) {
-                if (licenseKey.length() > 8) {
-                    response.put("licenseKey", licenseKey.substring(0, 4) + "-****-****-" +
-                            licenseKey.substring(licenseKey.length() - 4));
+                if (licenseKey.length() > 20) {
+                    response.put("licenseKey", licenseKey.substring(0, 10) + "...[MASKED]..." +
+                            licenseKey.substring(licenseKey.length() - 10));
                 } else {
                     response.put("licenseKey", "****");
                 }

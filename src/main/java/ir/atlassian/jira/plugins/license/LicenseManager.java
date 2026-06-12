@@ -24,6 +24,22 @@ import java.time.temporal.ChronoUnit;
 public class LicenseManager {
 
     /**
+     * Immutable cache entry for thread-safe caching of license validation results.
+     */
+    private static class CacheEntry {
+        public final LicenseInfo info;
+        public final long timestamp;
+
+        public CacheEntry(LicenseInfo info, long timestamp) {
+            this.info = info;
+            this.timestamp = timestamp;
+        }
+    }
+
+    private static volatile CacheEntry cache = null;
+    private static final long CACHE_TTL_MS = 60 * 1000;
+
+    /**
      * The core plugin key used as a prefix for storing settings.
      */
     private static final String PLUGIN_KEY = "ir.atlassian.jira.plugins.persian-calendar-plugin";
@@ -236,6 +252,11 @@ public class LicenseManager {
      * @return A populated {@link LicenseInfo} object reflecting the current license state.
      */
     public LicenseInfo validateLicense() {
+        CacheEntry currentCache = cache;
+        if (currentCache != null && (System.currentTimeMillis() - currentCache.timestamp) < CACHE_TTL_MS) {
+            return currentCache.info;
+        }
+
         LicenseInfo info = new LicenseInfo();
 
         // Security: Check plugin integrity first
@@ -286,8 +307,8 @@ public class LicenseManager {
         }
 
         // Validate signature — delegates to LicenseCrypto (single source of truth)
-        String expectedSignature = generateSignature(typeCode, serverHash, expiryStr);
-        if (!signature.equalsIgnoreCase(expectedSignature)) {
+        String payload = typeCode + "-" + serverHash + "-" + expiryStr;
+        if (!LicenseCrypto.verifySignature(payload, signature)) {
             info.setStatus(LicenseStatus.INVALID);
             info.setMessage("امضای لایسنس نامعتبر است");
             return info;
@@ -337,15 +358,8 @@ public class LicenseManager {
             }
         }
 
+        cache = new CacheEntry(info, System.currentTimeMillis());
         return info;
-    }
-
-    /**
-     * Generate HMAC signature for license validation.
-     * Delegates to {@link LicenseCrypto#generateSignature(String, String, String)}.
-     */
-    private String generateSignature(String type, String serverHash, String expiry) {
-        return LicenseCrypto.generateSignature(type, serverHash, expiry);
     }
 
     /**
@@ -359,40 +373,11 @@ public class LicenseManager {
         return value != null ? value.toString() : null;
     }
 
-    /**
-     * Saves a new license key into the global plugin settings.
-     *
-     * @param licenseKey The raw license key string to store.
-     */
     public void setLicenseKey(String licenseKey) {
         PluginSettings settings = pluginSettingsFactory.createGlobalSettings();
         settings.put(LICENSE_KEY_SETTING, licenseKey);
+        cache = null; // Invalidate cache immediately
     }
 
-    /**
-     * Generates a complete, new license key.
-     * <p>
-     * This method is primarily intended for use in an external or separate
-     * license generator tool. It constructs the full license string formatted as:
-     * {@code [TYPE]-[SERVER_ID]-[EXPIRY_DATE]-[SIGNATURE]}.
-     * </p>
-     * <p>
-     * Signature generation is delegated to
-     * {@link LicenseCrypto#generateSignature(String, String, String)}.
-     * </p>
-     *
-     * @param type       The {@link LicenseType} (e.g., FULL or TRIAL).
-     * @param serverHash The target Jira Server ID.
-     * @param expiryDate The {@link LocalDate} when the license should expire.
-     * @return The newly generated license key string, or {@code null} if an error occurs.
-     */
-    public static String generateLicenseKey(LicenseType type, String serverHash, LocalDate expiryDate) {
-        String typeCode = type.getCode();
-        String expiryStr = expiryDate.format(DATE_FORMAT);
-        String signature = LicenseCrypto.generateSignature(typeCode, serverHash, expiryStr);
-        if (signature.isEmpty()) {
-            return null;
-        }
-        return typeCode + "-" + serverHash + "-" + expiryStr + "-" + signature;
-    }
+
 }

@@ -2,7 +2,7 @@
 <script type="text/javascript">
     // Provide server-side configuration to Persian Calendar plugin
     window.PersianCalendarConfig = window.PersianCalendarConfig || {};
-    window.PersianCalendarConfig.contextPath = '$!{req.contextPath}';
+    window.PersianCalendarConfig.contextPath = AJS.contextPath();
     window.PersianCalendarConfig.version = '${project.version}';
     window.PersianCalendarConfig.initialized = true;
 </script>

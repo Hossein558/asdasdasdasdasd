@@ -15,22 +15,16 @@
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
     var PC_VERSION = '11.4.21';
-    if (window.PC_DEBUG) { console.log(PC_LOG_PREFIX + ' Version ' + PC_VERSION + ' loaded.'); }
 
-    // DIAGNOSTIC CLICK LOGGING (disabled in production to avoid performance impact)
-    // To enable: set window.PC_DEBUG = true in browser console before page load
-    var PC_DEBUG_MODE = window.PC_DEBUG || false;
-    if (PC_DEBUG_MODE) {
-        window.addEventListener('click', function(e) {
-            var t = e.target;
-            var classes = t.className || '';
-            var id = t.id || '';
-            console.log('[PC-DIAGNOSTIC-CLICK]', {
-                tagName: t.tagName,
-                id: id,
-                className: classes
-            });
-        }, true);
+    // XSS Escaping Helper
+    function escapeHtmlForTitle(str) {
+        if (!str) return "";
+        return String(str)
+            .replace(/&/g, "&amp;")
+            .replace(/</g, "&lt;")
+            .replace(/>/g, "&gt;")
+            .replace(/"/g, "&quot;")
+            .replace(/'/g, "&#039;");
     }
 
     // ========== SERVER-SIDE LOG SENDING ==========
@@ -2378,7 +2372,7 @@
                 var titleAttr = '';
                 if (holidayOccasion) {
                     classes += ' holiday';
-                    titleAttr = ' title="' + holidayOccasion + '"';
+                    titleAttr = ' title="' + escapeHtmlForTitle(holidayOccasion) + '"';
                 } else if (isFriday) {
                     classes += ' friday';
                     titleAttr = ' title="جمعه"';
@@ -2656,7 +2650,7 @@
                 var titleAttr = '';
                 if (holidayOccasion) {
                     cls += ' holiday';
-                    titleAttr = ' title="' + holidayOccasion + '"';
+                    titleAttr = ' title="' + escapeHtmlForTitle(holidayOccasion) + '"';
                 } else if (isFriday) {
                     cls += ' friday';
                     titleAttr = ' title="جمعه"';
@@ -3572,7 +3566,7 @@
                 var titleAttr = '';
                 if (holidayOccasion) {
                     classes += ' holiday';
-                    titleAttr = ' title="' + holidayOccasion + '"';
+                    titleAttr = ' title="' + escapeHtmlForTitle(holidayOccasion) + '"';
                 } else if (isFriday) {
                     classes += ' friday';
                     titleAttr = ' title="جمعه"';
@@ -3905,7 +3899,7 @@
                 var titleAttr = '';
                 if (holidayOccasion) {
                     classes += ' holiday';
-                    titleAttr = ' title="' + holidayOccasion + '"';
+                    titleAttr = ' title="' + escapeHtmlForTitle(holidayOccasion) + '"';
                 } else if (isFriday) {
                     classes += ' friday';
                     titleAttr = ' title="جمعه"';

@@ -39,3 +39,4 @@ build_log.txt
 # maven-antrun-plugin and written into target/classes/integrity.properties.
 # Never commit this file; it must be freshly generated on every build.
 integrity.properties
+*.pem
