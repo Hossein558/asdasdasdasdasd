@@ -51,8 +51,6 @@
         <description>Blocks access to plugin resources if license is invalid.</description>
         <!-- Guard all REST endpoints -->
         <url-pattern>/rest/persian-calendar/1.0/*</url-pattern>
-        <!-- Guard direct access to static web-resources -->
-        <url-pattern>/download/resources/ir.atlassian.jira.plugins.persian-calendar-plugin:*</url-pattern>
     </servlet-filter>
 
     <!-- License Admin Servlet -->
