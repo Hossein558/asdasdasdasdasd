@@ -1,7 +1,6 @@
 package ir.atlassian.jira.plugins.rest;
 
 import com.atlassian.jira.component.ComponentAccessor;
-import com.atlassian.plugins.rest.common.security.AnonymousAllowed;
 import com.atlassian.sal.api.pluginsettings.PluginSettingsFactory;
 import ir.atlassian.jira.plugins.license.LicenseManager;
 import ir.atlassian.jira.plugins.license.LicenseManager.LicenseInfo;
@@ -67,9 +66,15 @@ public class LicenseResource {
      */
     @GET
     @Path("/status")
-    @AnonymousAllowed
     @Produces(MediaType.APPLICATION_JSON)
     public Response getLicenseStatus() {
+        // BUG-1 fix: require authenticated session — anonymous access removed
+        JiraAuthenticationContext authContext = ComponentAccessor.getJiraAuthenticationContext();
+        if (authContext.getLoggedInUser() == null) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(java.util.Collections.singletonMap("error", "Authentication required"))
+                    .build();
+        }
         try {
             LicenseManager licenseManager = getLicenseManager();
             LicenseInfo info = licenseManager.validateLicense();

@@ -227,12 +227,14 @@
 
     /**
      * Asynchronously checks the license status from the backend.
-     * Uses a 5-minute in-memory cache to minimize server requests.
+     * Uses a 5-minute in-memory cache, but ONLY for definitive server responses.
+     * Transient network errors (status 0, 5xx) are NOT cached so that a temporary
+     * server hiccup does not lock users out for up to 5 minutes.
      * @param {Function} callback - Callback function receiving the status object.
      */
     var LICENSE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
     function checkLicenseStatus(callback) {
-        // Return cached result if still fresh
+        // Return cached result if still fresh (only set on definitive responses)
         var now = Date.now();
         if (LICENSE_CACHE.checked && (now - LICENSE_CACHE.lastCheckTime) < LICENSE_CACHE_TTL_MS) {
             callback(LICENSE_CACHE);
@@ -249,35 +251,49 @@
             xhr.open('GET', apiUrl, true);
             xhr.onreadystatechange = function () {
                 if (xhr.readyState === 4) {
-                    LICENSE_CACHE.lastCheckTime = Date.now();
                     if (xhr.status === 200) {
+                        // Definitive success — parse and cache
                         try {
                             var data = JSON.parse(xhr.responseText);
                             LICENSE_CACHE.checked = true;
+                            LICENSE_CACHE.lastCheckTime = Date.now();
                             LICENSE_CACHE.enabled = data.enabled !== false;
                             LICENSE_CACHE.status = data.status || 'UNKNOWN';
                             LICENSE_CACHE.message = data.message || '';
                             LICENSE_CACHE.daysRemaining = data.daysRemaining || 0;
-                            logInfo('License status: ' + LICENSE_CACHE.status, LICENSE_CACHE);
+                            logInfo('License status: ' + LICENSE_CACHE.status);
                         } catch (e) {
                             logWarn('Failed to parse license response');
                             LICENSE_CACHE.checked = true;
-                            LICENSE_CACHE.enabled = false; // Fail-closed for parse errors
+                            LICENSE_CACHE.lastCheckTime = Date.now();
+                            LICENSE_CACHE.enabled = false;
                         }
+                    } else if (xhr.status === 401 || xhr.status === 403) {
+                        // User not logged in — default to enabled, server enforces license
+                        // Do NOT cache: session state may change
+                        logWarn('License status requires login (status ' + xhr.status + ') — defaulting to enabled');
+                        LICENSE_CACHE.enabled = true;
+                        LICENSE_CACHE.status = 'VALID';
+                        LICENSE_CACHE.message = '';
+                    } else if (xhr.status >= 500 || xhr.status === 0) {
+                        // BUG-7 fix: transient server/network error — DO NOT cache
+                        logWarn('License check transient error (status ' + xhr.status + ') — not caching, defaulting to enabled');
+                        LICENSE_CACHE.enabled = true;
                     } else {
+                        // Other definitive failure (4xx) — cache as disabled
                         logWarn('License check failed (status ' + xhr.status + ')');
                         LICENSE_CACHE.checked = true;
-                        LICENSE_CACHE.enabled = false; // Fail-closed for network errors
+                        LICENSE_CACHE.lastCheckTime = Date.now();
+                        LICENSE_CACHE.enabled = false;
                     }
                     callback(LICENSE_CACHE);
                 }
             };
             xhr.send();
         } catch (e) {
+            // BUG-7 fix: JS exception — DO NOT cache, default enabled
             logError('License check error: ' + e.message);
-            LICENSE_CACHE.checked = true;
-            LICENSE_CACHE.enabled = false; // Fail-closed for errors
-            LICENSE_CACHE.lastCheckTime = Date.now();
+            LICENSE_CACHE.enabled = true;
             callback(LICENSE_CACHE);
         }
     }
