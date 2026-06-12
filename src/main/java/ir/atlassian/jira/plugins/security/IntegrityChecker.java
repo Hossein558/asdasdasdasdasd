@@ -4,6 +4,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.security.MessageDigest;
 import java.util.Properties;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * Security Integrity Checker.
@@ -33,6 +35,8 @@ import java.util.Properties;
  * </p>
  */
 public class IntegrityChecker {
+
+    private static final Logger log = LoggerFactory.getLogger(IntegrityChecker.class);
 
     /** Path (on classpath) to the build-time generated hash properties file. */
     private static final String INTEGRITY_PROPS_PATH = "integrity.properties";
@@ -73,9 +77,14 @@ public class IntegrityChecker {
                 props.load(is);
                 xmlHash = props.getProperty(PROP_XML_HASH);
                 jsHash  = props.getProperty(PROP_JS_HASH);
+            } else {
+                // FIX #5: warn loudly when integrity.properties is missing
+                log.warn("[PersianCalendar] integrity.properties NOT FOUND on classpath. "
+                        + "SHA-256 integrity checks (Layers 2 & 3) are DISABLED. "
+                        + "Build with atlas-package to generate this file.");
             }
-        } catch (IOException ignored) {
-            // Leave both null — checks will be skipped below
+        } catch (IOException e) {
+            log.warn("[PersianCalendar] Failed to load integrity.properties: {}", e.getMessage());
         }
         EXPECTED_XML_HASH = xmlHash;
         EXPECTED_JS_HASH  = jsHash;
@@ -172,7 +181,9 @@ public class IntegrityChecker {
                     clName.contains("osgi") ||
                     clName.contains("felix");
         } catch (Exception e) {
-            return true; // Fail open for class loader check only
+            // FIX #3: log classloader check failure instead of silently passing
+            log.warn("[PersianCalendar] ClassLoader verification threw exception: {}", e.getMessage());
+            return true; // Fail open for class loader check only — logged for visibility
         }
     }
 

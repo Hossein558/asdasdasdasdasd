@@ -1,31 +1,40 @@
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
 import java.time.LocalDate;
 import java.time.format.DateTimeFormatter;
 import java.util.Scanner;
 
-
 /**
- * License Generator Tool (Standalone)
- * 
+ * Standalone License Generator Tool.
+ * <p>
+ * Self-contained — all crypto logic is inlined so there is no dependency on
+ * a separate {@code LicenseCrypto.java} copy.  The HMAC algorithm and key
+ * derivation MUST match
+ * {@code src/main/java/ir/atlassian/jira/plugins/license/LicenseCrypto.java}
+ * exactly.  If you change the signing algorithm in the plugin, update this
+ * file as well.
+ * </p>
+ *
+ * <pre>
  * Usage:
- * cd tools
- * javac LicenseGeneratorStandalone.java
- * java LicenseGeneratorStandalone
+ *   cd tools
+ *   javac LicenseGeneratorStandalone.java
+ *   java  LicenseGeneratorStandalone
+ * </pre>
  */
 public class LicenseGeneratorStandalone {
 
-    // Crypto is delegated to LicenseCrypto.java (tools/) which mirrors
-    // src/main/java/.../license/LicenseCrypto.java — the single source of truth.
     private static final DateTimeFormatter DATE_FORMAT = DateTimeFormatter.ofPattern("yyyyMMdd");
-
 
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
 
         System.out.println();
-        System.out.println("╔══════════════════════════════════════════════════╗");
-        System.out.println("║   Persian Calendar License Generator             ║");
-        System.out.println("║   DesktopCenter.ir                               ║");
-        System.out.println("╚══════════════════════════════════════════════════╝");
+        System.out.println("\u2554\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2557");
+        System.out.println("\u2551   Persian Calendar License Generator             \u2551");
+        System.out.println("\u2551   DesktopCenter.ir                               \u2551");
+        System.out.println("\u255a\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u255d");
         System.out.println();
 
         // Get Server ID (accept any length)
@@ -59,30 +68,66 @@ public class LicenseGeneratorStandalone {
         }
 
         // Generate License
-        String license = generateLicense(typeInput, serverId, expiryDate);
+        String expiryStr = expiryDate.format(DATE_FORMAT);
+        String signature = generateSignature(typeInput, serverId, expiryStr);
+        String license = typeInput + "-" + serverId + "-" + expiryStr + "-" + signature;
 
         System.out.println();
-        System.out.println("════════════════════════════════════════════════════");
+        System.out.println("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
         System.out.println("Generated License Key:");
         System.out.println();
         System.out.println("  " + license);
         System.out.println();
-        System.out.println("════════════════════════════════════════════════════");
+        System.out.println("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
         System.out.println("Type: " + (typeInput.equals("F") ? "Full" : "Trial"));
         System.out.println("Server ID: " + serverId);
         System.out.println("Expires: " + expiryDate);
-        System.out.println("════════════════════════════════════════════════════");
+        System.out.println("\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550\u2550");
 
         scanner.close();
     }
 
-    public static String generateLicense(String type, String serverId, LocalDate expiryDate) {
-        String expiryStr = expiryDate.format(DATE_FORMAT);
-        String signature = generateSignature(type, serverId, expiryStr);
-        return type + "-" + serverId + "-" + expiryStr + "-" + signature;
+    // ── Inline crypto — must match LicenseCrypto.java exactly ──────────────
+
+    /**
+     * Retrieves the HMAC secret key.
+     * Priority: system property → obfuscated fallback.
+     */
+    private static String getSecretKey() {
+        String sysKey = System.getProperty("persian.calendar.secret");
+        if (sysKey != null && !sysKey.trim().isEmpty()) {
+            return sysKey.trim();
+        }
+        // Obfuscated fallback — must match LicenseCrypto.java
+        byte[] k = new byte[]{
+            80, 101, 114, 115, 105, 97, 110, 67, 97, 108, 101, 110, 100, 97, 114,
+            50, 48, 50, 52, 83, 101, 99, 114, 101, 116, 75, 101, 121, 33, 64, 35, 36
+        };
+        return new String(k, StandardCharsets.UTF_8);
     }
 
-    private static String generateSignature(String type, String serverId, String expiry) {
-        return LicenseCrypto.generateSignature(type, serverId, expiry);
+    /**
+     * Generate an 8-character uppercase HMAC-SHA256 hex signature.
+     * Algorithm must match LicenseCrypto.generateSignature() exactly.
+     */
+    private static String generateSignature(String type, String serverHash, String expiry) {
+        try {
+            String data = type + "-" + serverHash + "-" + expiry;
+            Mac hmac = Mac.getInstance("HmacSHA256");
+            SecretKeySpec keySpec = new SecretKeySpec(
+                    getSecretKey().getBytes(StandardCharsets.UTF_8), "HmacSHA256");
+            hmac.init(keySpec);
+            byte[] hash = hmac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+
+            StringBuilder hexString = new StringBuilder(8);
+            for (int i = 0; i < 4; i++) {
+                String hex = Integer.toHexString(0xff & hash[i]);
+                if (hex.length() == 1) hexString.append('0');
+                hexString.append(hex);
+            }
+            return hexString.toString().toUpperCase();
+        } catch (Exception e) {
+            return "";
+        }
     }
 }

@@ -13,11 +13,9 @@ import java.nio.charset.StandardCharsets;
  *   <li>HMAC-SHA256 signature generation</li>
  * </ul>
  *
- * <p><strong>IMPORTANT — Standalone tools:</strong> {@code tools/LicenseCrypto.java} is a
- * package-free mirror of this class used by the standalone generator tools.
- * Any change made here MUST be applied there identically, and vice versa.
- * The signature length (8 hex chars / 4 bytes) and the key retrieval logic
- * must always stay in sync across both files.
+ * <p><strong>Standalone tools:</strong> {@code tools/LicenseGeneratorStandalone.java}
+ * contains an inlined copy of the crypto logic.  Any change made here MUST be
+ * applied there identically to keep license generation and validation in sync.
  */
 public final class LicenseCrypto {
 
