@@ -104,14 +104,14 @@ The plugin uses a custom license system to validate usage. Customers must obtain
 ```
 [TYPE]-[SERVER_ID]-[EXPIRY_DATE]-[SIGNATURE]
 ```
-Example: `F-A1B2C3D4-20261231-8F3E2A1B`
+Example: `F-A1B2C3D4-20261231-8F3E2A1B...` (Full 512-hex string)
 
 | Part | Description |
 |:---|:---|
 | **TYPE** | `F` = Full License, `T` = Trial License |
 | **SERVER_ID** | Unique 8-character ID from customer's Jira installation |
 | **EXPIRY_DATE** | Format: `YYYYMMDD` |
-| **SIGNATURE** | HMAC-SHA256 signature (first 8 hex chars) |
+| **SIGNATURE** | RSA-2048 SHA-256 signature (512 hex chars) |
 
 ### Customer Flow
 
@@ -121,29 +121,31 @@ Example: `F-A1B2C3D4-20261231-8F3E2A1B`
 
 ### Generating a License
 
-Use the `LicenseGenerator.java` tool in the `tools/` directory:
+Use the `LicenseGeneratorStandalone.java` tool in the `tools/` directory along with your `private_key.pem`:
 
 ```bash
-# Compile the generator
 cd tools
-javac LicenseGenerator.java
-
-# Run the generator
-java LicenseGenerator
+java LicenseGeneratorStandalone.java private_key.pem
 ```
 
 Interactive prompts:
 ```
-╔══════════════════════════════════════════╗
-║   Persian Calendar License Generator     ║
-╚══════════════════════════════════════════╝
+????????????????????????????????????????????????????
+?   Persian Calendar RSA License Generator         ?
+?   DesktopCenter.ir                               ?
+????????????????????????????????????????????????????
 
-    Enter Server ID (e.g., BPT3-4S1P-7QGE-5M9S): BPT3-4S1P-7QGE-5M9S
-    Enter Expiry Date (YYYY-MM-DD): 2026-12-31
-════════════════════════════════════════════
+Enter Server ID: BPT3-4S1P-7QGE-5M9S
+License Type (F=Full, T=Trial): F
+Expiry Date (YYYY-MM-DD): 2026-12-31
+
 Generated License Key:
 
-  F-A1B2C3D4-20261231-8F3E2A1B
+F-BPT3-4S1P-20261231-741B189BE52D8D9A5B794965F3FD8AF09745FE5C3C4F954212DBE0347F16ADA... (512 Hex characters)
+
+Type: Full
+Server ID: BPT3-4S1P-7QGE-5M9S
+Expires: 2026-12-31
 ```
 
 ### License Admin Panel

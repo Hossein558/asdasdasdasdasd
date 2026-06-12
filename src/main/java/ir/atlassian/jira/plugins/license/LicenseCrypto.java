@@ -20,13 +20,13 @@ public final class LicenseCrypto {
 
     // The Base64 encoded RSA-2048 public key
     private static final String PUBLIC_KEY_BASE64 = 
-        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuIV8IU9fkUg6CwDVpPLx" +
-        "fGn3G+WVKmjBImKFjlHqZzzNma3fVzhSPlbJXl+H0LBeQX9Vdj+sPiw+moOTtKJS" +
-        "ywvSJn/p1RkSAJeT4HYdgUYMrzNUEj7FSRbZyZTSxiqFrr9fJdajqCbN29WAK8PP" +
-        "QLMJvBdx/NOFfNsDuMc6ZQCPL/r2zCNX2dVV3xUp0ScE931ozd1f2HuM1skmYt09" +
-        "EHuwX1Z9V4PA3ImgxIO9frKXju1idzwiX3WZogrxdNqyWppJtnRq4aei3UKoXkHX" +
-        "FVJmRX5ZOTDphtSietHb2TJFDHbuMI/USNaaw5HVBtJhDypLyrK6cYgwntcWjc21" +
-        "UQIDAQAB";
+        "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAlPn5WhZ5Vvywapn+mL3p" +
+        "/Ut3rbjCu9Y8JoC9mswVTI+XUVmUI8DGCKqi4qXVZ9FgVLlN30CZamZM/wh/Ajzv" +
+        "Yuyt1/aObI71+a2i64yrC/W75a+K39yG0O0tAI747/Gpn38mVVIL4Bergz0U0K6H" +
+        "bS6a7smbgaABhsy4X5Ng/VmpsMDwP/3MLHjHwwjMQnx4C5DnY9VxLrBiWWf+2rnC" +
+        "dKXHgUmr04IIrut3G3435m42Ud7Gj6di9Yuakw91T9queFSUhgbZ0k1uOKQcaT9I" +
+        "Gh7eOXIaVFaPsIQ+hZQp3Wn/vxTaoUNOiFjSM0yVx/DJd2NE9esdItyBfy1Bq9gD" +
+        "uQIDAQAB";
 
     private static PublicKey publicKey;
 
