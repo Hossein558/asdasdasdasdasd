@@ -1827,6 +1827,17 @@
                     if (xhr.status === 200) {
                         try {
                             var data = JSON.parse(xhr.responseText);
+                            if (data.error) {
+                                // License is invalid!
+                                logWarn('[LICENSE] Server returned license error: ' + data.error);
+                                LICENSE_CACHE.enabled = false;
+                                LICENSE_CACHE.checked = true;
+                                LICENSE_CACHE.status = 'BLOCKED';
+                                LICENSE_CACHE.message = data.reason || 'لایسنس معتبر نیست. تقویم فارسی غیرفعال شد.';
+                                LICENSE_CACHE.lastCheckTime = Date.now();
+                                DATE_FORMAT_CACHE.loaded = false;
+                                return;
+                            }
                             DATE_FORMAT_CACHE.dateFormat = data.dateFormat || DATE_FORMAT_CACHE.dateFormat;
                             DATE_FORMAT_CACHE.dateTimeFormat = data.dateTimeFormat || DATE_FORMAT_CACHE.dateTimeFormat;
                             DATE_FORMAT_CACHE.dateFormatJS = data.dateFormatJS || DATE_FORMAT_CACHE.dateFormatJS;
@@ -1836,21 +1847,6 @@
                         } catch (e) {
                             logWarn('Failed to parse date format response: ' + e.message);
                         }
-                    } else if (xhr.status === 402) {
-                        // HTTP 402 = server-side license guard (LicenseGuard.java).
-                        // This is a hard, server-authoritative block — the server refuses
-                        // to serve calendar data. Poison the license cache so that ALL
-                        // subsequent checkLicenseStatus() calls see the calendar as disabled,
-                        // regardless of what /license/status says.
-                        // A user who patches checkLicenseStatus() in DevTools still hits this.
-                        logWarn('[LICENSE] Server returned 402 on /date-formats — license invalid. Disabling calendar.');
-                        LICENSE_CACHE.enabled = false;
-                        LICENSE_CACHE.checked = true;
-                        LICENSE_CACHE.status = 'BLOCKED';
-                        LICENSE_CACHE.message = 'لایسنس معتبر نیست. تقویم فارسی غیرفعال شد.';
-                        LICENSE_CACHE.lastCheckTime = Date.now();
-                        DATE_FORMAT_CACHE.loaded = false; // Do not mark as loaded; calendar will not proceed.
-                        showLicenseExpiredMessage();
                     } else {
                         logWarn('Failed to fetch date formats (status ' + xhr.status + '), using defaults');
                     }
@@ -4217,8 +4213,14 @@
                 name.indexOf('created') !== -1 ||
                 name.indexOf('updated') !== -1;
 
+            // Check native trigger title/text
+            var $nativeTrigger = $original.parent().find('a[id$="-trigger"], span.aui-icon, span.icon-date, span.icon-default');
+            var triggerTitle = $nativeTrigger.attr('title') || '';
+            var triggerText = $nativeTrigger.text() || '';
+            var hasTimeInTrigger = triggerTitle.match(/time|زمان|ساعت/i) || triggerText.match(/time|زمان|ساعت/i);
+
             // Combine all checks
-            var isDateTimeField = hasTimeInValue || hasTimeInPlaceholder || hasTimeInDescription || isKnownDateTimeField;
+            var isDateTimeField = hasTimeInValue || hasTimeInPlaceholder || hasTimeInDescription || isKnownDateTimeField || hasTimeInTrigger;
 
             // Log detection details for debugging
             logDebug('DateTime detection', {
@@ -4632,17 +4634,20 @@
 
         // Initial run
         setTimeout(function () {
-            initPersianCalendar($);
-            convertViewPageDates($);
-            initInlineEditCalendar($);
-            // v11.4.0: New date display converters
-            convertActivityStreamTime($);
-            convertAuditLogDates($);
-            initAuditLogDatePicker($);
-            convertIssueSearchDates($);
-            convertTimeSpentDurations($);
-            // Setup livestamp observer for dynamic updates
-            setupLivestampObserver($);
+            checkLicenseStatus(function(license) {
+                if (!license.enabled) return;
+                initPersianCalendar($);
+                convertViewPageDates($);
+                initInlineEditCalendar($);
+                // v11.4.0: New date display converters
+                convertActivityStreamTime($);
+                convertAuditLogDates($);
+                initAuditLogDatePicker($);
+                convertIssueSearchDates($);
+                convertTimeSpentDurations($);
+                // Setup livestamp observer for dynamic updates
+                setupLivestampObserver($);
+            });
         }, 500);
 
         // Re-run on AJAX content
@@ -4653,14 +4658,17 @@
                 logDebug('NEW_CONTENT_ADDED event fired');
                 if (newContentTimer) clearTimeout(newContentTimer);
                 newContentTimer = setTimeout(function () {
-                    analyzePageForDateElements();
-                    initPersianCalendar($);
-                    convertViewPageDates($);
-                    // v11.4.0: New date display converters
-                    convertActivityStreamTime($);
-                    convertAuditLogDates($);
-                    convertIssueSearchDates($);
-                    convertTimeSpentDurations($);
+                    checkLicenseStatus(function(license) {
+                        if (!license.enabled) return;
+                        analyzePageForDateElements();
+                        initPersianCalendar($);
+                        convertViewPageDates($);
+                        // v11.4.0: New date display converters
+                        convertActivityStreamTime($);
+                        convertAuditLogDates($);
+                        convertIssueSearchDates($);
+                        convertTimeSpentDurations($);
+                    });
                 }, 200);
             });
         } else {
@@ -4671,13 +4679,16 @@
             var jsmConversionDelays = [1000, 2000, 3000, 5000];
             jsmConversionDelays.forEach(function (delay) {
                 setTimeout(function () {
-                    logDebug('JSM delayed conversion at ' + delay + 'ms');
-                    convertViewPageDates($);
-                    // v11.4.0: New date display converters
-                    convertActivityStreamTime($);
-                    convertAuditLogDates($);
-                    convertIssueSearchDates($);
-                    convertTimeSpentDurations($);
+                    checkLicenseStatus(function(license) {
+                        if (!license.enabled) return;
+                        logDebug('JSM delayed conversion at ' + delay + 'ms');
+                        convertViewPageDates($);
+                        // v11.4.0: New date display converters
+                        convertActivityStreamTime($);
+                        convertAuditLogDates($);
+                        convertIssueSearchDates($);
+                        convertTimeSpentDurations($);
+                    });
                 }, delay);
             });
         }
@@ -4740,20 +4751,26 @@
             if (pendingInit) {
                 if (mutInitTimer) clearTimeout(mutInitTimer);
                 mutInitTimer = setTimeout(function () {
-                    pendingInit = false;
-                    initPersianCalendar($);
+                    checkLicenseStatus(function(license) {
+                        if (!license.enabled) return;
+                        pendingInit = false;
+                        initPersianCalendar($);
+                    });
                 }, 100);
             }
             if (pendingConvert) {
                 if (mutConvertTimer) clearTimeout(mutConvertTimer);
                 mutConvertTimer = setTimeout(function () {
-                    pendingConvert = false;
-                    convertViewPageDates($);
-                    // v11.4.0: New date display converters
-                    convertActivityStreamTime($);
-                    convertAuditLogDates($);
-                    convertIssueSearchDates($);
-                    convertTimeSpentDurations($);
+                    checkLicenseStatus(function(license) {
+                        if (!license.enabled) return;
+                        pendingConvert = false;
+                        convertViewPageDates($);
+                        // v11.4.0: New date display converters
+                        convertActivityStreamTime($);
+                        convertAuditLogDates($);
+                        convertIssueSearchDates($);
+                        convertTimeSpentDurations($);
+                    });
                 }, 100);
             }
         });

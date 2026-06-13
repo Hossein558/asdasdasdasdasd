@@ -5,7 +5,7 @@
 
     <groupId>ir.atlassian.jira.plugins</groupId>
     <artifactId>persian-calendar-plugin</artifactId>
-    <version>11.4.21</version>
+    <version>11.4.24</version>
     <packaging>atlassian-plugin</packaging>
 
     <name>Persian Calendar for Jira</name>
@@ -46,6 +46,7 @@
             <version>7.1.6</version>
             <scope>provided</scope>
         </dependency>
+
         <dependency>
             <groupId>javax.ws.rs</groupId>
             <artifactId>javax.ws.rs-api</artifactId>
@@ -106,7 +107,10 @@
                     <allowGoogleTracking>false</allowGoogleTracking>
                     <enableQuickReload>true</enableQuickReload>
                     <instructions>
-                        <Import-Package> *;resolution:=optional
+                        <Import-Package>
+                            com.atlassian.plugins.rest.common.security;resolution:=optional,
+                            com.atlassian.plugins.rest.api.security;resolution:=optional,
+                            *
                         </Import-Package>
                         <Spring-Context>*</Spring-Context>
                     </instructions>

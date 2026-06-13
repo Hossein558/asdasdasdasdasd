@@ -125,7 +125,7 @@ public class LicenseResource {
         try {
             LicenseManager licenseManager = getLicenseManager();
             Map<String, String> response = new HashMap<>();
-            response.put("serverId", licenseManager.getServerIdHash());
+            response.put("serverId", licenseManager.getServerId());
             return Response.ok(response).build();
         } catch (Exception e) {
             Map<String, String> errorResponse = new HashMap<>();

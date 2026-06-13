@@ -53,8 +53,8 @@ public class LicenseFilter implements Filter {
                 LicenseManager.LicenseInfo info = licenseManager.validateLicense();
                 
                 if (!info.isCalendarEnabled()) {
-                    // Fail closed with 402
-                    res.setStatus(402); // 402 Payment Required
+                    // Return 200 OK with error JSON to prevent Jira's global AJAX error handler from intercepting it
+                    res.setStatus(200);
                     res.setContentType("application/json;charset=UTF-8");
                     res.getWriter().write("{\"error\": \"Invalid or missing license\", \"reason\": \"لایسنس معتبر نیست. لطفاً لایسنس را فعال کنید.\"}");
                     res.getWriter().flush();
@@ -67,7 +67,7 @@ public class LicenseFilter implements Filter {
             }
         } catch (Exception e) {
             // Exception thrown (e.g. database error), fail closed
-            res.setStatus(402); // 402 Payment Required
+            res.setStatus(200);
             res.setContentType("application/json;charset=UTF-8");
             res.getWriter().write("{\"error\": \"License verification failed\"}");
             res.getWriter().flush();

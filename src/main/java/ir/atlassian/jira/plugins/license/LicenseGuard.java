@@ -34,8 +34,8 @@ import java.util.Optional;
  */
 public final class LicenseGuard {
 
-    /** HTTP 402 Payment Required — semantically correct for a license gate. */
-    private static final int HTTP_PAYMENT_REQUIRED = 402;
+    /** HTTP 200 OK - Used instead of 402 to prevent Jira's global AJAX error handler from intercepting the error and showing a red banner. */
+    private static final int HTTP_PAYMENT_REQUIRED = 200;
 
     private LicenseGuard() {}
 

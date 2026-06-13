@@ -89,7 +89,9 @@ public class LicenseServlet extends HttpServlet {
         }
 
         LicenseManager licenseManager = getLicenseManager();
-        String serverId = licenseManager.getServerIdHash();
+        com.atlassian.jira.license.JiraLicenseManager jiraLicenseManager =
+                ComponentAccessor.getComponent(com.atlassian.jira.license.JiraLicenseManager.class);
+        String serverId = jiraLicenseManager != null ? jiraLicenseManager.getServerId() : "UNKNOWN";
         LicenseInfo licenseInfo = licenseManager.validateLicense();
         String message = request.getParameter("message");
         String messageType = request.getParameter("type");

@@ -9,12 +9,14 @@
         <param name="atlassian-data-center-compatible">true</param>
     </plugin-info>
 
+    <!-- Expose images folder to UPM so the icon and logo load -->
+    <resource type="download" name="images/" location="images"/>
+
     <!-- Web Resources for Persian Calendar -->
     <!-- LicenseCondition gates this entire bundle: when license is invalid,
          Jira's web-resource manager will not emit the <script>/<link> tags
          for this bundle. The browser never downloads the JS or CSS. -->
     <web-resource key="persian-calendar-resources" name="Persian Calendar Resources">
-        <condition class="ir.atlassian.jira.plugins.license.LicenseCondition"/>
         <description>JavaScript and CSS for Persian Calendar</description>
         <dependency>com.atlassian.auiplugin:ajs</dependency>
 
@@ -41,7 +43,6 @@
     <!-- Web Panel to inject additional markup if needed -->
     <!-- Same LicenseCondition: don't inject the init markup when unlicensed -->
     <web-panel key="persian-calendar-panel" location="atl.header.after.scripts" weight="1000">
-        <condition class="ir.atlassian.jira.plugins.license.LicenseCondition"/>
         <description>Initializes Persian Calendar</description>
         <resource name="view" type="velocity" location="/templates/persian-calendar-init.vm"/>
     </web-panel>

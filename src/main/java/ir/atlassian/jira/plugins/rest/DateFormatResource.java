@@ -44,6 +44,7 @@ public class DateFormatResource {
      */
     @GET
     @AnonymousAllowed
+    @com.atlassian.plugins.rest.api.security.AnonymousAllowed
     @Produces(MediaType.APPLICATION_JSON)
     public Response getDateFormats() {
         // Server-side license enforcement.
