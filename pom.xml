@@ -102,6 +102,7 @@
                 <version>${amps.version}</version>
                 <extensions>true</extensions>
                 <configuration>
+                    <skipRestDocGeneration>true</skipRestDocGeneration>
                     <productVersion>${jira.version}</productVersion>
                     <productDataVersion>${jira.version}</productDataVersion>
                     <allowGoogleTracking>false</allowGoogleTracking>
