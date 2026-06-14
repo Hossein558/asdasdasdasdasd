@@ -24,7 +24,7 @@ jobs:
           cache: 'maven'
 
       - name: Build Plugin
-        run: ./mvnw clean package -DskipTests -e > build.log 2>&1 || (cat build.log && exit 1)
+        run: ./mvnw clean package -DskipTests -e > build.log 2>&1 || (echo "=== BUILD FAILED. SHOWING LAST 150 LINES ===" && tail -n 150 build.log && exit 1)
 
       - name: Upload Build Log on Failure
         if: failure()
