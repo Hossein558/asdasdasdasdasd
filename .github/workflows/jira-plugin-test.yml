@@ -75,8 +75,7 @@ jobs:
             --name jira-${{ matrix.jira_version }} \
             -p 8080:8080 \
             -e JIRA_JVM_MINIMUM_MEMORY=1024m \
-            -e JIRA_JVM_MAXIMUM_MEMORY=2048m \
-            atlassian/jira-software:${{ matrix.jira_version }}-ubuntu
+            atlassian/jira-software:${{ matrix.jira_version }}
 
       - name: Find Plugin Artifact
         id: find_artifact
