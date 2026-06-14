@@ -1803,6 +1803,106 @@
         dateTimeFormatJS: '%e/%b/%Y %I:%M %p'
     };
 
+    // ========== FIELD METADATA CACHING ==========
+    var _jiraFieldTypesCache = null;
+
+    /**
+     * Fetches custom field types from Jira REST API to perfectly distinguish
+     * between Date and DateTime fields. Caches in sessionStorage.
+     */
+    function fetchJiraFieldTypes(callback) {
+        if (_jiraFieldTypesCache) {
+            if (callback) callback(_jiraFieldTypesCache);
+            return;
+        }
+
+        try {
+            var cachedStr = sessionStorage.getItem('pc_jira_fields_metadata');
+            if (cachedStr) {
+                var cachedObj = JSON.parse(cachedStr);
+                // Simple cache expiration (e.g. 1 hour)
+                if (cachedObj && cachedObj.timestamp && (new Date().getTime() - cachedObj.timestamp < 3600000)) {
+                    _jiraFieldTypesCache = cachedObj.data;
+                    logInfo('Loaded Jira field metadata from sessionStorage cache');
+                    if (callback) callback(_jiraFieldTypesCache);
+                    return;
+                }
+            }
+        } catch (e) {
+            logWarn('Error reading field cache from sessionStorage', e);
+        }
+
+        var contextPath = '';
+        try {
+            if (typeof AJS !== 'undefined' && AJS.contextPath) {
+                contextPath = AJS.contextPath();
+            }
+        } catch (e) {}
+
+        logInfo('Fetching Jira field metadata via REST API...');
+        
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', contextPath + '/rest/api/2/field', true);
+        xhr.setRequestHeader('Accept', 'application/json');
+        
+        // Add XSRF token if needed, although GET requests to /field usually don't strictly require it
+        try {
+            var token = document.querySelector('meta[name="ajs-atl-token"]');
+            if (token) {
+                xhr.setRequestHeader('X-Atlassian-Token', token.getAttribute('content'));
+            } else {
+                xhr.setRequestHeader('X-Atlassian-Token', 'no-check');
+            }
+        } catch (e) {
+            xhr.setRequestHeader('X-Atlassian-Token', 'no-check');
+        }
+
+        xhr.onreadystatechange = function () {
+            if (xhr.readyState === 4) {
+                if (xhr.status === 200) {
+                    try {
+                        var fields = JSON.parse(xhr.responseText);
+                        var map = {};
+                        for (var i = 0; i < fields.length; i++) {
+                            if (fields[i].schema && fields[i].schema.type) {
+                                map[fields[i].id] = fields[i].schema.type;
+                            }
+                        }
+                        
+                        // Hardcode some known system fields just in case API differs
+                        map['duedate'] = 'date';
+                        map['resolutiondate'] = 'datetime';
+                        map['created'] = 'datetime';
+                        map['updated'] = 'datetime';
+                        
+                        _jiraFieldTypesCache = map;
+                        
+                        try {
+                            sessionStorage.setItem('pc_jira_fields_metadata', JSON.stringify({
+                                timestamp: new Date().getTime(),
+                                data: map
+                            }));
+                        } catch(e){}
+                        
+                        logInfo('Successfully loaded metadata for ' + Object.keys(map).length + ' fields');
+                    } catch (e) {
+                        logError('Failed to parse Jira fields API response', e);
+                    }
+                } else {
+                    logWarn('Failed to fetch Jira fields metadata, status: ' + xhr.status);
+                }
+                if (callback) callback(_jiraFieldTypesCache);
+            }
+        };
+        
+        try {
+            xhr.send();
+        } catch(e) {
+            logWarn('Error sending request to fetch field metadata', e);
+            if (callback) callback(_jiraFieldTypesCache);
+        }
+    }
+
     // Fetch date format settings from REST API
     /**
      * Fetches user and system date format settings via REST API.
@@ -4219,9 +4319,30 @@
             var triggerText = $nativeTrigger.text() || '';
             var hasTimeInTrigger = triggerTitle.match(/time|زمان|ساعت/i) || triggerText.match(/time|زمان|ساعت/i);
 
-            // Combine all checks
-            var isDateTimeField = hasTimeInValue || hasTimeInPlaceholder || hasTimeInDescription || isKnownDateTimeField || hasTimeInTrigger;
+            // Calculate heuristics based on DOM
+            var isDateTimeFieldHeuristics = hasTimeInValue || hasTimeInPlaceholder || hasTimeInDescription || isKnownDateTimeField || hasTimeInTrigger;
+            var isDateTimeField = isDateTimeFieldHeuristics;
 
+            // API OVERRIDE: Check exact field type from Jira REST API cache if available
+            var apiFieldType = null;
+            if (_jiraFieldTypesCache) {
+                // The input ID is usually 'customfield_10001', which exactly matches the API field id.
+                if (_jiraFieldTypesCache[id]) {
+                    apiFieldType = _jiraFieldTypesCache[id];
+                } else if (_jiraFieldTypesCache[name]) {
+                    apiFieldType = _jiraFieldTypesCache[name];
+                }
+
+                if (apiFieldType === 'datetime') {
+                    isDateTimeField = true;
+                    logDebug('API OVERRIDE: Forcing DATETIME for field ' + (id || name));
+                } else if (apiFieldType === 'date') {
+                    isDateTimeField = false;
+                    logDebug('API OVERRIDE: Forcing DATE for field ' + (id || name));
+                }
+            }
+
+            // Combine all checks
             // Log detection details for debugging
             logDebug('DateTime detection', {
                 id: $original.attr('id'),
@@ -4629,26 +4750,29 @@
         // Fetch date format settings from REST API first
         fetchDateFormatSettings();
 
-        // Analyze page first
-        analyzePageForDateElements();
+        // Fetch Jira field metadata to perfectly identify Date vs DateTime fields
+        fetchJiraFieldTypes(function() {
+            // Analyze page first
+            analyzePageForDateElements();
 
-        // Initial run
-        setTimeout(function () {
-            checkLicenseStatus(function(license) {
-                if (!license.enabled) return;
-                initPersianCalendar($);
-                convertViewPageDates($);
-                initInlineEditCalendar($);
-                // v11.4.0: New date display converters
-                convertActivityStreamTime($);
-                convertAuditLogDates($);
-                initAuditLogDatePicker($);
-                convertIssueSearchDates($);
-                convertTimeSpentDurations($);
-                // Setup livestamp observer for dynamic updates
-                setupLivestampObserver($);
-            });
-        }, 500);
+            // Initial run
+            setTimeout(function () {
+                checkLicenseStatus(function(license) {
+                    if (!license.enabled) return;
+                    initPersianCalendar($);
+                    convertViewPageDates($);
+                    initInlineEditCalendar($);
+                    // v11.4.0: New date display converters
+                    convertActivityStreamTime($);
+                    convertAuditLogDates($);
+                    initAuditLogDatePicker($);
+                    convertIssueSearchDates($);
+                    convertTimeSpentDurations($);
+                    // Setup livestamp observer for dynamic updates
+                    setupLivestampObserver($);
+                });
+            }, 500);
+        });
 
         // Re-run on AJAX content
         var newContentTimer = null;
@@ -4660,14 +4784,16 @@
                 newContentTimer = setTimeout(function () {
                     checkLicenseStatus(function(license) {
                         if (!license.enabled) return;
-                        analyzePageForDateElements();
-                        initPersianCalendar($);
-                        convertViewPageDates($);
-                        // v11.4.0: New date display converters
-                        convertActivityStreamTime($);
-                        convertAuditLogDates($);
-                        convertIssueSearchDates($);
-                        convertTimeSpentDurations($);
+                        fetchJiraFieldTypes(function() {
+                            analyzePageForDateElements();
+                            initPersianCalendar($);
+                            convertViewPageDates($);
+                            // v11.4.0: New date display converters
+                            convertActivityStreamTime($);
+                            convertAuditLogDates($);
+                            convertIssueSearchDates($);
+                            convertTimeSpentDurations($);
+                        });
                     });
                 }, 200);
             });
@@ -4682,12 +4808,14 @@
                     checkLicenseStatus(function(license) {
                         if (!license.enabled) return;
                         logDebug('JSM delayed conversion at ' + delay + 'ms');
-                        convertViewPageDates($);
-                        // v11.4.0: New date display converters
-                        convertActivityStreamTime($);
-                        convertAuditLogDates($);
-                        convertIssueSearchDates($);
-                        convertTimeSpentDurations($);
+                        fetchJiraFieldTypes(function() {
+                            convertViewPageDates($);
+                            // v11.4.0: New date display converters
+                            convertActivityStreamTime($);
+                            convertAuditLogDates($);
+                            convertIssueSearchDates($);
+                            convertTimeSpentDurations($);
+                        });
                     });
                 }, delay);
             });

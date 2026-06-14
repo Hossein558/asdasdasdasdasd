@@ -1,0 +1,87 @@
+name: Jira Plugin Lifecycle Tests
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+jobs:
+  build:
+    name: Build Plugin
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 11
+        uses: actions/setup-java@v3
+        with:
+          java-version: '11'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build with Maven
+        run: mvn clean package -DskipTests
+
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: plugin-artifacts
+          path: target/*.jar
+
+  test:
+    name: Test on Jira ${{ matrix.jira_version }}
+    needs: build
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - jira_version: "8.22.6"
+            artifact_suffix: ""
+          - jira_version: "9.12.34"
+            artifact_suffix: ""
+          - jira_version: "10.6.0"
+            artifact_suffix: "-jakarta"
+          # - jira_version: "11.0.0" # Enable when Jira 11 image is available on Docker Hub
+          #   artifact_suffix: "-jakarta"
+            
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Download Build Artifacts
+        uses: actions/download-artifact@v4
+        with:
+          name: plugin-artifacts
+          path: target/
+
+      - name: Make script executable
+        run: chmod +x scripts/test-plugin-lifecycle.sh
+
+      - name: Start Jira Container
+        run: |
+          docker run -d \
+            --name jira-${{ matrix.jira_version }} \
+            -p 8080:8080 \
+            -e JIRA_JVM_MINIMUM_MEMORY=1024m \
+            -e JIRA_JVM_MAXIMUM_MEMORY=2048m \
+            atlassian/jira-software:${{ matrix.jira_version }}-ubuntu
+
+      - name: Find Plugin Artifact
+        id: find_artifact
+        run: |
+          # Use ls to find the exact filename matching the pattern (either standard or -jakarta)
+          PLUGIN_JAR=$(ls target/persian-calendar-plugin-*${{ matrix.artifact_suffix }}.jar | head -n 1)
+          echo "Found artifact: $PLUGIN_JAR"
+          echo "artifact_path=$PLUGIN_JAR" >> $GITHUB_OUTPUT
+
+      - name: Run Plugin Lifecycle Test
+        run: ./scripts/test-plugin-lifecycle.sh ${{ steps.find_artifact.outputs.artifact_path }}
+
+      - name: Print Docker Logs on Failure
+        if: failure()
+        run: docker logs jira-${{ matrix.jira_version }}
