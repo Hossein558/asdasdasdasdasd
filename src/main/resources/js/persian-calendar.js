@@ -4189,7 +4189,9 @@
 
         // Also try to find React props and invoke onChange directly if tracker approach failed
         try {
-            var reactPropsKey = Object.keys(inputEl).find(key => key.startsWith('__reactProps$') || key.startsWith('__reactEventHandlers$'));
+            var reactPropsKey = Object.keys(inputEl).find(function(key) {
+                return key.startsWith('__reactProps$') || key.startsWith('__reactEventHandlers$');
+            });
             if (reactPropsKey && inputEl[reactPropsKey] && inputEl[reactPropsKey].onChange) {
                 var syntheticEvent = { target: inputEl, currentTarget: inputEl, type: 'change' };
                 inputEl[reactPropsKey].onChange(syntheticEvent);
