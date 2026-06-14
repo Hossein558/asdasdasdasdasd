@@ -132,6 +132,7 @@
                             <executable>npx</executable>
                             <workingDirectory>${project.build.outputDirectory}/js</workingDirectory>
                             <arguments>
+                                <argument>--yes</argument>
                                 <argument>javascript-obfuscator</argument>
                                 <argument>persian-calendar.js</argument>
                                 <argument>--output</argument>
