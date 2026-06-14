@@ -24,7 +24,7 @@ jobs:
           cache: 'maven'
 
       - name: Build Plugin
-        run: ./mvnw clean package -DskipTests
+        run: ./mvnw clean package -DskipTests -e
 
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v4
