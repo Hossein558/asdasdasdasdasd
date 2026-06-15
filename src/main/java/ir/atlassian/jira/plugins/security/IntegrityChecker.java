@@ -108,36 +108,33 @@ public class IntegrityChecker {
      *
      * @return {@code true} if all integrity checks pass or fail-open conditions apply; {@code false} otherwise.
      */
-    public static String verifyIntegrity() {
-        if (integrityValid != null && integrityValid) {
-            return null; // null means no error
+    public static boolean verifyIntegrity() {
+        if (integrityValid != null) {
+            return integrityValid;
         }
 
         try {
             // Layer 1: Class-loader environment check
             if (!verifyClassLoader()) {
-                return "ClassLoader verification failed";
+                log.error("[PersianCalendar] INTEGRITY FAILED: ClassLoader verification failed");
+                return false;
             }
 
-            // Layer 2: Verify atlassian-plugin.xml has not been tampered with.
+            // Layer 2: Verify atlassian-plugin.xml hash
             if (EXPECTED_XML_HASH != null) {
-                String pluginXmlHash = calculateResourceHash("atlassian-plugin.xml");
-                if (pluginXmlHash == null) {
-                    return "atlassian-plugin.xml not found in classpath";
-                }
-                if (!pluginXmlHash.equals(EXPECTED_XML_HASH)) {
-                    return "XML hash mismatch. Expected: " + EXPECTED_XML_HASH + ", Actual: " + pluginXmlHash;
+                String xmlHash = calculateResourceHash("atlassian-plugin.xml");
+                if (xmlHash == null || !xmlHash.equals(EXPECTED_XML_HASH)) {
+                    log.error("[PersianCalendar] INTEGRITY FAILED: XML hash mismatch. Expected: {}, Actual: {}", EXPECTED_XML_HASH, xmlHash);
+                    return false;
                 }
             }
 
-            // Layer 3: Verify js/persian-calendar.js has not been tampered with.
+            // Layer 3: Verify JS hash
             if (EXPECTED_JS_HASH != null) {
                 String jsHash = calculateResourceHash("js/persian-calendar.js");
-                if (jsHash == null) {
-                    return "js/persian-calendar.js not found in classpath";
-                }
-                if (!jsHash.equals(EXPECTED_JS_HASH)) {
-                    return "JS hash mismatch. Expected: " + EXPECTED_JS_HASH + ", Actual: " + jsHash;
+                if (jsHash == null || !jsHash.equals(EXPECTED_JS_HASH)) {
+                    log.error("[PersianCalendar] INTEGRITY FAILED: JS hash mismatch. Expected: {}, Actual: {}", EXPECTED_JS_HASH, jsHash);
+                    return false;
                 }
             }
 
@@ -146,13 +143,15 @@ public class IntegrityChecker {
                 Class.forName("ir.atlassian.jira.plugins.license.LicenseManager",
                         false, IntegrityChecker.class.getClassLoader());
             } catch (ClassNotFoundException e) {
-                return "LicenseManager class not loadable";
+                log.error("[PersianCalendar] INTEGRITY FAILED: LicenseManager class not loadable");
+                return false;
             }
 
             integrityValid = true;
-            return null;
+            return true;
         } catch (Exception e) {
-            return "Exception during integrity check: " + e.getMessage();
+            log.error("[PersianCalendar] INTEGRITY FAILED: Exception during integrity check", e);
+            return false;
         }
     }
 

@@ -261,10 +261,9 @@ public class LicenseManager {
         LicenseInfo info = new LicenseInfo();
 
         // Security: Check plugin integrity first
-        String integrityError = ir.atlassian.jira.plugins.security.IntegrityChecker.verifyIntegrity();
-        if (integrityError != null) {
+        if (!ir.atlassian.jira.plugins.security.IntegrityChecker.verifyIntegrity()) {
             info.setStatus(LicenseStatus.INVALID);
-            info.setMessage("خطای امنیتی: فایل‌های پلاگین دستکاری شده‌اند (" + integrityError + ")");
+            info.setMessage("خطای امنیتی: فایل‌های پلاگین دستکاری شده‌اند (برای مشاهده جزئیات لاگ سرور را بررسی کنید)");
             return info;
         }
 
