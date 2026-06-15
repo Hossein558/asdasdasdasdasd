@@ -69,7 +69,8 @@ public class IntegrityCheckerTest {
         field.set(null, true);
 
         // Should return true without evaluating the rest of the logic
-        assertTrue(IntegrityChecker.verifyIntegrity());
+        String result = IntegrityChecker.verifyIntegrity();
+        assertNull("Integrity check should pass (return null) when hashes match", result);
     }
 
     /**
@@ -86,7 +87,7 @@ public class IntegrityCheckerTest {
         field.set(null, false);
 
         // Should return false without evaluating the rest of the logic
-        assertFalse(IntegrityChecker.verifyIntegrity());
+        assertNotNull(IntegrityChecker.verifyIntegrity());
     }
 
     /**
