@@ -32,7 +32,10 @@ while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
     HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$JIRA_URL/status" || echo "000")
     
     if [ "$HTTP_STATUS" == "200" ]; then
-        STATE=$(curl -s "$JIRA_URL/status" | grep -o '"state":"RUNNING"' || true)
+        STATUS_BODY=$(curl -s "$JIRA_URL/status" || true)
+        echo "DEBUG: /status body is: $STATUS_BODY"
+        
+        STATE=$(echo "$STATUS_BODY" | grep -o '"state":"RUNNING"' || true)
         if [ ! -z "$STATE" ]; then
             echo "Jira is fully RUNNING!"
             IS_READY=true
