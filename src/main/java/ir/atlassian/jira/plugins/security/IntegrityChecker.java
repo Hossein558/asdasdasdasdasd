@@ -108,32 +108,36 @@ public class IntegrityChecker {
      *
      * @return {@code true} if all integrity checks pass or fail-open conditions apply; {@code false} otherwise.
      */
-    public static boolean verifyIntegrity() {
-        if (integrityValid != null) {
-            return integrityValid;
+    public static String verifyIntegrity() {
+        if (integrityValid != null && integrityValid) {
+            return null; // null means no error
         }
 
         try {
             // Layer 1: Class-loader environment check
             if (!verifyClassLoader()) {
-                return false;
+                return "ClassLoader verification failed";
             }
 
             // Layer 2: Verify atlassian-plugin.xml has not been tampered with.
-            // Skipped if integrity.properties was not bundled (development build).
             if (EXPECTED_XML_HASH != null) {
                 String pluginXmlHash = calculateResourceHash("atlassian-plugin.xml");
-                if (pluginXmlHash == null || !pluginXmlHash.equals(EXPECTED_XML_HASH)) {
-                    return false;
+                if (pluginXmlHash == null) {
+                    return "atlassian-plugin.xml not found in classpath";
+                }
+                if (!pluginXmlHash.equals(EXPECTED_XML_HASH)) {
+                    return "XML hash mismatch. Expected: " + EXPECTED_XML_HASH + ", Actual: " + pluginXmlHash;
                 }
             }
 
             // Layer 3: Verify js/persian-calendar.js has not been tampered with.
-            // Skipped if integrity.properties was not bundled (development build).
             if (EXPECTED_JS_HASH != null) {
                 String jsHash = calculateResourceHash("js/persian-calendar.js");
-                if (jsHash == null || !jsHash.equals(EXPECTED_JS_HASH)) {
-                    return false;
+                if (jsHash == null) {
+                    return "js/persian-calendar.js not found in classpath";
+                }
+                if (!jsHash.equals(EXPECTED_JS_HASH)) {
+                    return "JS hash mismatch. Expected: " + EXPECTED_JS_HASH + ", Actual: " + jsHash;
                 }
             }
 
@@ -142,13 +146,13 @@ public class IntegrityChecker {
                 Class.forName("ir.atlassian.jira.plugins.license.LicenseManager",
                         false, IntegrityChecker.class.getClassLoader());
             } catch (ClassNotFoundException e) {
-                return false;
+                return "LicenseManager class not loadable";
             }
 
             integrityValid = true;
-            return true;
+            return null;
         } catch (Exception e) {
-            return false;
+            return "Exception during integrity check: " + e.getMessage();
         }
     }
 
