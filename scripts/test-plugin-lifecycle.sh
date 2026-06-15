@@ -27,11 +27,12 @@ SLEEP_TIME=10
 ATTEMPT=1
 IS_READY=false
 
+set +e
 while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
-    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$JIRA_URL/status")
+    HTTP_STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$JIRA_URL/status" || echo "000")
     
     if [ "$HTTP_STATUS" == "200" ]; then
-        STATE=$(curl -s "$JIRA_URL/status" | grep -o '"state":"RUNNING"')
+        STATE=$(curl -s "$JIRA_URL/status" | grep -o '"state":"RUNNING"' || true)
         if [ ! -z "$STATE" ]; then
             echo "Jira is fully RUNNING!"
             IS_READY=true
@@ -43,6 +44,7 @@ while [ $ATTEMPT -le $MAX_ATTEMPTS ]; do
     sleep $SLEEP_TIME
     ATTEMPT=$((ATTEMPT + 1))
 done
+set -e
 
 if [ "$IS_READY" = false ]; then
     echo "Error: Jira failed to start within the expected time."
