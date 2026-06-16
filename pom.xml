@@ -5,7 +5,7 @@
 
     <groupId>ir.atlassian.jira.plugins</groupId>
     <artifactId>persian-calendar-plugin</artifactId>
-    <version>11.4.29</version>
+    <version>11.4.31</version>
     <packaging>atlassian-plugin</packaging>
 
     <name>Persian Calendar for Jira</name>
@@ -115,13 +115,16 @@
                             javax.ws.rs*;resolution:=optional,
                             javax.inject*;resolution:=optional,
                             javax.annotation*;resolution:=optional,
+                            jakarta.servlet;resolution:=optional,
+                            jakarta.servlet.http;resolution:=optional,
+                            jakarta.ws.rs;resolution:=optional,
+                            jakarta.ws.rs.core;resolution:=optional,
+                            jakarta.inject;resolution:=optional,
+                            jakarta.annotation;resolution:=optional,
                             *
                         </Import-Package>
                         <DynamicImport-Package>
-                            jakarta.servlet.*,
-                            jakarta.ws.rs.*,
-                            jakarta.inject.*,
-                            jakarta.annotation.*
+                            jakarta.*
                         </DynamicImport-Package>
                         <Spring-Context>*</Spring-Context>
                     </instructions>
