@@ -5,7 +5,7 @@
 
     <groupId>ir.atlassian.jira.plugins</groupId>
     <artifactId>persian-calendar-plugin</artifactId>
-    <version>11.4.27</version>
+    <version>11.4.29</version>
     <packaging>atlassian-plugin</packaging>
 
     <name>Persian Calendar for Jira</name>
@@ -112,15 +112,17 @@
                             com.atlassian.plugins.rest.common.security;resolution:=optional,
                             com.atlassian.plugins.rest.api.security;resolution:=optional,
                             javax.servlet*;resolution:=optional,
-                            jakarta.servlet*;resolution:=optional,
                             javax.ws.rs*;resolution:=optional,
-                            jakarta.ws.rs*;resolution:=optional,
                             javax.inject*;resolution:=optional,
-                            jakarta.inject*;resolution:=optional,
                             javax.annotation*;resolution:=optional,
-                            jakarta.annotation*;resolution:=optional,
                             *
                         </Import-Package>
+                        <DynamicImport-Package>
+                            jakarta.servlet.*,
+                            jakarta.ws.rs.*,
+                            jakarta.inject.*,
+                            jakarta.annotation.*
+                        </DynamicImport-Package>
                         <Spring-Context>*</Spring-Context>
                     </instructions>
                 </configuration>
@@ -214,36 +216,38 @@
                     </execution>
                 </executions>
             </plugin>
-
-            <!-- Eclipse Transformer Plugin to generate Jira 10/11 compatible Jakarta artifact -->
             <plugin>
-                <groupId>org.eclipse.transformer</groupId>
-                <artifactId>transformer-maven-plugin</artifactId>
-                <version>1.0.0</version>
-                <extensions>true</extensions>
-                <configuration>
-                    <rules>
-                        <jakartaDefaults>true</jakartaDefaults>
-                    </rules>
-                    <packagingTypes>
-                        <packagingType>jar</packagingType>
-                        <packagingType>atlassian-plugin</packagingType>
-                    </packagingTypes>
-                </configuration>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.5.0</version>
                 <executions>
                     <execution>
-                        <id>transform-to-jakarta</id>
                         <phase>package</phase>
                         <goals>
-                            <goal>jar</goal>
+                            <goal>shade</goal>
                         </goals>
                         <configuration>
-                            <artifact>
-                                <groupId>${project.groupId}</groupId>
-                                <artifactId>${project.artifactId}</artifactId>
-                                <version>${project.version}</version>
-                            </artifact>
-                            <classifier>jakarta</classifier>
+                            <shadedArtifactAttached>true</shadedArtifactAttached>
+                            <shadedClassifierName>jakarta</shadedClassifierName>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <relocations>
+                                <relocation>
+                                    <pattern>javax.servlet</pattern>
+                                    <shadedPattern>jakarta.servlet</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>javax.ws.rs</pattern>
+                                    <shadedPattern>jakarta.ws.rs</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>javax.annotation</pattern>
+                                    <shadedPattern>jakarta.annotation</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>javax.inject</pattern>
+                                    <shadedPattern>jakarta.inject</shadedPattern>
+                                </relocation>
+                            </relocations>
                         </configuration>
                     </execution>
                 </executions>
