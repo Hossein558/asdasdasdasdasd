@@ -10,6 +10,10 @@ jobs:
   test-jira-8:
     runs-on: ubuntu-22.04
     
+    env:
+      SA_PASSWORD: "JiraStrong!Passw0rd"
+      DB_NAME: "jiradb"
+
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -18,18 +22,94 @@ jobs:
         run: |
           echo "Ubuntu: $(lsb_release -rs)"
           echo "Kernel: $(uname -r)"
-      
+
+      - name: Install libssl1.1 (Required for SQL Server 2019 on Ubuntu 22.04)
+        run: |
+          wget -q http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+          sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+
+      - name: Install SQL Server 2019 & mssql-tools
+        run: |
+          wget -qO- https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
+          sudo add-apt-repository "$(wget -qO- https://packages.microsoft.com/config/ubuntu/20.04/mssql-server-2019.list)"
+          sudo add-apt-repository "$(wget -qO- https://packages.microsoft.com/config/ubuntu/20.04/prod.list)"
+          sudo apt-get update
+          sudo ACCEPT_EULA=Y apt-get install -y mssql-server mssql-tools unixodbc-dev
+
+      - name: Configure SQL Server (Memory limit & Initialization)
+        run: |
+          sudo /opt/mssql/bin/mssql-conf set memory.memorylimitmb 2048
+          sudo MSSQL_SA_PASSWORD="${{ env.SA_PASSWORD }}" MSSQL_PID="Developer" /opt/mssql/bin/mssql-conf -n setup accept-eula
+          
+          echo "Waiting for SQL Server to start..."
+          sleep 15
+          
+          export PATH="$PATH:/opt/mssql-tools/bin"
+          
+          echo "Creating database and setting READ_COMMITTED_SNAPSHOT..."
+          sqlcmd -S localhost -U sa -P "${{ env.SA_PASSWORD }}" -Q "CREATE DATABASE ${{ env.DB_NAME }} COLLATE SQL_Latin1_General_CP437_CI_AI;"
+          sqlcmd -S localhost -U sa -P "${{ env.SA_PASSWORD }}" -Q "ALTER DATABASE ${{ env.DB_NAME }} SET READ_COMMITTED_SNAPSHOT ON;"
+
       - name: Download Jira 8.20.30
         run: |
           wget -q https://product-downloads.atlassian.com/software/jira/downloads/atlassian-jira-software-8.20.30-x64.bin
           chmod +x atlassian-jira-software-8.20.30-x64.bin
-          ls -lh *.bin
-      
-      - name: Install Jira
+
+      - name: Install Jira (Unattended)
         run: |
-          sudo ./atlassian-jira-software-8.20.30-x64.bin -q
-      
-      - name: Verify installation
+          cat <<EOT >> response.varfile
+          app.install.service\$Boolean=true
+          sys.installationDir=/opt/atlassian/jira
+          sys.confirmedUpdateInstallationString=false
+          sys.languageId=en
+          executeLauncherAction\$Boolean=true
+          httpPort\$Long=8080
+          portChoice=default
+          rmiPort\$Long=8005
+          app.jiraHome=/var/atlassian/application-data/jira
+          EOT
+          
+          sudo ./atlassian-jira-software-8.20.30-x64.bin -q -varfile response.varfile
+
+      - name: Configure dbconfig.xml
         run: |
-          sudo systemctl status jira || true
-          ls -la /opt/atlassian/ || true
+          sudo mkdir -p /var/atlassian/application-data/jira
+          
+          cat <<EOF | sudo tee /var/atlassian/application-data/jira/dbconfig.xml
+          <?xml version="1.0" encoding="UTF-8"?>
+          <jira-database-config>
+            <name>defaultDS</name>
+            <delegator-name>default</delegator-name>
+            <database-type>mssql</database-type>
+            <schema-name>dbo</schema-name>
+            <jdbc-datasource>
+              <url>jdbc:sqlserver://localhost:1433;databaseName=${{ env.DB_NAME }};encrypt=false</url>
+              <driver-class>com.microsoft.sqlserver.jdbc.SQLServerDriver</driver-class>
+              <username>sa</username>
+              <password>${{ env.SA_PASSWORD }}</password>
+              <pool-min-size>20</pool-min-size>
+              <pool-max-size>100</pool-max-size>
+              <pool-max-wait>30000</pool-max-wait>
+              <validation-query>select 1</validation-query>
+              <min-evictable-idle-time-millis>60000</min-evictable-idle-time-millis>
+              <time-between-eviction-runs-millis>300000</time-between-eviction-runs-millis>
+              <pool-max-idle>20</pool-max-idle>
+              <pool-remove-abandoned>true</pool-remove-abandoned>
+              <pool-remove-abandoned-timeout>300</pool-remove-abandoned-timeout>
+              <pool-test-on-borrow>false</pool-test-on-borrow>
+              <pool-test-while-idle>true</pool-test-while-idle>
+            </jdbc-datasource>
+          </jira-database-config>
+          EOF
+          
+          sudo chown -R jira:jira /var/atlassian/application-data/jira
+
+      - name: Restart Jira & Verify
+        run: |
+          sudo systemctl restart jira
+          
+          echo "Waiting for Jira to boot (30s)..."
+          sleep 30
+          
+          sudo systemctl status jira --no-pager || true
+          curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" http://localhost:8080 || true
