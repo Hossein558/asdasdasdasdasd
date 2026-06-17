@@ -1,0 +1,14 @@
+name: Jira Plugin - Ubuntu 20.04
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-jira:
+    runs-on: ubuntu-20.04
+    
+    steps:
+      - name: Check Ubuntu version
+        run: |
+          echo "🎯 Quick test on Ubuntu 20.04"
+          lsb_release -a
