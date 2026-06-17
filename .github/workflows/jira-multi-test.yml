@@ -1,0 +1,27 @@
+name: Jira Plugin - Full Test Suite
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 2 * * 0'  # هر یکشنبه ساعت 2 صبح UTC
+  push:
+    branches: [ main ]
+    paths:
+      - 'src/**'
+      - 'pom.xml'
+
+jobs:
+  test-all-versions:
+    runs-on: ${{ matrix.os }}
+    
+    strategy:
+      matrix:
+        os: [ubuntu-20.04, ubuntu-22.04, ubuntu-24.04]
+      fail-fast: false  # اگه یکی fail کرد، بقیه ادامه بدن
+    
+    steps:
+      - name: Check Ubuntu version
+        run: |
+          echo "🧪 Testing on ${{ matrix.os }}"
+          lsb_release -a
+          uname -a
