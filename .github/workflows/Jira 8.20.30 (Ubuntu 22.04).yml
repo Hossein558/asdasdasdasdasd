@@ -16,16 +16,17 @@ jobs:
         image: mcr.microsoft.com/mssql/server:2019-latest
         env:
           ACCEPT_EULA: Y
-          SA_PASSWORD: YourStrong@Passw0rd
+          SA_PASSWORD: "YourStrong@Passw0rd"
           MSSQL_PID: Developer
         ports:
           - 1433:1433
         options: >-
-          --health-cmd "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P YourStrong@Passw0rd -Q 'SELECT 1' || exit 1"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-          --memory 2g
+          --health-cmd "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -C -Q 'SELECT 1' -b || exit 1"
+          --health-start-period 20s
+          --health-interval 15s
+          --health-timeout 10s
+          --health-retries 10
+          --memory 3g
 
     steps:
       - name: Checkout code
@@ -58,15 +59,16 @@ jobs:
 
       - name: Wait for SQL Server to be ready
         run: |
+          echo "Waiting for SQL Server to be ready on port 1433..."
           for i in {1..30}; do
-            /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -Q 'SELECT 1' && break
+            /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -C -Q 'SELECT 1' -b && break
             echo "Waiting for SQL Server... ($i/30)"
             sleep 5
           done
 
       - name: Create Jira database
         run: |
-          /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -Q "
+          /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -C -Q "
           CREATE DATABASE jiradb COLLATE SQL_Latin1_General_CP1_CS_AS;
           ALTER DATABASE jiradb SET READ_COMMITTED_SNAPSHOT ON;
           "
@@ -101,7 +103,7 @@ jobs:
             <database-type>mssql</database-type>
             <schema-name>dbo</schema-name>
             <jdbc-datasource>
-              <url>jdbc:sqlserver://localhost:1433;databaseName=jiradb;encrypt=false</url>
+              <url>jdbc:sqlserver://localhost:1433;databaseName=jiradb;encrypt=false;trustServerCertificate=true</url>
               <driver-class>com.microsoft.sqlserver.jdbc.SQLServerDriver</driver-class>
               <username>sa</username>
               <password>YourStrong@Passw0rd</password>
