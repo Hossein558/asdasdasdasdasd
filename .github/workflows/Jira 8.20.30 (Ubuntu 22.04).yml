@@ -20,7 +20,6 @@ jobs:
           MSSQL_PID: Developer
         ports:
           - 1433:1433
-        # بلوک options و health-check رو کاملاً حذف کردیم تا گیت‌هاب کانتینر رو متوقف نکنه
 
     steps:
       - name: Checkout code
@@ -39,10 +38,10 @@ jobs:
 
       - name: Download and install libssl1.1 and libldap
         run: |
-          wget -q http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2.23_amd64.deb
-          wget -q http://security.ubuntu.com/ubuntu/pool/main/o/openldap/libldap-2.4-2_2.4.49+dfsg-2ubuntu1.10_amd64.deb
-          sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2.23_amd64.deb || true
-          sudo dpkg -i libldap-2.4-2_2.4.49+dfsg-2ubuntu1.10_amd64.deb || true
+          wget http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+          wget http://archive.ubuntu.com/ubuntu/pool/main/o/openldap/libldap-2.4-2_2.4.49+dfsg-2ubuntu1_amd64.deb
+          sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+          sudo dpkg -i libldap-2.4-2_2.4.49+dfsg-2ubuntu1_amd64.deb
 
       - name: Install MS SQL Server tools
         run: |
