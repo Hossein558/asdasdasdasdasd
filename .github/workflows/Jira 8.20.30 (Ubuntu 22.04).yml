@@ -36,14 +36,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y wget curl unzip
 
-      - name: Download and install libssl1.1 and libldap
-        run: |
-          wget http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
-          wget http://archive.ubuntu.com/ubuntu/pool/main/o/openldap/libldap-2.4-2_2.4.49+dfsg-2ubuntu1_amd64.deb
-          sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb
-          sudo dpkg -i libldap-2.4-2_2.4.49+dfsg-2ubuntu1_amd64.deb
-
-      - name: Install MS SQL Server tools
+      - name: Install MS SQL Server tools (sqlcmd)
         run: |
           curl -s https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
           curl -s https://packages.microsoft.com/config/ubuntu/22.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-release.list
@@ -53,8 +46,10 @@ jobs:
       - name: Wait for SQL Server to be ready
         run: |
           echo "Waiting for SQL Server to be ready on port 1433..."
+          # Update path to use sqlcmd
+          export PATH="$PATH:/opt/mssql-tools/bin"
           for i in {1..30}; do
-            if /opt/mssql-tools/bin/sqlcmd -S 127.0.0.1 -U sa -P 'YourStrong@Passw0rd' -Q "SELECT 1" -b &> /dev/null; then
+            if sqlcmd -S 127.0.0.1 -U sa -P 'YourStrong@Passw0rd' -Q "SELECT 1" -b &> /dev/null; then
               echo "SQL Server is UP and responding!"
               break
             fi
@@ -64,7 +59,8 @@ jobs:
 
       - name: Create Jira database
         run: |
-          /opt/mssql-tools/bin/sqlcmd -S 127.0.0.1 -U sa -P 'YourStrong@Passw0rd' -Q "
+          export PATH="$PATH:/opt/mssql-tools/bin"
+          sqlcmd -S 127.0.0.1 -U sa -P 'YourStrong@Passw0rd' -Q "
           CREATE DATABASE jiradb COLLATE SQL_Latin1_General_CP1_CS_AS;
           ALTER DATABASE jiradb SET READ_COMMITTED_SNAPSHOT ON;
           "
