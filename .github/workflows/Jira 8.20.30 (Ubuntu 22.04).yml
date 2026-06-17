@@ -1,83 +1,69 @@
-name: Test Plugin - Jira 8.20.30
+name: Jira 8.20.30 Integration Tests (Ubuntu 22.04 + SQL Server 2019)
 
 on:
   workflow_dispatch:
   push:
-    branches: [main, develop]
+    branches: [master, develop]
   pull_request:
+    branches: [master, develop]
 
 jobs:
   test-jira-8:
     runs-on: ubuntu-22.04
     
-    env:
-      SA_PASSWORD: "JiraStrong!Passw0rd"
-      DB_NAME: "jiradb"
-
     steps:
-      - name: Checkout code
+      - name: Checkout Repository
         uses: actions/checkout@v4
-      
-      - name: System info
-        run: |
-          echo "Ubuntu: $(lsb_release -rs)"
-          echo "Kernel: $(uname -r)"
 
       - name: Install libssl1.1 & libldap-2.4-2 (Required for SQL Server 2019)
         run: |
-          wget -q http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
-          wget -q http://archive.ubuntu.com/ubuntu/pool/main/o/openldap/libldap-2.4-2_2.4.57+dfsg-3ubuntu1_amd64.deb
-          sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb
-          sudo dpkg -i libldap-2.4-2_2.4.57+dfsg-3ubuntu1_amd64.deb
+          wget http://security.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2.23_amd64.deb
+          sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2.23_amd64.deb
+          
+          wget http://security.ubuntu.com/ubuntu/pool/main/o/openldap/libldap-2.4-2_2.4.57+dfsg-3ubuntu1.1_amd64.deb
+          sudo dpkg -i libldap-2.4-2_2.4.57+dfsg-3ubuntu1.1_amd64.deb
 
       - name: Install SQL Server 2019 & mssql-tools
         run: |
-          wget -qO- https://packages.microsoft.com/keys/microsoft.asc | sudo apt-key add -
-          sudo add-apt-repository "$(wget -qO- https://packages.microsoft.com/config/ubuntu/20.04/mssql-server-2019.list)"
-          sudo add-apt-repository "$(wget -qO- https://packages.microsoft.com/config/ubuntu/20.04/prod.list)"
+          curl https://packages.microsoft.com/keys/microsoft.asc | sudo tee /etc/apt/trusted.gpg.d/microsoft.asc
+          curl https://packages.microsoft.com/config/ubuntu/20.04/mssql-server-2019.list | sudo tee /etc/apt/sources.list.d/mssql-server-2019.list
+          curl https://packages.microsoft.com/config/ubuntu/20.04/prod.list | sudo tee /etc/apt/sources.list.d/mssql-tools.list
+          
           sudo apt-get update
           sudo ACCEPT_EULA=Y apt-get install -y mssql-server mssql-tools unixodbc-dev
 
-      - name: Configure SQL Server (Memory limit & Initialization)
+      - name: Configure SQL Server
         run: |
-          sudo /opt/mssql/bin/mssql-conf set memory.memorylimitmb 2048
-          sudo MSSQL_SA_PASSWORD="${{ env.SA_PASSWORD }}" MSSQL_PID="Developer" /opt/mssql/bin/mssql-conf -n setup accept-eula
+          sudo MSSQL_SA_PASSWORD='YourStrong@Passw0rd' \
+               MSSQL_PID='developer' \
+               /opt/mssql/bin/mssql-conf -n setup accept-eula
           
-          echo "Waiting for SQL Server to start..."
-          sleep 15
-          
-          export PATH="$PATH:/opt/mssql-tools/bin"
-          
-          echo "Creating database and setting READ_COMMITTED_SNAPSHOT..."
-          sqlcmd -S localhost -U sa -P "${{ env.SA_PASSWORD }}" -Q "CREATE DATABASE ${{ env.DB_NAME }} COLLATE SQL_Latin1_General_CP437_CI_AI;"
-          sqlcmd -S localhost -U sa -P "${{ env.SA_PASSWORD }}" -Q "ALTER DATABASE ${{ env.DB_NAME }} SET READ_COMMITTED_SNAPSHOT ON;"
+          sudo systemctl start mssql-server
+          sudo systemctl status mssql-server
 
-      - name: Download Jira 8.20.30
+      - name: Create Jira Database
         run: |
-          wget -q https://product-downloads.atlassian.com/software/jira/downloads/atlassian-jira-software-8.20.30-x64.bin
-          chmod +x atlassian-jira-software-8.20.30-x64.bin
+          /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -Q "
+          CREATE DATABASE jiradb COLLATE SQL_Latin1_General_CP1_CS_AS;
+          ALTER DATABASE jiradb SET READ_COMMITTED_SNAPSHOT ON;
+          "
 
-      - name: Install Jira (Unattended)
-        run: |
-          cat <<EOT >> response.varfile
-          app.install.service\$Boolean=true
-          sys.installationDir=/opt/atlassian/jira
-          sys.confirmedUpdateInstallationString=false
-          sys.languageId=en
-          executeLauncherAction\$Boolean=true
-          httpPort\$Long=8080
-          portChoice=default
-          rmiPort\$Long=8005
-          app.jiraHome=/var/atlassian/application-data/jira
-          EOT
-          
-          sudo ./atlassian-jira-software-8.20.30-x64.bin -q -varfile response.varfile
+      - name: Set up JDK 8
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '8'
 
-      - name: Configure dbconfig.xml
+      - name: Download & Install Jira 8.20.30
         run: |
-          sudo mkdir -p /var/atlassian/application-data/jira
-          
-          cat <<EOF | sudo tee /var/atlassian/application-data/jira/dbconfig.xml
+          wget https://product-downloads.atlassian.com/software/jira/downloads/atlassian-jira-software-8.20.30.tar.gz
+          tar -xzf atlassian-jira-software-8.20.30.tar.gz
+          mv atlassian-jira-software-8.20.30-standalone jira
+
+      - name: Configure Jira Database Connection
+        run: |
+          mkdir -p jira-home
+          cat > jira-home/dbconfig.xml << 'EOF'
           <?xml version="1.0" encoding="UTF-8"?>
           <jira-database-config>
             <name>defaultDS</name>
@@ -85,33 +71,57 @@ jobs:
             <database-type>mssql</database-type>
             <schema-name>dbo</schema-name>
             <jdbc-datasource>
-              <url>jdbc:sqlserver://localhost:1433;databaseName=${{ env.DB_NAME }};encrypt=false</url>
+              <url>jdbc:sqlserver://localhost:1433;databaseName=jiradb;encrypt=false</url>
               <driver-class>com.microsoft.sqlserver.jdbc.SQLServerDriver</driver-class>
               <username>sa</username>
-              <password>${{ env.SA_PASSWORD }}</password>
+              <password>YourStrong@Passw0rd</password>
               <pool-min-size>20</pool-min-size>
-              <pool-max-size>100</pool-max-size>
+              <pool-max-size>20</pool-max-size>
               <pool-max-wait>30000</pool-max-wait>
-              <validation-query>select 1</validation-query>
-              <min-evictable-idle-time-millis>60000</min-evictable-idle-time-millis>
-              <time-between-eviction-runs-millis>300000</time-between-eviction-runs-millis>
-              <pool-max-idle>20</pool-max-idle>
-              <pool-remove-abandoned>true</pool-remove-abandoned>
-              <pool-remove-abandoned-timeout>300</pool-remove-abandoned-timeout>
-              <pool-test-on-borrow>false</pool-test-on-borrow>
-              <pool-test-while-idle>true</pool-test-while-idle>
             </jdbc-datasource>
           </jira-database-config>
           EOF
-          
-          sudo chown -R jira:jira /var/atlassian/application-data/jira
 
-      - name: Restart Jira & Verify
+      - name: Download SQL Server JDBC Driver
         run: |
-          sudo systemctl restart jira
+          wget https://github.com/microsoft/mssql-jdbc/releases/download/v9.4.1/mssql-jdbc-9.4.1.jre8.jar
+          mv mssql-jdbc-9.4.1.jre8.jar jira/lib/
+
+      - name: Build & Deploy Plugin
+        run: |
+          ./gradlew clean build
+          cp build/libs/*.jar jira/atlassian-jira/WEB-INF/lib/
+
+      - name: Start Jira
+        run: |
+          export JIRA_HOME=$(pwd)/jira-home
+          cd jira/bin
+          ./start-jira.sh
           
-          echo "Waiting for Jira to boot (30s)..."
-          sleep 30
-          
-          sudo systemctl status jira --no-pager || true
-          curl -s -o /dev/null -w "HTTP Status: %{http_code}\n" http://localhost:8080 || true
+          echo "Waiting for Jira to start..."
+          for i in {1..60}; do
+            if curl -sf http://localhost:8080 > /dev/null; then
+              echo "Jira started successfully"
+              break
+            fi
+            sleep 10
+          done
+
+      - name: Run Integration Tests
+        run: ./gradlew integrationTest
+
+      - name: Collect Logs
+        if: always()
+        run: |
+          mkdir -p test-logs
+          cp -r jira/logs/* test-logs/ || true
+          cp -r jira-home/log/* test-logs/ || true
+
+      - name: Upload Test Results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: jira-8-test-results
+          path: |
+            build/reports/
+            test-logs/
