@@ -1,0 +1,145 @@
+name: Jira 11.3.7 CI (Ubuntu 22.04)
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test:
+    runs-on: ubuntu-22.04
+    
+    services:
+      sqlserver:
+        image: mcr.microsoft.com/mssql/server:2019-latest
+        env:
+          ACCEPT_EULA: Y
+          SA_PASSWORD: "YourStrong@Passw0rd"
+          MSSQL_PID: Developer
+        ports:
+          - 1433:1433
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Jira 11.x STRICTLY requires Java 17
+      - name: Set up JDK 17 (Temurin)
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y wget curl unzip
+
+      - name: Install MS SQL Server tools (sqlcmd)
+        run: |
+          sudo apt-get update
+          sudo ACCEPT_EULA=Y apt-get install -y mssql-tools unixodbc-dev
+
+      - name: Wait for SQL Server to be ready
+        run: |
+          echo "Waiting for SQL Server to be ready on port 1433..."
+          export PATH="$PATH:/opt/mssql-tools/bin"
+          for i in {1..30}; do
+            if sqlcmd -S 127.0.0.1 -U sa -P 'YourStrong@Passw0rd' -Q "SELECT 1" -b &> /dev/null; then
+              echo "SQL Server is UP and responding!"
+              break
+            fi
+            echo "Waiting for SQL Server... ($i/30)"
+            sleep 5
+          done
+
+      - name: Create Jira database
+        run: |
+          export PATH="$PATH:/opt/mssql-tools/bin"
+          sqlcmd -S 127.0.0.1 -U sa -P 'YourStrong@Passw0rd' -Q "
+          CREATE DATABASE jiradb COLLATE SQL_Latin1_General_CP1_CS_AS;
+          ALTER DATABASE jiradb SET READ_COMMITTED_SNAPSHOT ON;
+          "
+
+      - name: Download and install Jira 11.3.7
+        run: |
+          wget -q https://product-downloads.atlassian.com/software/jira/downloads/atlassian-jira-software-11.3.7.tar.gz
+          tar -xzf atlassian-jira-software-11.3.7.tar.gz
+          sudo mkdir -p /opt/atlassian
+          sudo mv atlassian-jira-software-11.3.7-standalone /opt/atlassian/jira
+
+      # Using Java 11 compatible JDBC driver (Works perfectly with Java 17)
+      - name: Download SQL Server JDBC Driver
+        run: |
+          wget -q https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.8.1.jre11/mssql-jdbc-12.8.1.jre11.jar
+          sudo cp mssql-jdbc-12.8.1.jre11.jar /opt/atlassian/jira/lib/
+
+      - name: Configure Jira home directory
+        run: |
+          sudo mkdir -p /var/atlassian/application-data/jira
+          echo "jira.home=/var/atlassian/application-data/jira" | sudo tee /opt/atlassian/jira/atlassian-jira/WEB-INF/classes/jira-application.properties
+
+      - name: Configure database connection
+        run: |
+          sudo mkdir -p /var/atlassian/application-data/jira
+          cat << 'EOF' | sudo tee /var/atlassian/application-data/jira/dbconfig.xml
+          <?xml version="1.0" encoding="UTF-8"?>
+          <jira-database-config>
+            <name>defaultDS</name>
+            <delegator-name>default</delegator-name>
+            <database-type>mssql</database-type>
+            <schema-name>dbo</schema-name>
+            <jdbc-datasource>
+              <url>jdbc:sqlserver://localhost:1433;databaseName=jiradb;encrypt=false;trustServerCertificate=true</url>
+              <driver-class>com.microsoft.sqlserver.jdbc.SQLServerDriver</driver-class>
+              <username>sa</username>
+              <password>YourStrong@Passw0rd</password>
+              <pool-min-size>20</pool-min-size>
+              <pool-max-size>20</pool-max-size>
+              <pool-max-wait>30000</pool-max-wait>
+              <validation-query>select 1</validation-query>
+              <min-evictable-idle-time-millis>60000</min-evictable-idle-time-millis>
+              <time-between-eviction-runs-millis>300000</time-between-eviction-runs-millis>
+              <pool-max-idle>20</pool-max-idle>
+              <pool-remove-abandoned>true</pool-remove-abandoned>
+              <pool-remove-abandoned-timeout>300</pool-remove-abandoned-timeout>
+              <pool-test-on-borrow>false</pool-test-on-borrow>
+              <pool-test-while-idle>true</pool-test-while-idle>
+            </jdbc-datasource>
+          </jira-database-config>
+          EOF
+
+      - name: Start Jira
+        run: |
+          sudo /opt/atlassian/jira/bin/start-jira.sh
+          echo "Waiting for Jira to start..."
+          for i in {1..60}; do
+            if curl -s http://localhost:8080 > /dev/null; then
+              echo "Jira is up!"
+              break
+            fi
+            echo "Waiting... ($i/60)"
+            sleep 10
+          done
+
+      - name: Check Jira status
+        run: |
+          curl -I http://localhost:8080
+
+      - name: Run tests
+        run: |
+          echo "Running integration tests..."
+          # Add your test commands here
+
+      - name: Stop Jira
+        if: always()
+        run: |
+          sudo /opt/atlassian/jira/bin/stop-jira.sh || true
+
+      - name: Collect logs
+        if: failure()
+        run: |
+          sudo cat /opt/atlassian/jira/logs/catalina.out || true
+          sudo cat /var/atlassian/application-data/jira/log/atlassian-jira.log || true
