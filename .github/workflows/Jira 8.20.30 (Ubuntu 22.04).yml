@@ -23,8 +23,9 @@ jobs:
         options: >-
           --health-cmd "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P YourStrong@Passw0rd -Q 'SELECT 1' || exit 1"
           --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
+          --health-timeout 10s
+          --health-retries 10
+          --memory 2g
     
     steps:
       - name: Checkout repository
@@ -40,25 +41,28 @@ jobs:
         run: |
           echo "Waiting for SQL Server to be ready..."
           for i in {1..30}; do
-            if docker exec ${{ job.services.sqlserver.id }} /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P YourStrong@Passw0rd -Q "SELECT 1" > /dev/null 2>&1; then
+            if docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/mssql/server:2019-latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -Q "SELECT 1" > /dev/null 2>&1; then
               echo "SQL Server is ready!"
               break
             fi
             echo "Attempt $i: SQL Server not ready yet..."
             sleep 2
           done
+          sleep 5
 
       - name: Create Jira Database
         run: |
-          docker exec ${{ job.services.sqlserver.id }} /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P YourStrong@Passw0rd -Q "
+          CONTAINER_ID=$(docker ps -q --filter ancestor=mcr.microsoft.com/mssql/server:2019-latest)
+          docker exec $CONTAINER_ID /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -Q "
           IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'jiradb')
           BEGIN
-            CREATE DATABASE jiradb;
+            CREATE DATABASE jiradb COLLATE SQL_Latin1_General_CP1_CS_AS;
           END
           "
-          docker exec ${{ job.services.sqlserver.id }} /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P YourStrong@Passw0rd -d jiradb -Q "
+          docker exec $CONTAINER_ID /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -d jiradb -Q "
           ALTER DATABASE jiradb SET READ_COMMITTED_SNAPSHOT ON;
           "
+          echo "Database created and configured successfully"
 
       - name: Download Jira 8.20.30
         run: |
@@ -105,35 +109,68 @@ jobs:
         run: |
           wget https://github.com/microsoft/mssql-jdbc/releases/download/v9.4.1/mssql-jdbc-9.4.1.jre8.jar -P jira/lib/
 
+      - name: Configure Unattended Setup
+        run: |
+          cat > /tmp/jira-home/jira-config.properties << 'EOF'
+          jira.mode=private
+          jira.setup=true
+          EOF
+
+      - name: Set JVM Memory Options
+        run: |
+          echo "export JVM_MINIMUM_MEMORY=512m" >> jira/bin/setenv.sh
+          echo "export JVM_MAXIMUM_MEMORY=1024m" >> jira/bin/setenv.sh
+
       - name: Start Jira
         run: |
           cd jira/bin
           chmod +x startup.sh
           ./startup.sh
           echo "Waiting for Jira to start..."
-          sleep 120
+          for i in {1..60}; do
+            if curl -s http://localhost:8080 > /dev/null; then
+              echo "Jira is up!"
+              break
+            fi
+            echo "Attempt $i: Waiting for Jira..."
+            sleep 3
+          done
+
+      - name: Verify Jira Setup
+        run: |
+          echo "Checking Jira availability..."
+          curl -I http://localhost:8080 || echo "Jira not responding"
+          echo "Checking database connection..."
+          CONTAINER_ID=$(docker ps -q --filter ancestor=mcr.microsoft.com/mssql/server:2019-latest)
+          docker exec $CONTAINER_ID /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -d jiradb -Q "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES;" || echo "No tables yet"
 
       - name: Check Jira Logs
         if: always()
         run: |
           echo "=== Catalina Logs ==="
           cat jira/logs/catalina.out || echo "No catalina.out found"
-          echo "=== Jira Logs ==="
-          ls -la /tmp/jira-home/log/ || echo "No Jira logs directory"
-          cat /tmp/jira-home/log/atlassian-jira.log || echo "No Jira log found"
+          echo ""
+          echo "=== Jira Application Logs ==="
+          if [ -d "/tmp/jira-home/log" ]; then
+            ls -la /tmp/jira-home/log/
+            cat /tmp/jira-home/log/atlassian-jira.log || echo "No Jira log found"
+          else
+            echo "No Jira logs directory"
+          fi
 
       - name: Test Jira HTTP Response
         run: |
-          curl -I http://localhost:8080 || echo "Jira not responding on port 8080"
-
-      - name: Install Plugin
-        run: |
-          echo "Installing plugin..."
-          # Plugin installation logic here
+          curl -v http://localhost:8080 || echo "Jira not responding on port 8080"
+          netstat -tulpn | grep 8080 || echo "Port 8080 not listening"
 
       - name: Stop Jira
         if: always()
         run: |
-          cd jira/bin
-          chmod +x shutdown.sh
-          ./shutdown.sh || echo "Jira already stopped"
+          if [ -d "jira/bin" ]; then
+            cd jira/bin
+            chmod +x shutdown.sh
+            ./shutdown.sh || echo "Jira already stopped"
+            sleep 5
+          else
+            echo "Jira directory not found"
+          fi
