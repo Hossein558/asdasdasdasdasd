@@ -23,10 +23,12 @@ jobs:
           echo "Ubuntu: $(lsb_release -rs)"
           echo "Kernel: $(uname -r)"
 
-      - name: Install libssl1.1 (Required for SQL Server 2019 on Ubuntu 22.04)
+      - name: Install libssl1.1 & libldap-2.4-2 (Required for SQL Server 2019)
         run: |
           wget -q http://archive.ubuntu.com/ubuntu/pool/main/o/openssl/libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+          wget -q http://archive.ubuntu.com/ubuntu/pool/main/o/openldap/libldap-2.4-2_2.4.57+dfsg-3ubuntu1_amd64.deb
           sudo dpkg -i libssl1.1_1.1.1f-1ubuntu2_amd64.deb
+          sudo dpkg -i libldap-2.4-2_2.4.57+dfsg-3ubuntu1_amd64.deb
 
       - name: Install SQL Server 2019 & mssql-tools
         run: |
