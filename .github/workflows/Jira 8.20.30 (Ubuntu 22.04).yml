@@ -62,19 +62,17 @@ jobs:
           ALTER DATABASE jiradb SET READ_COMMITTED_SNAPSHOT ON;
           "
 
-      - name: Download SQL Server JDBC Driver
-        run: |
-          mkdir -p jdbc-driver
-          cd jdbc-driver
-          wget -q https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.8.1.jre8/mssql-jdbc-12.8.1.jre8.jar
-          sudo mkdir -p /opt/atlassian/jira/lib
-          sudo cp mssql-jdbc-12.8.1.jre8.jar /opt/atlassian/jira/lib/
-
       - name: Download and install Jira 8.20.30
         run: |
           wget -q https://product-downloads.atlassian.com/software/jira/downloads/atlassian-jira-software-8.20.30.tar.gz
           tar -xzf atlassian-jira-software-8.20.30.tar.gz
+          sudo mkdir -p /opt/atlassian
           sudo mv atlassian-jira-software-8.20.30-standalone /opt/atlassian/jira
+
+      - name: Download SQL Server JDBC Driver
+        run: |
+          wget -q https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.8.1.jre8/mssql-jdbc-12.8.1.jre8.jar
+          sudo cp mssql-jdbc-12.8.1.jre8.jar /opt/atlassian/jira/lib/
 
       - name: Configure Jira home directory
         run: |
