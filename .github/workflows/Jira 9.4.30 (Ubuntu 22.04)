@@ -1,0 +1,35 @@
+name: Test Plugin - Jira 9.4.30
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, develop]
+  pull_request:
+
+jobs:
+  test-jira-9-4:
+    runs-on: ubuntu-22.04
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: System info
+        run: |
+          echo "Ubuntu: $(lsb_release -rs)"
+          echo "Kernel: $(uname -r)"
+      
+      - name: Download Jira 9.4.30
+        run: |
+          wget -q https://product-downloads.atlassian.com/software/jira/downloads/atlassian-jira-software-9.4.30-x64.bin
+          chmod +x atlassian-jira-software-9.4.30-x64.bin
+          ls -lh *.bin
+      
+      - name: Install Jira
+        run: |
+          sudo ./atlassian-jira-software-9.4.30-x64.bin -q
+      
+      - name: Verify installation
+        run: |
+          sudo systemctl status jira || true
+          ls -la /opt/atlassian/ || true
