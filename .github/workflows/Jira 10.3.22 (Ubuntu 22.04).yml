@@ -23,7 +23,7 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4
 
       # Jira 10.x STRICTLY requires Java 17
       - name: Set up JDK 17 (Temurin)
@@ -70,7 +70,6 @@ jobs:
           sudo mkdir -p /opt/atlassian
           sudo mv atlassian-jira-software-10.3.22-standalone /opt/atlassian/jira
 
-      # Using Java 11 compatible JDBC driver (Works perfectly with Java 17)
       - name: Download SQL Server JDBC Driver
         run: |
           wget -q https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.8.1.jre11/mssql-jdbc-12.8.1.jre11.jar
@@ -111,9 +110,10 @@ jobs:
           </jira-database-config>
           EOF
 
+      # FIX: Injecting JAVA_HOME explicitly into the sudo environment
       - name: Start Jira
         run: |
-          sudo /opt/atlassian/jira/bin/start-jira.sh
+          sudo JAVA_HOME="$JAVA_HOME" /opt/atlassian/jira/bin/start-jira.sh
           echo "Waiting for Jira to start..."
           for i in {1..60}; do
             if curl -s http://localhost:8080 > /dev/null; then
@@ -133,10 +133,11 @@ jobs:
           echo "Running integration tests..."
           # Add your test commands here
 
+      # FIX: Injecting JAVA_HOME explicitly here as well
       - name: Stop Jira
         if: always()
         run: |
-          sudo /opt/atlassian/jira/bin/stop-jira.sh || true
+          sudo JAVA_HOME="$JAVA_HOME" /opt/atlassian/jira/bin/stop-jira.sh || true
 
       - name: Collect logs
         if: failure()
