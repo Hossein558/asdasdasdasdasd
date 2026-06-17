@@ -1,11 +1,10 @@
-name: Jira 8.20.30 Test on Ubuntu 22.04
+name: Jira 8.20.30 with SQL Server Test
 
 on:
   push:
     branches: [ master ]
   pull_request:
     branches: [ master ]
-  workflow_dispatch:
 
 jobs:
   test:
@@ -21,14 +20,11 @@ jobs:
         ports:
           - 1433:1433
         options: >-
-          --health-cmd "/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P YourStrong@Passw0rd -Q 'SELECT 1' || exit 1"
-          --health-interval 10s
-          --health-timeout 10s
-          --health-retries 10
-          --memory 2g
-    
+          --memory=2g
+          --name sqlserver
+
     steps:
-      - name: Checkout repository
+      - name: Checkout code
         uses: actions/checkout@v3
 
       - name: Set up Java 8
@@ -39,46 +35,45 @@ jobs:
 
       - name: Wait for SQL Server to be ready
         run: |
-          echo "Waiting for SQL Server to be ready..."
+          echo "Waiting for SQL Server to accept connections..."
           for i in {1..30}; do
-            if docker exec $(docker ps -q --filter ancestor=mcr.microsoft.com/mssql/server:2019-latest) /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -Q "SELECT 1" > /dev/null 2>&1; then
+            if docker exec sqlserver /opt/mssql-tools18/bin/sqlcmd \
+              -S localhost -U sa -P "YourStrong@Passw0rd" \
+              -C -Q "SELECT 1" &>/dev/null; then
               echo "SQL Server is ready!"
               break
             fi
-            echo "Attempt $i: SQL Server not ready yet..."
+            echo "Attempt $i: SQL Server not ready yet, waiting 2 seconds..."
             sleep 2
           done
-          sleep 5
 
-      - name: Create Jira Database
+      - name: Create Jira database
         run: |
-          CONTAINER_ID=$(docker ps -q --filter ancestor=mcr.microsoft.com/mssql/server:2019-latest)
-          docker exec $CONTAINER_ID /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -Q "
-          IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = 'jiradb')
-          BEGIN
-            CREATE DATABASE jiradb COLLATE SQL_Latin1_General_CP1_CS_AS;
-          END
-          "
-          docker exec $CONTAINER_ID /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -d jiradb -Q "
-          ALTER DATABASE jiradb SET READ_COMMITTED_SNAPSHOT ON;
-          "
-          echo "Database created and configured successfully"
+          docker exec sqlserver /opt/mssql-tools18/bin/sqlcmd \
+            -S localhost -U sa -P "YourStrong@Passw0rd" -C \
+            -Q "CREATE DATABASE jiradb COLLATE SQL_Latin1_General_CP1_CS_AS;"
+          
+          docker exec sqlserver /opt/mssql-tools18/bin/sqlcmd \
+            -S localhost -U sa -P "YourStrong@Passw0rd" -C \
+            -Q "ALTER DATABASE jiradb SET READ_COMMITTED_SNAPSHOT ON;"
 
-      - name: Download Jira 8.20.30
+      - name: Download SQL Server JDBC Driver
         run: |
-          wget https://product-downloads.atlassian.com/software/jira/downloads/atlassian-jira-software-8.20.30.tar.gz
-          tar -xzf atlassian-jira-software-8.20.30.tar.gz
-          mv atlassian-jira-software-8.20.30-standalone jira
+          wget -q https://download.microsoft.com/download/6/9/9/699205ca-f1f1-4de9-9335-18546c5dfad1/sqljdbc_9.4.1.0_enu.tar.gz
+          tar -xzf sqljdbc_9.4.1.0_enu.tar.gz
+          sudo mkdir -p /opt/atlassian/jira/lib
+          sudo cp sqljdbc_9.4/enu/mssql-jdbc-9.4.1.jre8.jar /opt/atlassian/jira/lib/
 
-      - name: Configure Jira Home
+      - name: Download and Install Jira 8.20.30
         run: |
-          mkdir -p /tmp/jira-home
-          echo "jira.home = /tmp/jira-home" > jira/atlassian-jira/WEB-INF/classes/jira-application.properties
+          wget -q https://product-downloads.atlassian.com/software/jira/downloads/atlassian-jira-software-8.20.30-x64.bin
+          chmod +x atlassian-jira-software-8.20.30-x64.bin
+          sudo ./atlassian-jira-software-8.20.30-x64.bin -q -varfile response.varfile
 
-      - name: Configure Database Connection
+      - name: Configure Jira database connection
         run: |
-          mkdir -p /tmp/jira-home
-          cat > /tmp/jira-home/dbconfig.xml << 'EOF'
+          sudo mkdir -p /var/atlassian/application-data/jira
+          sudo tee /var/atlassian/application-data/jira/dbconfig.xml > /dev/null <<EOF
           <?xml version="1.0" encoding="UTF-8"?>
           <jira-database-config>
             <name>defaultDS</name>
@@ -105,72 +100,30 @@ jobs:
           </jira-database-config>
           EOF
 
-      - name: Download MS SQL JDBC Driver
-        run: |
-          wget https://github.com/microsoft/mssql-jdbc/releases/download/v9.4.1/mssql-jdbc-9.4.1.jre8.jar -P jira/lib/
-
-      - name: Configure Unattended Setup
-        run: |
-          cat > /tmp/jira-home/jira-config.properties << 'EOF'
-          jira.mode=private
-          jira.setup=true
-          EOF
-
-      - name: Set JVM Memory Options
-        run: |
-          echo "export JVM_MINIMUM_MEMORY=512m" >> jira/bin/setenv.sh
-          echo "export JVM_MAXIMUM_MEMORY=1024m" >> jira/bin/setenv.sh
-
       - name: Start Jira
         run: |
-          cd jira/bin
-          chmod +x startup.sh
-          ./startup.sh
+          sudo /opt/atlassian/jira/bin/start-jira.sh
           echo "Waiting for Jira to start..."
           for i in {1..60}; do
-            if curl -s http://localhost:8080 > /dev/null; then
+            if curl -s http://localhost:8080 | grep -q "Atlassian"; then
               echo "Jira is up!"
               break
             fi
-            echo "Attempt $i: Waiting for Jira..."
-            sleep 3
+            sleep 5
           done
 
-      - name: Verify Jira Setup
+      - name: Run basic integration tests
         run: |
-          echo "Checking Jira availability..."
-          curl -I http://localhost:8080 || echo "Jira not responding"
-          echo "Checking database connection..."
-          CONTAINER_ID=$(docker ps -q --filter ancestor=mcr.microsoft.com/mssql/server:2019-latest)
-          docker exec $CONTAINER_ID /opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P 'YourStrong@Passw0rd' -d jiradb -Q "SELECT COUNT(*) FROM INFORMATION_SCHEMA.TABLES;" || echo "No tables yet"
+          # Test if Jira responds
+          curl -f http://localhost:8080 || exit 1
+          
+          # Check database connectivity
+          docker exec sqlserver /opt/mssql-tools18/bin/sqlcmd \
+            -S localhost -U sa -P "YourStrong@Passw0rd" -C \
+            -Q "SELECT COUNT(*) FROM jiradb.INFORMATION_SCHEMA.TABLES;"
 
-      - name: Check Jira Logs
-        if: always()
+      - name: Show Jira logs on failure
+        if: failure()
         run: |
-          echo "=== Catalina Logs ==="
-          cat jira/logs/catalina.out || echo "No catalina.out found"
-          echo ""
-          echo "=== Jira Application Logs ==="
-          if [ -d "/tmp/jira-home/log" ]; then
-            ls -la /tmp/jira-home/log/
-            cat /tmp/jira-home/log/atlassian-jira.log || echo "No Jira log found"
-          else
-            echo "No Jira logs directory"
-          fi
-
-      - name: Test Jira HTTP Response
-        run: |
-          curl -v http://localhost:8080 || echo "Jira not responding on port 8080"
-          netstat -tulpn | grep 8080 || echo "Port 8080 not listening"
-
-      - name: Stop Jira
-        if: always()
-        run: |
-          if [ -d "jira/bin" ]; then
-            cd jira/bin
-            chmod +x shutdown.sh
-            ./shutdown.sh || echo "Jira already stopped"
-            sleep 5
-          else
-            echo "Jira directory not found"
-          fi
+          sudo cat /opt/atlassian/jira/logs/catalina.out || true
+          docker logs sqlserver || true
