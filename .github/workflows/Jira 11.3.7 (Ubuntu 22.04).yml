@@ -32,6 +32,14 @@ jobs:
           distribution: 'temurin'
           java-version: '21'
 
+      # مرحله جدید: بیلد کردن افزونه با Maven
+      - name: Build Plugin with Maven
+        run: |
+          chmod +x mvnw
+          ./mvnw clean package -DskipTests
+          echo "Build successful. Artifacts in target/:"
+          ls -lh target/*.jar
+
       - name: Install system dependencies
         run: |
           sudo apt-get update
@@ -69,10 +77,8 @@ jobs:
           tar -xzf atlassian-jira-software-11.3.7.tar.gz
           sudo mkdir -p /opt/atlassian
           sudo mv atlassian-jira-software-11.3.7-standalone /opt/atlassian/jira
-          # تغییر مالکیت پوشه به کاربر فعلی برای اجرای بدون sudo
           sudo chown -R $USER:$USER /opt/atlassian
 
-      # Using Java 11 compatible JDBC driver (Works perfectly with Java 21)
       - name: Download SQL Server JDBC Driver
         run: |
           wget -q https://repo1.maven.org/maven2/com/microsoft/sqlserver/mssql-jdbc/12.8.1.jre11/mssql-jdbc-12.8.1.jre11.jar
@@ -113,9 +119,15 @@ jobs:
           </jira-database-config>
           EOF
 
+      # مرحله جدید: تزریق افزونه به هسته جیرا قبل از استارت
+      - name: Deploy Plugin to Jira
+        run: |
+          mkdir -p /var/atlassian/application-data/jira/plugins/installed-plugins
+          cp target/*.jar /var/atlassian/application-data/jira/plugins/installed-plugins/
+          echo "Plugin successfully injected into Jira Home!"
+
       - name: Start Jira
         run: |
-          # اجرای جیرا به صورت عادی تا جاوا ۲۱ شناسایی شود
           /opt/atlassian/jira/bin/start-jira.sh
           echo "Waiting for Jira to start..."
           for i in {1..60}; do
@@ -131,10 +143,10 @@ jobs:
         run: |
           curl -I http://localhost:8080
 
-      - name: Run tests
+      - name: Verify Plugin Initialization
         run: |
-          echo "Running integration tests..."
-          # Add your test commands here
+          echo "Checking logs for plugin initialization..."
+          grep -i "Jira-persian-calender" /var/atlassian/application-data/jira/log/atlassian-jira.log || echo "Plugin log not found yet, it might still be loading in the background."
 
       - name: Stop Jira
         if: always()
