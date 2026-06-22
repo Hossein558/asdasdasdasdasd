@@ -3436,32 +3436,10 @@
                 }
             } catch (ex) { }
 
-            // Detect if this is a DateTime field
-            var inputValue = $input.val() || '';
-            var placeholder = $input.attr('placeholder') || '';
-            var inputClass = $input.attr('class') || '';
-            var dataFormat = $input.attr('data-iformat') || $input.attr('data-format') || '';
-            var dataShowTime = $input.attr('data-showtime') || '';
-            var timeFormat = $input.attr('timeformat') || '';
+            // Detect if this is a DateTime field using the robust central helper
+            var isDateTime = isFieldDateTime($input);
 
-            // Check multiple ways to detect DateTime
-            var isDateTime =
-                inputValue.match(/\d{1,2}:\d{2}/) ||
-                inputValue.match(/[AP]M/i) ||
-                placeholder.match(/h:mm/i) ||
-                placeholder.match(/time/i) ||
-                ($input.closest('[data-type]').length > 0 && $input.closest('[data-type]').attr('data-type') === 'datetime') ||
-                ($input.attr('data-type') === 'datetime') ||
-                // JSM specific checks
-                inputClass.indexOf('datetime') !== -1 ||
-                inputClass.indexOf('time') !== -1 ||
-                dataFormat.indexOf('h') !== -1 ||
-                dataFormat.indexOf('H') !== -1 ||
-                dataFormat.indexOf(':') !== -1 ||
-                dataShowTime === 'true' ||
-                timeFormat.length > 0;
-
-            logInfo('DateTime detection: isDateTime=' + !!isDateTime + ', value="' + inputValue + '", class="' + inputClass + '", dataFormat="' + dataFormat + '"');
+            logInfo('DateTime detection (Inline Edit): isDateTime=' + !!isDateTime + ', inputId="' + $input.attr('id') + '"');
 
             // Show our Persian calendar (with license check)
             setTimeout(function () {
