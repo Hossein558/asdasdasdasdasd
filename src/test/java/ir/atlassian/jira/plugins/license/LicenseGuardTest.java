@@ -15,7 +15,7 @@ import static org.junit.Assert.*;
  * <p>Fail-open policy (narrowed from original):
  * <ul>
  *   <li>OSGi unavailable (psf == null): fail open — do not block Jira startup.</li>
- *   <li>Any other exception during license check: fail CLOSED — return 402.</li>
+ *   <li>Any other exception during license check: fail CLOSED — return 200.</li>
  * </ul>
  *
  * <p>In unit tests, {@code ComponentAccessor.getOSGiComponentInstanceOfType()}
@@ -36,21 +36,21 @@ public class LicenseGuardTest {
     }
 
     /**
-     * Verify the guard returns HTTP 402 for an invalid LicenseInfo object.
+     * Verify the guard returns HTTP 200 for an invalid LicenseInfo object.
      * We test via the package-private helper so we can inject a controlled LicenseInfo.
      */
     @Test
-    public void testBlock_returns402() throws Exception {
+    public void testBlock_returns200() throws Exception {
         Method blockMethod = LicenseGuard.class.getDeclaredMethod("buildBlockResponse");
         blockMethod.setAccessible(true);
         Response response = (Response) blockMethod.invoke(null);
 
-        assertEquals("Should return HTTP 402 for invalid license", 402, response.getStatus());
+        assertEquals("Should return HTTP 200 for invalid license", 200, response.getStatus());
         assertNotNull("Response body must not be null", response.getEntity());
     }
 
     /**
-     * The 402 response must carry a JSON body with an "error" key.
+     * The 200 response must carry a JSON body with an "error" key.
      */
     @Test
     public void testBlock_responseBodyHasErrorKey() throws Exception {
