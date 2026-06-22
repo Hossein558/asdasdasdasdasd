@@ -4236,34 +4236,45 @@
         var name = $original.attr('name') || '';
         var className = $original.attr('class') || '';
 
+        // --- Signal 1: class-based (most reliable Jira internal signal) ---
+        // Jira itself assigns 'datetimepicker-input' to DateTime custom fields
+        var classIsDateTime = className.indexOf('datetimepicker') !== -1 ||
+                              className.indexOf('aui-datetime-picker') !== -1;
+
+        // --- Signal 2: data attributes set by Jira / AUI ---
+        var dataDateTimeEnabled = $original.attr('data-date-time-enabled') === 'true' ||
+                                  $original.attr('data-fieldtype') === 'com.atlassian.jira.plugin.system.customfieldtypes:datetime';
+
+        // --- Signal 3: value or placeholder contains time ---
         var hasTimeInValue = currentValue.match(/\d{1,2}:\d{2}/) || currentValue.match(/[AP]M/i);
         var hasTimeInPlaceholder = placeholder.match(/\d{1,2}:\d{2}/) || placeholder.match(/h:mm/i);
 
-        // --- Smart description detection ---
-        // Look specifically at the description/hint element, not the entire field group text.
-        // This prevents picking up labels from neighbouring fields.
+        // --- Signal 4: description text below the field ---
+        // Walk up the DOM progressively to find a container
         var descriptionText = '';
-        var $fieldGroup = $original.closest('.field-group, .ak-field, .jira-field-group, .form-body, [data-field-id]');
-        if ($fieldGroup.length > 0) {
-            // Try specific description child elements first
-            var $descEl = $fieldGroup.find('.description, .field-desc, .aui-field-description, .helper-text, [class*="description"], [class*="hint"]').first();
+        var $el = $original;
+        for (var upLevels = 0; upLevels < 6 && descriptionText === ''; upLevels++) {
+            $el = $el.parent();
+            if (!$el.length || $el[0] === document.body) break;
+            // Look for a description sibling/child element
+            var $descEl = $el.find('.description, .field-desc, .aui-field-description, .helper-text, [class*="description"]:not(input):not(textarea)').first();
             if ($descEl.length > 0) {
                 descriptionText = $descEl.text() || '';
-            } else {
-                // Fall back to the full field group text but strip out the label/input text
-                descriptionText = $fieldGroup.text() || '';
+            } else if ($el.hasClass('field-group') || $el.hasClass('ak-field') ||
+                       $el.hasClass('jira-field-group') || $el.hasClass('qf-field-group')) {
+                // We reached a known field container – stop walking up
+                descriptionText = $el.text() || '';
+                break;
             }
-        } else {
-            // Walk up two levels and get text
-            descriptionText = $original.parent().parent().text() || '';
         }
 
-        // Strong signal: description explicitly shows a date+time format pattern
-        var hasTimeFormatInDescription = descriptionText.match(/h:mm/i) || descriptionText.match(/HH:mm/i);
-        // Weaker signal: description mentions words associated with time
-        var hasTimeWordInDescription = descriptionText.match(/\btime\b/i) || descriptionText.match(/زمان/) || descriptionText.match(/ساعت/);
+        // Strong time-format signal in description
+        var hasTimeFormatInDescription = !!(descriptionText.match(/h:mm/i) || descriptionText.match(/HH:mm/i));
+        // Weaker time-word signal
+        var hasTimeWordInDescription = !!(descriptionText.match(/\btime\b/i) || descriptionText.match(/زمان/) || descriptionText.match(/ساعت/));
         var hasTimeInDescription = hasTimeFormatInDescription || hasTimeWordInDescription;
 
+        // --- Signal 5: well-known system field IDs/names ---
         var isKnownDateTimeField =
             id === 'log-work-form-date-logged-date-picker' ||
             id === 'log-work-date-logged-date-picker' ||
@@ -4274,53 +4285,52 @@
             name === 'startDate' ||
             name === 'worklog_startDate' ||
             name.indexOf('created') !== -1 ||
-            name.indexOf('updated') !== -1 ||
-            className.indexOf('datetimepicker') !== -1 ||
-            className.indexOf('aui-datetime-picker') !== -1;
+            name.indexOf('updated') !== -1;
 
+        // --- Signal 6: native Jira trigger hint ---
         var $nativeTrigger = $original.parent().find('a[id$="-trigger"], span.aui-icon, span.icon-date, span.icon-default');
         var triggerTitle = $nativeTrigger.attr('title') || '';
         var triggerText = $nativeTrigger.text() || '';
-        var hasTimeInTrigger = triggerTitle.match(/time|زمان|ساعت/i) || triggerText.match(/time|زمان|ساعت/i);
+        var hasTimeInTrigger = !!(triggerTitle.match(/time|زمان|ساعت/i) || triggerText.match(/time|زمان|ساعت/i));
 
         // Aggregate heuristic result (before API check)
-        var heuristicIsDateTime = !!(hasTimeInValue || hasTimeInPlaceholder || hasTimeInDescription || isKnownDateTimeField || hasTimeInTrigger);
-        // Whether a strong signal (explicit time format) was detected
-        var hasStrongHeuristicSignal = !!(hasTimeInValue || hasTimeFormatInDescription || hasTimeInPlaceholder);
+        var heuristicIsDateTime = !!(classIsDateTime || dataDateTimeEnabled ||
+                                      hasTimeInValue || hasTimeInPlaceholder ||
+                                      hasTimeInDescription || isKnownDateTimeField || hasTimeInTrigger);
 
-        var isDateTimeField = heuristicIsDateTime;
+        // A STRONG signal means we must NOT let the API override us
+        var hasStrongHeuristicSignal = !!(classIsDateTime || dataDateTimeEnabled ||
+                                          hasTimeInValue || hasTimeFormatInDescription ||
+                                          hasTimeInPlaceholder);
+
+        var isDateTime = heuristicIsDateTime;
         var apiFieldType = 'unknown';
 
         if (typeof _jiraFieldTypesCache !== 'undefined' && _jiraFieldTypesCache) {
             apiFieldType = _jiraFieldTypesCache[id] || _jiraFieldTypesCache[name] || 'unknown';
             if (apiFieldType === 'datetime') {
-                // API explicitly says datetime – trust it unconditionally
-                isDateTimeField = true;
-            } else if (apiFieldType === 'date') {
-                // API says date – but DON'T override a strong heuristic signal.
-                // e.g. if the description explicitly shows "h:mm" format, the field
-                // is almost certainly a DateTime field miscategorised by the API.
-                if (!hasStrongHeuristicSignal) {
-                    isDateTimeField = false;
-                }
-                // If we have a strong signal, keep isDateTimeField = heuristicIsDateTime (true)
+                isDateTime = true;  // API confirms datetime
+            } else if (apiFieldType === 'date' && !hasStrongHeuristicSignal) {
+                isDateTime = false; // API says date, and no strong override
             }
+            // If apiFieldType === 'date' BUT hasStrongHeuristicSignal, keep heuristic result
         }
 
         console.log(
             'PersianCalendar-Debug: id=' + id +
-            ' name=' + name +
-            ' apiType=' + apiFieldType +
-            ' heuristic=' + heuristicIsDateTime +
-            ' strongSignal=' + hasStrongHeuristicSignal +
-            ' hasTimeFormatDesc=' + !!hasTimeFormatInDescription +
-            ' hasTimeWordDesc=' + !!hasTimeWordInDescription +
+            ' cls=' + className.substring(0, 40) +
+            ' api=' + apiFieldType +
+            ' classIsDateTime=' + classIsDateTime +
+            ' dataAttr=' + dataDateTimeEnabled +
+            ' placeholder=[' + placeholder.substring(0, 30) + ']' +
             ' hasTimePlaceholder=' + !!hasTimeInPlaceholder +
-            ' descText=[' + descriptionText.substring(0, 80) + ']' +
-            ' => isDateTime=' + !!isDateTimeField
+            ' hasTimeFormatDesc=' + hasTimeFormatInDescription +
+            ' descText=[' + descriptionText.substring(0, 60) + ']' +
+            ' strongSignal=' + hasStrongHeuristicSignal +
+            ' => isDateTime=' + !!isDateTime
         );
 
-        return !!isDateTimeField;
+        return !!isDateTime;
     }
 
     // Initialize Persian calendar for date inputs
@@ -4526,6 +4536,11 @@
                             $original.data('aui-datepicker').hide();
                         }
                     } catch(ex) {}
+
+                    // Re-evaluate at click time: DOM is fully ready now, giving us
+                    // better signals than when the button was first created.
+                    var isDateTimeField = isFieldDateTime($original);
+                    logInfo('Click-time isDateTimeField=' + isDateTimeField + ' for id=' + $original.attr('id'));
 
                     if (isDateTimeField) {
                         showPersianDateTimePicker($btn, $original, function (selectedDateTime) {
