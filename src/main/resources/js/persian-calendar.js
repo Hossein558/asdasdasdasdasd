@@ -4500,14 +4500,30 @@
                 // Hide native calendar trigger
                 $original.siblings('.aui-ss, .aui-date-picker, .icon-calendar, [class*="calendar"]').hide();
                 $original.next('.icon-calendar').hide();
+                
+                // Also hide AUI calendar trigger that might be inside a wrapper
+                $original.parent().find('.icon-calendar, .aui-ss').hide();
 
                 // Create Persian calendar button and display span
                 var $persianDisplay = $('<span class="pc-persian-display" style="margin-right:5px; color:#0052cc; font-weight:bold; font-size:12px; direction:rtl;"></span>');
                 var $btn = $('<button type="button" class="aui-button pc-calendar-btn" style="margin-right:5px; background:#0052cc; color:#fff; padding:2px 8px; font-size:11px; border-radius:3px;">📅 تقویم شمسی</button>');
                 
-                $original.after($btn);
-                $btn.after($persianDisplay);
+                // Try to insert after the input's parent wrapper (if AUI already wrapped it)
+                var $wrapper = $original.parent('.aui-date-picker, .date-picker-wrapper, [class*="date-picker"]');
+                if ($wrapper.length > 0) {
+                    logDebug('Input is already wrapped by AUI, inserting button after wrapper');
+                    $wrapper.after($btn);
+                    $btn.after($persianDisplay);
+                } else {
+                    logDebug('Input not wrapped, inserting button after input');
+                    $original.after($btn);
+                    $btn.after($persianDisplay);
+                }
                 logInfo('Added Persian calendar button to Create/Edit input');
+                
+                // Store button reference on the input for recovery
+                $original.data('pc-btn', $btn);
+                $original.data('pc-display', $persianDisplay);
 
                 // If input already has a value, show Persian equivalent
                 var currentVal = $original.val();
@@ -4597,6 +4613,28 @@
                             $original.data('aui-datepicker').hide();
                         }
                     } catch(ex) {}
+                    
+                    // Check if our button still exists in DOM, if not, re-attach it
+                    var $btn = $original.data('pc-btn');
+                    var $display = $original.data('pc-display');
+                    if ($btn && $btn.length > 0 && !$.contains(document.documentElement, $btn[0])) {
+                        logWarn('Persian button was removed from DOM, re-attaching for id=' + $original.attr('id'));
+                        
+                        // Find where to insert
+                        var $wrapper = $original.parent('.aui-date-picker, .date-picker-wrapper, [class*="date-picker"]');
+                        if ($wrapper.length > 0) {
+                            $wrapper.after($btn);
+                            $btn.after($display);
+                        } else {
+                            $original.after($btn);
+                            $btn.after($display);
+                        }
+                        
+                        // Hide native calendar icons again
+                        $original.siblings('.aui-ss, .aui-date-picker, .icon-calendar, [class*="calendar"]').hide();
+                        $original.next('.icon-calendar').hide();
+                        $original.parent().find('.icon-calendar, .aui-ss').hide();
+                    }
                 });
             }
         });
@@ -4840,6 +4878,161 @@
 
         // Re-run on AJAX content
         var newContentTimer = null;
+        
+        // ========== AUI DATEPICKER CONFLICT RESOLVER ==========
+        // Monitor for AUI's asynchronous initialization that destroys our buttons
+        // and immediately restore them when detected
+        var auiConflictObserver = new MutationObserver(function(mutations) {
+            mutations.forEach(function(mutation) {
+                // Check for added nodes that might be AUI wrappers
+                if (mutation.addedNodes.length > 0) {
+                    for (var i = 0; i < mutation.addedNodes.length; i++) {
+                        var node = mutation.addedNodes[i];
+                        if (node.nodeType === 1) {
+                            var $node = $(node);
+                            
+                            // Check if this is an AUI date picker wrapper or icon
+                            if ($node.hasClass('aui-date-picker') || 
+                                $node.hasClass('icon-calendar') ||
+                                $node.hasClass('aui-ss') ||
+                                (node.className && typeof node.className === 'string' && 
+                                 (node.className.indexOf('date-picker') !== -1 || 
+                                  node.className.indexOf('calendar') !== -1))) {
+                                
+                                logDebug('AUI DatePicker DOM change detected, checking for affected inputs');
+                                
+                                // Find any date inputs that might have been affected
+                                var $affectedInputs = $node.find('input[type="text"]');
+                                if ($node.is('input[type="text"]')) {
+                                    $affectedInputs = $affectedInputs.add($node);
+                                }
+                                // Also check siblings
+                                $affectedInputs = $affectedInputs.add($node.siblings('input[type="text"]'));
+                                // Also check parent's children
+                                if ($node.parent().length > 0) {
+                                    $affectedInputs = $affectedInputs.add($node.parent().find('input[type="text"]'));
+                                }
+                                
+                                $affectedInputs.each(function() {
+                                    var $input = $(this);
+                                    
+                                    // Only process inputs we've already initialized
+                                    if (!$input.data('pc-init')) {
+                                        return;
+                                    }
+                                    
+                                    var $btn = $input.data('pc-btn');
+                                    var $display = $input.data('pc-display');
+                                    
+                                    // Check if button is missing from DOM
+                                    if ($btn && $btn.length > 0 && !$.contains(document.documentElement, $btn[0])) {
+                                        logWarn('AUI destroyed Persian button for ' + $input.attr('id') + ', restoring now');
+                                        
+                                        // Re-attach button
+                                        var $wrapper = $input.parent('.aui-date-picker, .date-picker-wrapper, [class*="date-picker"]');
+                                        if ($wrapper.length > 0) {
+                                            $wrapper.after($btn);
+                                            $btn.after($display);
+                                            logDebug('Button restored after wrapper');
+                                        } else {
+                                            $input.after($btn);
+                                            $btn.after($display);
+                                            logDebug('Button restored after input');
+                                        }
+                                        
+                                        // Hide native calendar icons
+                                        $input.siblings('.aui-ss, .aui-date-picker, .icon-calendar, [class*="calendar"]').hide();
+                                        $input.next('.icon-calendar').hide();
+                                        $input.parent().find('.icon-calendar, .aui-ss').hide();
+                                        
+                                        // Update display if input has value
+                                        var currentVal = $input.val();
+                                        if (currentVal && $display) {
+                                            var parsedDate = parseJiraDate(currentVal);
+                                            if (parsedDate) {
+                                                var jDate = toJalaali(parsedDate.year, parsedDate.month, parsedDate.day);
+                                                var isDateTimeField = isFieldDateTime($input);
+                                                if (isDateTimeField) {
+                                                    var timeMatch = currentVal.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+                                                    var timeStr = timeMatch ? ' ' + timeMatch[0] : '';
+                                                    $display.text(formatPersianDate(jDate.jy, jDate.jm, jDate.jd) + timeStr);
+                                                } else {
+                                                    $display.text(formatPersianDate(jDate.jy, jDate.jm, jDate.jd));
+                                                }
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                        }
+                    }
+                }
+            });
+        });
+        
+        // Start observing the entire document for AUI changes
+        auiConflictObserver.observe(document.body, {
+            childList: true,
+            subtree: true,
+            attributes: false
+        });
+        logInfo('AUI conflict resolver observer started');
+        
+        // ========== PERIODIC BUTTON HEALTH CHECK ==========
+        // Run a periodic check every 3 seconds to ensure buttons are still in DOM
+        // This catches cases where AUI initialization happens very late
+        setInterval(function() {
+            $('input[type="text"]').each(function() {
+                var $input = $(this);
+                
+                // Only check inputs we've initialized
+                if (!$input.data('pc-init')) {
+                    return;
+                }
+                
+                var $btn = $input.data('pc-btn');
+                var $display = $input.data('pc-display');
+                
+                // Check if button is missing from DOM
+                if ($btn && $btn.length > 0 && !$.contains(document.documentElement, $btn[0])) {
+                    logWarn('Periodic check: Persian button missing for ' + $input.attr('id') + ', restoring');
+                    
+                    // Re-attach button
+                    var $wrapper = $input.parent('.aui-date-picker, .date-picker-wrapper, [class*="date-picker"]');
+                    if ($wrapper.length > 0) {
+                        $wrapper.after($btn);
+                        $btn.after($display);
+                    } else {
+                        $input.after($btn);
+                        $btn.after($display);
+                    }
+                    
+                    // Hide native calendar icons
+                    $input.siblings('.aui-ss, .aui-date-picker, .icon-calendar, [class*="calendar"]').hide();
+                    $input.next('.icon-calendar').hide();
+                    $input.parent().find('.icon-calendar, .aui-ss').hide();
+                    
+                    // Update display if input has value
+                    var currentVal = $input.val();
+                    if (currentVal && $display) {
+                        var parsedDate = parseJiraDate(currentVal);
+                        if (parsedDate) {
+                            var jDate = toJalaali(parsedDate.year, parsedDate.month, parsedDate.day);
+                            var isDateTimeField = isFieldDateTime($input);
+                            if (isDateTimeField) {
+                                var timeMatch = currentVal.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
+                                var timeStr = timeMatch ? ' ' + timeMatch[0] : '';
+                                $display.text(formatPersianDate(jDate.jy, jDate.jm, jDate.jd) + timeStr);
+                            } else {
+                                $display.text(formatPersianDate(jDate.jy, jDate.jm, jDate.jd));
+                            }
+                        }
+                    }
+                }
+            });
+        }, 3000); // Check every 3 seconds
+        logInfo('Periodic button health check started (every 3 seconds)');
+        
         if (typeof JIRA !== 'undefined' && JIRA.bind) {
             logInfo('JIRA framework detected, binding to NEW_CONTENT_ADDED');
             JIRA.bind(JIRA.Events.NEW_CONTENT_ADDED, function () {
@@ -4857,6 +5050,65 @@
                             convertAuditLogDates($);
                             convertIssueSearchDates($);
                             convertTimeSpentDurations($);
+                            
+                            // Additional delayed re-initialization to catch late AUI initialization
+                            // This handles cases where AUI DatePicker initializes after our plugin
+                            setTimeout(function() {
+                                logDebug('Running delayed re-check for AUI conflicts');
+                                $('input[type="text"]').each(function() {
+                                    var $input = $(this);
+                                    if (!$input.data('pc-init')) return;
+                                    
+                                    var $btn = $input.data('pc-btn');
+                                    var $display = $input.data('pc-display');
+                                    
+                                    if ($btn && $btn.length > 0 && !$.contains(document.documentElement, $btn[0])) {
+                                        logWarn('Delayed check: Button missing for ' + $input.attr('id') + ', restoring');
+                                        
+                                        var $wrapper = $input.parent('.aui-date-picker, .date-picker-wrapper, [class*="date-picker"]');
+                                        if ($wrapper.length > 0) {
+                                            $wrapper.after($btn);
+                                            $btn.after($display);
+                                        } else {
+                                            $input.after($btn);
+                                            $btn.after($display);
+                                        }
+                                        
+                                        $input.siblings('.aui-ss, .aui-date-picker, .icon-calendar, [class*="calendar"]').hide();
+                                        $input.next('.icon-calendar').hide();
+                                        $input.parent().find('.icon-calendar, .aui-ss').hide();
+                                    }
+                                });
+                            }, 500); // Check again after 500ms
+                            
+                            // Another check after 1 second for very slow AUI initialization
+                            setTimeout(function() {
+                                logDebug('Running second delayed re-check for AUI conflicts');
+                                $('input[type="text"]').each(function() {
+                                    var $input = $(this);
+                                    if (!$input.data('pc-init')) return;
+                                    
+                                    var $btn = $input.data('pc-btn');
+                                    var $display = $input.data('pc-display');
+                                    
+                                    if ($btn && $btn.length > 0 && !$.contains(document.documentElement, $btn[0])) {
+                                        logWarn('Second delayed check: Button missing for ' + $input.attr('id') + ', restoring');
+                                        
+                                        var $wrapper = $input.parent('.aui-date-picker, .date-picker-wrapper, [class*="date-picker"]');
+                                        if ($wrapper.length > 0) {
+                                            $wrapper.after($btn);
+                                            $btn.after($display);
+                                        } else {
+                                            $input.after($btn);
+                                            $btn.after($display);
+                                        }
+                                        
+                                        $input.siblings('.aui-ss, .aui-date-picker, .icon-calendar, [class*="calendar"]').hide();
+                                        $input.next('.icon-calendar').hide();
+                                        $input.parent().find('.icon-calendar, .aui-ss').hide();
+                                    }
+                                });
+                            }, 1000); // Check again after 1 second
                         });
                     });
                 }, 200);
