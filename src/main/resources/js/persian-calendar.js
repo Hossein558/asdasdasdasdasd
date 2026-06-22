@@ -1864,8 +1864,23 @@
                         var fields = JSON.parse(xhr.responseText);
                         var map = {};
                         for (var i = 0; i < fields.length; i++) {
-                            if (fields[i].schema && fields[i].schema.type) {
-                                map[fields[i].id] = fields[i].schema.type;
+                            var f = fields[i];
+                            var type = null;
+                            if (f.schema) {
+                                if (f.schema.custom) {
+                                    if (f.schema.custom.indexOf(':datetime') !== -1) {
+                                        type = 'datetime';
+                                    } else if (f.schema.custom.indexOf(':datepicker') !== -1) {
+                                        type = 'date';
+                                    }
+                                }
+                                if (!type && f.schema.type) {
+                                    type = f.schema.type;
+                                }
+                            }
+                            if (type) {
+                                map[f.id] = type;
+                                if (f.name) map[f.name] = type;
                             }
                         }
                         
@@ -4221,12 +4236,19 @@
         var hasTimeInValue = currentValue.match(/\d{1,2}:\d{2}/) || currentValue.match(/[AP]M/i);
         var hasTimeInPlaceholder = placeholder.match(/\d{1,2}:\d{2}/) || placeholder.match(/h:mm/i);
         
-        var $fieldGroup = $original.closest('.field-group, .ak-field');
-        var descriptionText = $fieldGroup.find('.description, .field-desc, .aui-field-description').text() || '';
-        var hasTimeInDescription = descriptionText.match(/h:mm/i) || descriptionText.match(/time/i) || descriptionText.match(/\d{1,2}:\d{2}/);
+        var $fieldGroup = $original.closest('.field-group, .ak-field, .jira-field-group');
+        var descriptionText = '';
+        if ($fieldGroup.length > 0) {
+            descriptionText = $fieldGroup.text() || '';
+        } else {
+            descriptionText = $original.parent().parent().text() || '';
+        }
+        
+        var hasTimeInDescription = descriptionText.match(/h:mm/i) || descriptionText.match(/time/i) || descriptionText.match(/\d{1,2}:\d{2}/) || descriptionText.match(/زمان/) || descriptionText.match(/ساعت/);
         
         var id = $original.attr('id') || '';
         var name = $original.attr('name') || '';
+        var className = $original.attr('class') || '';
         
         var isKnownDateTimeField =
             id === 'log-work-form-date-logged-date-picker' ||
@@ -4238,7 +4260,9 @@
             name === 'startDate' ||
             name === 'worklog_startDate' ||
             name.indexOf('created') !== -1 ||
-            name.indexOf('updated') !== -1;
+            name.indexOf('updated') !== -1 ||
+            className.indexOf('datetimepicker') !== -1 ||
+            className.indexOf('aui-datetime-picker') !== -1;
             
         var $nativeTrigger = $original.parent().find('a[id$="-trigger"], span.aui-icon, span.icon-date, span.icon-default');
         var triggerTitle = $nativeTrigger.attr('title') || '';
@@ -4247,14 +4271,17 @@
         
         var isDateTimeField = hasTimeInValue || hasTimeInPlaceholder || hasTimeInDescription || isKnownDateTimeField || hasTimeInTrigger;
         
+        var apiFieldType = 'unknown';
         if (typeof _jiraFieldTypesCache !== 'undefined' && _jiraFieldTypesCache) {
-            var apiFieldType = _jiraFieldTypesCache[id] || _jiraFieldTypesCache[name];
+            apiFieldType = _jiraFieldTypesCache[id] || _jiraFieldTypesCache[name] || 'unknown';
             if (apiFieldType === 'datetime') {
                 isDateTimeField = true;
             } else if (apiFieldType === 'date') {
                 isDateTimeField = false;
             }
         }
+        
+        console.log("PersianCalendar-Debug: Field ID=" + id + " Name=" + name + " -> isDateTimeField=" + !!isDateTimeField + " (API cache: " + apiFieldType + ", hasTimeDesc=" + !!hasTimeInDescription + ")");
         
         return !!isDateTimeField;
     }
@@ -4278,6 +4305,7 @@
             // Custom date fields in edit dialogs (like Plan Date, Time of Start)
             '.field-group input.datepicker-input',
             '.field-group input.aui-date-picker',
+            '.field-group input.datetimepicker-input',
             // Log Work dialog DateTime fields (Date Started)
             'input#log-work-form-date-logged-date-picker',
             'input#log-work-date-logged-date-picker',
