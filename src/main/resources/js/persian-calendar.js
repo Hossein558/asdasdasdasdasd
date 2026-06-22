@@ -1,6 +1,6 @@
 /**
  * Persian Calendar Integration for Jira
- * Version 11.4.33 - Focused Rebind for AUI Conflicts
+ * Version 11.4.34 - Global Capture-Phase Interceptor (Robust Persian Picker)
  * Replaces the default Gregorian date picker with Persian/Shamsi calendar
  * Stores data in Gregorian format
  */
@@ -14,7 +14,7 @@
 
     // ========== LOGGING SYSTEM ==========
     var PC_LOG_PREFIX = '[PC-PERSIAN-CALENDAR]';
-    var PC_VERSION = '11.4.33';
+    var PC_VERSION = '11.4.34';
 
     // XSS Escaping Helper
     function escapeHtmlForTitle(str) {
@@ -4645,6 +4645,176 @@
     }
 
     // ========================================================================
+    // GLOBAL CAPTURE-PHASE HELPERS
+    // These power the document-level mousedown interceptor added below.
+    // ========================================================================
+
+    /**
+     * Returns true if the given jQuery input element should be handled by
+     * the Persian calendar (same exclusion rules as initPersianCalendar).
+     * @param {jQuery} $input
+     * @returns {boolean}
+     */
+    function isPersianCalendarCandidate($input) {
+        if (!$input || $input.length === 0) return false;
+        var inputType = $input.attr('type') || 'text';
+        if (inputType !== 'text') return false;
+
+        // Skip fields inside inline-edit / view-page containers
+        if ($input.closest('.inline-edit-fields').length > 0 ||
+            $input.closest('.inline-edit-fields-container').length > 0 ||
+            $input.closest('.editable-field').length > 0 ||
+            $input.closest('.aui-inline-dialog').length > 0 ||
+            $input.closest('#datesmodule').length > 0 ||
+            $input.closest('#details-module').length > 0 ||
+            $input.closest('.issue-view').length > 0 ||
+            $input.closest('[data-type="date"]').length > 0 ||
+            $input.closest('.ajs-layer').length > 0) {
+            return false;
+        }
+
+        // Must match one of the selector patterns used by initPersianCalendar
+        var id   = $input.attr('id')   || '';
+        var name = $input.attr('name') || '';
+        var cls  = $input.attr('class') || '';
+
+        if (id === 'duedate' || name === 'duedate') return true;
+        if (id === 'dateBetweenStart' || id === 'dateBetweenEnd') return true;
+        if (id === 'log-work-form-date-logged-date-picker' ||
+            id === 'log-work-date-logged-date-picker') return true;
+        if (name === 'startDate' || name === 'worklog_startDate') return true;
+        if (cls.indexOf('datepicker-input') !== -1 ||
+            cls.indexOf('datetimepicker-input') !== -1 ||
+            cls.indexOf('aui-date-picker') !== -1) return true;
+        if ((id.indexOf('customfield_') === 0 || name.indexOf('customfield_') === 0) &&
+            (cls.indexOf('datepicker-input') !== -1 ||
+             cls.indexOf('datetimepicker-input') !== -1 ||
+             cls.indexOf('aui-date-picker') !== -1)) return true;
+
+        return false;
+    }
+
+    /**
+     * Given any DOM node that was clicked, tries to resolve the relevant
+     * date-input element.  The user may click:
+     *   – directly on the input itself
+     *   – on an AUI calendar icon / trigger button that sits next to the input
+     *   – on a wrapper element that AUI places around the input
+     *
+     * Returns the input jQuery object if one is found, otherwise null.
+     * @param {EventTarget} target  – e.target from the click/mousedown event
+     * @returns {jQuery|null}
+     */
+    function findCalendarInputFromEventTarget(target) {
+        var el = target;
+        // Walk up at most 4 levels to find an input or a container that has one
+        for (var i = 0; i < 4 && el && el !== document.body; i++) {
+            // Case 1: the element itself is an input
+            if (el.tagName === 'INPUT') {
+                var $el = jQuery(el);
+                if (isPersianCalendarCandidate($el)) return $el;
+                return null;
+            }
+
+            // Case 2: AUI calendar icon / trigger button or its span/i child
+            // These elements sit immediately next to the input in the same parent
+            var cls = (el.className && typeof el.className === 'string') ? el.className : '';
+            var isIcon = (
+                cls.indexOf('icon-calendar') !== -1 ||
+                cls.indexOf('aui-icon') !== -1 ||
+                cls.indexOf('aui-iconfont-calendar') !== -1 ||
+                (el.tagName === 'BUTTON' && cls.indexOf('aui-button') !== -1 && cls.indexOf('pc-') === -1)
+            );
+
+            if (isIcon) {
+                // Look for a sibling input
+                var $parent = jQuery(el).parent();
+                var $sibling = $parent.find('input').filter(function() {
+                    return isPersianCalendarCandidate(jQuery(this));
+                }).first();
+                if ($sibling.length > 0) return $sibling;
+
+                // Or: the input may be the previous sibling of the parent
+                var $prev = $parent.prevAll('input').first();
+                if ($prev.length > 0 && isPersianCalendarCandidate($prev)) return $prev;
+            }
+
+            // Case 3: AUI wraps the input in a div/span; find the input inside
+            if (el.querySelector) {
+                var inner = el.querySelector(
+                    'input.datepicker-input, input.datetimepicker-input, ' +
+                    'input.aui-date-picker, input#duedate, input[name="duedate"], ' +
+                    'input#dateBetweenStart, input#dateBetweenEnd'
+                );
+                if (inner) {
+                    var $inner = jQuery(inner);
+                    if (isPersianCalendarCandidate($inner)) return $inner;
+                }
+            }
+
+            el = el.parentElement;
+        }
+        return null;
+    }
+
+    /**
+     * Opens the Persian picker (date-only or datetime) for a given input.
+     * Hides any open AUI datepicker first.
+     * @param {jQuery}  $input   - The date input
+     * @param {jQuery}  $anchor  - Element to anchor the picker popup to (usually same as $input)
+     * @param {jQuery}  $        - jQuery reference
+     */
+    function openPersianPickerForInput($input, $anchor, $) {
+        // Hide any native AUI datepicker that may already be open
+        try {
+            if ($input.data('aui-datepicker')) $input.data('aui-datepicker').hide();
+        } catch(ex) {}
+        try {
+            jQuery('.aui-datepicker-dropdown, .aui-calendar, [class*="aui-datepicker"]').hide();
+        } catch(ex) {}
+
+        var isDateTimeField = isFieldDateTime($input);
+        logInfo('Global interceptor: opening ' + (isDateTimeField ? 'DateTime' : 'Date') +
+                ' picker for id=' + $input.attr('id') + ' name=' + $input.attr('name'));
+
+        // Retrieve the Persian display span if one exists (blue-button flow)
+        var $display = $input.data('pc-display') || jQuery([]);
+
+        if (isDateTimeField) {
+            showPersianDateTimePicker($anchor, $input, function(selectedDateTime) {
+                if (selectedDateTime) {
+                    var hour24 = selectedDateTime.hour;
+                    if (selectedDateTime.ampm === 'PM' && hour24 !== 12) hour24 += 12;
+                    if (selectedDateTime.ampm === 'AM' && hour24 === 12) hour24 = 0;
+                    var hStr   = hour24 < 10 ? '0' + hour24 : '' + hour24;
+                    var minStr = selectedDateTime.minute < 10 ? '0' + selectedDateTime.minute : '' + selectedDateTime.minute;
+                    var pDisplay = formatPersianDate(selectedDateTime.jy, selectedDateTime.jm, selectedDateTime.jd) +
+                                   ' ' + hStr + ':' + minStr;
+                    $display.text(pDisplay);
+                    var gDate = toGregorian(selectedDateTime.jy, selectedDateTime.jm, selectedDateTime.jd);
+                    setInputAndTriggerEvents($input,
+                        formatJiraDateTime(gDate.gy, gDate.gm, gDate.gd,
+                                           selectedDateTime.hour, selectedDateTime.minute, selectedDateTime.ampm));
+                } else {
+                    $display.text('');
+                    setInputAndTriggerEvents($input, '');
+                }
+            });
+        } else {
+            showPersianCalendar($anchor, $input, function(selectedDate) {
+                if (selectedDate) {
+                    $display.text(formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
+                    var gDate = toGregorian(selectedDate.jy, selectedDate.jm, selectedDate.jd);
+                    setInputAndTriggerEvents($input, formatJiraDate(gDate.gy, gDate.gm, gDate.gd));
+                } else {
+                    $display.text('');
+                    setInputAndTriggerEvents($input, '');
+                }
+            });
+        }
+    }
+
+    // ========================================================================
     // Audit Log Date Picker - Replace Atlaskit Gregorian calendar with Persian
     // ========================================================================
     /**
@@ -4929,7 +5099,49 @@
             attributes: false
         });
         logInfo('AUI conflict resolver observer started (targeted rebind)');
-        
+
+        // ========== GLOBAL CAPTURE-PHASE INTERCEPTOR (v11.4.34) ==========
+        // Intercepts mousedown on date inputs AND on native Jira calendar icons
+        // BEFORE AUI ever sees the event.  This is the primary entry-point for
+        // opening the Persian picker and makes us independent of the blue button.
+        (function installGlobalCaptureInterceptor() {
+            if (document._pcCaptureInstalled) return; // idempotent
+            document._pcCaptureInstalled = true;
+
+            document.addEventListener('mousedown', function(e) {
+                // Quick bail-outs: our own popup, middle/right button
+                if (e.button !== 0) return;
+                var target = e.target;
+                if (!target) return;
+
+                // Never intercept clicks inside our own Persian picker popup
+                if (target.closest && target.closest('.pc-popup, .pc-calendar-btn, .pc-search-btn')) return;
+                if (jQuery(target).closest('.pc-popup, .pc-calendar-btn, .pc-search-btn').length > 0) return;
+
+                // Resolve the click target to an actual date input
+                var $input = findCalendarInputFromEventTarget(target);
+                if (!$input || $input.length === 0) return;
+
+                // Require license before blocking anything
+                checkLicenseStatus(function(license) {
+                    if (!license.enabled) return;
+
+                    // At this point we will handle it — stop Jira/AUI from seeing it
+                    e.preventDefault();
+                    e.stopImmediatePropagation();
+
+                    // Small delay so the click fully lands before we open the popup
+                    // (avoids positioning issues when the popup opens before layout settles)
+                    setTimeout(function() {
+                        openPersianPickerForInput($input, $input, $);
+                    }, 10);
+                });
+            }, true /* capture phase */);
+
+            logInfo('Global capture-phase mousedown interceptor installed (v11.4.34)');
+        })();
+        // ========== END GLOBAL CAPTURE-PHASE INTERCEPTOR ==========
+
         if (typeof JIRA !== 'undefined' && JIRA.bind) {
             logInfo('JIRA framework detected, binding to NEW_CONTENT_ADDED');
             JIRA.bind(JIRA.Events.NEW_CONTENT_ADDED, function () {
