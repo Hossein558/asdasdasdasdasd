@@ -4208,6 +4208,57 @@
         try { $input.trigger('input').trigger('change').trigger('blur'); } catch (e) {}
     }
 
+    /**
+     * Determines if a given input field is a DateTime field using heuristics.
+     * @param {HTMLElement|jQuery} inputElement
+     * @returns {boolean}
+     */
+    function isFieldDateTime(inputElement) {
+        var $original = jQuery(inputElement);
+        var currentValue = $original.val() || $original.text() || '';
+        var placeholder = $original.attr('placeholder') || '';
+        
+        var hasTimeInValue = currentValue.match(/\d{1,2}:\d{2}/) || currentValue.match(/[AP]M/i);
+        var hasTimeInPlaceholder = placeholder.match(/\d{1,2}:\d{2}/) || placeholder.match(/h:mm/i);
+        
+        var $fieldGroup = $original.closest('.field-group, .ak-field');
+        var descriptionText = $fieldGroup.find('.description, .field-desc, .aui-field-description').text() || '';
+        var hasTimeInDescription = descriptionText.match(/h:mm/i) || descriptionText.match(/time/i) || descriptionText.match(/\d{1,2}:\d{2}/);
+        
+        var id = $original.attr('id') || '';
+        var name = $original.attr('name') || '';
+        
+        var isKnownDateTimeField =
+            id === 'log-work-form-date-logged-date-picker' ||
+            id === 'log-work-date-logged-date-picker' ||
+            id.indexOf('created') !== -1 ||
+            id.indexOf('updated') !== -1 ||
+            id.indexOf('resolved') !== -1 ||
+            id.indexOf('resolutiondate') !== -1 ||
+            name === 'startDate' ||
+            name === 'worklog_startDate' ||
+            name.indexOf('created') !== -1 ||
+            name.indexOf('updated') !== -1;
+            
+        var $nativeTrigger = $original.parent().find('a[id$="-trigger"], span.aui-icon, span.icon-date, span.icon-default');
+        var triggerTitle = $nativeTrigger.attr('title') || '';
+        var triggerText = $nativeTrigger.text() || '';
+        var hasTimeInTrigger = triggerTitle.match(/time|زمان|ساعت/i) || triggerText.match(/time|زمان|ساعت/i);
+        
+        var isDateTimeField = hasTimeInValue || hasTimeInPlaceholder || hasTimeInDescription || isKnownDateTimeField || hasTimeInTrigger;
+        
+        if (typeof _jiraFieldTypesCache !== 'undefined' && _jiraFieldTypesCache) {
+            var apiFieldType = _jiraFieldTypesCache[id] || _jiraFieldTypesCache[name];
+            if (apiFieldType === 'datetime') {
+                isDateTimeField = true;
+            } else if (apiFieldType === 'date') {
+                isDateTimeField = false;
+            }
+        }
+        
+        return !!isDateTimeField;
+    }
+
     // Initialize Persian calendar for date inputs
     /**
      * Main initialization routine for injecting the Persian Calendar UI into Jira.
@@ -4283,77 +4334,8 @@
                 return;
             }
 
-            // Detect DateTime fields (Date + Time picker)
-            // Check multiple sources: value, placeholder, description text, data attributes
-            var currentValue = $original.val() || '';
-            var placeholder = $original.attr('placeholder') || '';
-
-            // Check if the field has time in its value
-            var hasTimeInValue = currentValue.match(/\d{1,2}:\d{2}/) || currentValue.match(/[AP]M/i);
-
-            // Check placeholder for time hints
-            var hasTimeInPlaceholder = placeholder.match(/\d{1,2}:\d{2}/) || placeholder.match(/h:mm/i);
-
-            // Check description text in sibling elements (e.g., "Use the dd/MMM/yy h:mm a date format")
-            var $fieldGroup = $original.closest('.field-group');
-            var descriptionText = $fieldGroup.find('.description, .field-desc, .aui-field-description').text() || '';
-            var hasTimeInDescription = descriptionText.match(/h:mm/i) || descriptionText.match(/time/i) || descriptionText.match(/\d{1,2}:\d{2}/);
-
-            // Check specific known DateTime field IDs/names
-            var id = $original.attr('id') || '';
-            var name = $original.attr('name') || '';
-
-            var isKnownDateTimeField =
-                id === 'log-work-form-date-logged-date-picker' ||
-                id === 'log-work-date-logged-date-picker' ||
-                id.indexOf('created') !== -1 ||
-                id.indexOf('updated') !== -1 ||
-                id.indexOf('resolved') !== -1 ||
-                id.indexOf('resolutiondate') !== -1 ||
-                name === 'startDate' ||
-                name === 'worklog_startDate' ||
-                name.indexOf('created') !== -1 ||
-                name.indexOf('updated') !== -1;
-
-            // Check native trigger title/text
-            var $nativeTrigger = $original.parent().find('a[id$="-trigger"], span.aui-icon, span.icon-date, span.icon-default');
-            var triggerTitle = $nativeTrigger.attr('title') || '';
-            var triggerText = $nativeTrigger.text() || '';
-            var hasTimeInTrigger = triggerTitle.match(/time|زمان|ساعت/i) || triggerText.match(/time|زمان|ساعت/i);
-
-            // Calculate heuristics based on DOM
-            var isDateTimeFieldHeuristics = hasTimeInValue || hasTimeInPlaceholder || hasTimeInDescription || isKnownDateTimeField || hasTimeInTrigger;
-            var isDateTimeField = isDateTimeFieldHeuristics;
-
-            // API OVERRIDE: Check exact field type from Jira REST API cache if available
-            var apiFieldType = null;
-            if (_jiraFieldTypesCache) {
-                // The input ID is usually 'customfield_10001', which exactly matches the API field id.
-                if (_jiraFieldTypesCache[id]) {
-                    apiFieldType = _jiraFieldTypesCache[id];
-                } else if (_jiraFieldTypesCache[name]) {
-                    apiFieldType = _jiraFieldTypesCache[name];
-                }
-
-                if (apiFieldType === 'datetime') {
-                    isDateTimeField = true;
-                    logDebug('API OVERRIDE: Forcing DATETIME for field ' + (id || name));
-                } else if (apiFieldType === 'date') {
-                    isDateTimeField = false;
-                    logDebug('API OVERRIDE: Forcing DATE for field ' + (id || name));
-                }
-            }
-
-            // Combine all checks
-            // Log detection details for debugging
-            logDebug('DateTime detection', {
-                id: $original.attr('id'),
-                hasTimeInValue: !!hasTimeInValue,
-                hasTimeInPlaceholder: !!hasTimeInPlaceholder,
-                hasTimeInDescription: !!hasTimeInDescription,
-                descriptionText: descriptionText.substring(0, 100),
-                isDateTimeField: isDateTimeField
-            });
+            // Detect DateTime fields (Date + Time picker) using the helper
+            var isDateTimeField = isFieldDateTime($original);
 
             logDebug('Found matching input', {
                 id: $original.attr('id'),
@@ -5198,7 +5180,7 @@
                             if (!input.dataset.pcAttached) {
                                 input.dataset.pcAttached = 'true';
                                 // Determine if it needs time
-                                var isDateTime = val.indexOf(':') !== -1;
+                                var isDateTime = isFieldDateTime(input);
 
                                 input.addEventListener('click', function (ev) {
                                     ev.preventDefault();
@@ -5304,7 +5286,7 @@
 
                                         // Show Persian Calendar
                                         var val = (activeInput.value || activeInput.innerText || '').trim();
-                                        var isDateTime = val.indexOf(':') !== -1;
+                                        var isDateTime = isFieldDateTime(activeInput);
 
                                         logInfo('JXL: Force-showing Persian calendar on active input', { isDateTime: isDateTime });
 
