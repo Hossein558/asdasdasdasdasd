@@ -4232,24 +4232,38 @@
         var $original = jQuery(inputElement);
         var currentValue = $original.val() || $original.text() || '';
         var placeholder = $original.attr('placeholder') || '';
-        
-        var hasTimeInValue = currentValue.match(/\d{1,2}:\d{2}/) || currentValue.match(/[AP]M/i);
-        var hasTimeInPlaceholder = placeholder.match(/\d{1,2}:\d{2}/) || placeholder.match(/h:mm/i);
-        
-        var $fieldGroup = $original.closest('.field-group, .ak-field, .jira-field-group');
-        var descriptionText = '';
-        if ($fieldGroup.length > 0) {
-            descriptionText = $fieldGroup.text() || '';
-        } else {
-            descriptionText = $original.parent().parent().text() || '';
-        }
-        
-        var hasTimeInDescription = descriptionText.match(/h:mm/i) || descriptionText.match(/time/i) || descriptionText.match(/\d{1,2}:\d{2}/) || descriptionText.match(/زمان/) || descriptionText.match(/ساعت/);
-        
         var id = $original.attr('id') || '';
         var name = $original.attr('name') || '';
         var className = $original.attr('class') || '';
-        
+
+        var hasTimeInValue = currentValue.match(/\d{1,2}:\d{2}/) || currentValue.match(/[AP]M/i);
+        var hasTimeInPlaceholder = placeholder.match(/\d{1,2}:\d{2}/) || placeholder.match(/h:mm/i);
+
+        // --- Smart description detection ---
+        // Look specifically at the description/hint element, not the entire field group text.
+        // This prevents picking up labels from neighbouring fields.
+        var descriptionText = '';
+        var $fieldGroup = $original.closest('.field-group, .ak-field, .jira-field-group, .form-body, [data-field-id]');
+        if ($fieldGroup.length > 0) {
+            // Try specific description child elements first
+            var $descEl = $fieldGroup.find('.description, .field-desc, .aui-field-description, .helper-text, [class*="description"], [class*="hint"]').first();
+            if ($descEl.length > 0) {
+                descriptionText = $descEl.text() || '';
+            } else {
+                // Fall back to the full field group text but strip out the label/input text
+                descriptionText = $fieldGroup.text() || '';
+            }
+        } else {
+            // Walk up two levels and get text
+            descriptionText = $original.parent().parent().text() || '';
+        }
+
+        // Strong signal: description explicitly shows a date+time format pattern
+        var hasTimeFormatInDescription = descriptionText.match(/h:mm/i) || descriptionText.match(/HH:mm/i);
+        // Weaker signal: description mentions words associated with time
+        var hasTimeWordInDescription = descriptionText.match(/\btime\b/i) || descriptionText.match(/زمان/) || descriptionText.match(/ساعت/);
+        var hasTimeInDescription = hasTimeFormatInDescription || hasTimeWordInDescription;
+
         var isKnownDateTimeField =
             id === 'log-work-form-date-logged-date-picker' ||
             id === 'log-work-date-logged-date-picker' ||
@@ -4263,26 +4277,49 @@
             name.indexOf('updated') !== -1 ||
             className.indexOf('datetimepicker') !== -1 ||
             className.indexOf('aui-datetime-picker') !== -1;
-            
+
         var $nativeTrigger = $original.parent().find('a[id$="-trigger"], span.aui-icon, span.icon-date, span.icon-default');
         var triggerTitle = $nativeTrigger.attr('title') || '';
         var triggerText = $nativeTrigger.text() || '';
         var hasTimeInTrigger = triggerTitle.match(/time|زمان|ساعت/i) || triggerText.match(/time|زمان|ساعت/i);
-        
-        var isDateTimeField = hasTimeInValue || hasTimeInPlaceholder || hasTimeInDescription || isKnownDateTimeField || hasTimeInTrigger;
-        
+
+        // Aggregate heuristic result (before API check)
+        var heuristicIsDateTime = !!(hasTimeInValue || hasTimeInPlaceholder || hasTimeInDescription || isKnownDateTimeField || hasTimeInTrigger);
+        // Whether a strong signal (explicit time format) was detected
+        var hasStrongHeuristicSignal = !!(hasTimeInValue || hasTimeFormatInDescription || hasTimeInPlaceholder);
+
+        var isDateTimeField = heuristicIsDateTime;
         var apiFieldType = 'unknown';
+
         if (typeof _jiraFieldTypesCache !== 'undefined' && _jiraFieldTypesCache) {
             apiFieldType = _jiraFieldTypesCache[id] || _jiraFieldTypesCache[name] || 'unknown';
             if (apiFieldType === 'datetime') {
+                // API explicitly says datetime – trust it unconditionally
                 isDateTimeField = true;
             } else if (apiFieldType === 'date') {
-                isDateTimeField = false;
+                // API says date – but DON'T override a strong heuristic signal.
+                // e.g. if the description explicitly shows "h:mm" format, the field
+                // is almost certainly a DateTime field miscategorised by the API.
+                if (!hasStrongHeuristicSignal) {
+                    isDateTimeField = false;
+                }
+                // If we have a strong signal, keep isDateTimeField = heuristicIsDateTime (true)
             }
         }
-        
-        console.log("PersianCalendar-Debug: Field ID=" + id + " Name=" + name + " -> isDateTimeField=" + !!isDateTimeField + " (API cache: " + apiFieldType + ", hasTimeDesc=" + !!hasTimeInDescription + ")");
-        
+
+        console.log(
+            'PersianCalendar-Debug: id=' + id +
+            ' name=' + name +
+            ' apiType=' + apiFieldType +
+            ' heuristic=' + heuristicIsDateTime +
+            ' strongSignal=' + hasStrongHeuristicSignal +
+            ' hasTimeFormatDesc=' + !!hasTimeFormatInDescription +
+            ' hasTimeWordDesc=' + !!hasTimeWordInDescription +
+            ' hasTimePlaceholder=' + !!hasTimeInPlaceholder +
+            ' descText=[' + descriptionText.substring(0, 80) + ']' +
+            ' => isDateTime=' + !!isDateTimeField
+        );
+
         return !!isDateTimeField;
     }
 
