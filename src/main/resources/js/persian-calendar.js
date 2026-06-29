@@ -2373,6 +2373,7 @@
 
         // Add a body class to aggressively hide any Atlaskit popups while our calendar is open
         document.body.classList.add('pc-calendar-is-open');
+        hideNativeAtlaskitCalendars();
 
         // Create popup
         var popup = document.createElement('div');
@@ -2673,6 +2674,7 @@
         var openTime = Date.now();
 
         document.body.classList.add('pc-calendar-is-open');
+        hideNativeAtlaskitCalendars();
 
         // Create popup
         var popup = document.createElement('div');
@@ -3568,6 +3570,9 @@
         var overlay = $('<div class="pc-overlay"></div>').appendTo('body');
         var openTime = Date.now();
 
+        document.body.classList.add('pc-calendar-is-open');
+        hideNativeAtlaskitCalendars();
+
         // Create popup
         var popup = $('<div class="pc-popup react-datepicker-ignore-onclickoutside"></div>').appendTo('body');
 
@@ -3917,6 +3922,8 @@
         // Create overlay
         var overlay = $('<div class="pc-overlay"></div>').appendTo('body');
         var openTime = Date.now();
+        document.body.classList.add('pc-calendar-is-open');
+        hideNativeAtlaskitCalendars();
         var popup = $('<div class="pc-popup react-datepicker-ignore-onclickoutside"></div>').appendTo('body');
 
         // Prevent mousedown on popup from causing blur, except on interactive elements
@@ -4180,15 +4187,22 @@
         try { inputEl.dispatchEvent(new Event('input', { bubbles: true })); } catch(e) {}
         try { inputEl.dispatchEvent(new Event('change', { bubbles: true })); } catch(e) {}
 
-        // Also try to find React props and invoke onChange directly if tracker approach failed
+        // Also try to find React props and invoke handlers directly if tracker approach failed
         try {
-            var reactPropsKey = Object.keys(inputEl).find(function(key) {
-                return key.startsWith('__reactProps$') || key.startsWith('__reactEventHandlers$');
-            });
-            if (reactPropsKey && inputEl[reactPropsKey] && inputEl[reactPropsKey].onChange) {
-                var syntheticEvent = { target: inputEl, currentTarget: inputEl, type: 'change' };
-                inputEl[reactPropsKey].onChange(syntheticEvent);
-                if (window.PC_DEBUG) { logDebug('Invoked React onChange directly on ' + inputEl.id); }
+            var keys = Object.keys(inputEl);
+            var reactPropsKey = null;
+            for (var i = 0; i < keys.length; i++) {
+                if (keys[i].indexOf('__reactProps$') === 0 || keys[i].indexOf('__reactEventHandlers$') === 0) {
+                    reactPropsKey = keys[i];
+                    break;
+                }
+            }
+            if (reactPropsKey && inputEl[reactPropsKey]) {
+                var syntheticEvent = { target: inputEl, currentTarget: inputEl, type: 'change', bubbles: true };
+                if (inputEl[reactPropsKey].onInput) inputEl[reactPropsKey].onInput(syntheticEvent);
+                if (inputEl[reactPropsKey].onChange) inputEl[reactPropsKey].onChange(syntheticEvent);
+                if (inputEl[reactPropsKey].onBlur) inputEl[reactPropsKey].onBlur(syntheticEvent);
+                if (window.PC_DEBUG) { logDebug('Invoked React handlers directly on ' + inputEl.id); }
             }
         } catch(e) {}
 
@@ -4623,6 +4637,150 @@
     }
 
     // ========================================================================
+    // ATLASKIT / ADVANCED ROADMAPS HELPERS
+    // Jira Plans renders Atlaskit date pickers through React portals under body.
+    // Keep this ES5-only: Jira's web-resource minifier may reject modern syntax.
+    // ========================================================================
+
+    function elementMatchesSelector(el, selector) {
+        if (!el || el.nodeType !== 1) return false;
+        var proto = Element.prototype;
+        var matches = proto.matches || proto.msMatchesSelector || proto.webkitMatchesSelector;
+        if (!matches) return false;
+        try {
+            return matches.call(el, selector);
+        } catch (ex) {
+            return false;
+        }
+    }
+
+    function findClosestBySelector(el, selector) {
+        var cur = el;
+        while (cur && cur.nodeType === 1 && cur !== document.body) {
+            if (elementMatchesSelector(cur, selector)) return cur;
+            cur = cur.parentElement;
+        }
+        return null;
+    }
+
+    function hasNativeCalendarContent(el) {
+        if (!el || !el.querySelector) return false;
+        try {
+            if (el.querySelector('table[role="grid"], [role="grid"]')) return true;
+            if (el.querySelector('[aria-label*="Choose"], [aria-label*="Calendar"]')) return true;
+            if (el.querySelector('[data-testid*="calendar"], [data-testid*="date-picker"]')) return true;
+            if (el.querySelector('[class*="calendar"], [class*="datepicker"], [class*="date-picker"]')) return true;
+        } catch (ex) {}
+        return false;
+    }
+
+    function addClassName(el, className) {
+        if (!el || el.nodeType !== 1) return;
+        if (el.className && typeof el.className === 'string' && el.className.indexOf(className) !== -1) return;
+        if (el.className && typeof el.className === 'string') {
+            el.className += ' ' + className;
+        } else {
+            el.className = className;
+        }
+    }
+
+    function markNativeCalendarContainer(el) {
+        if (!el || el.nodeType !== 1) return;
+        if (findClosestBySelector(el, '.pc-popup')) return;
+        var container = findClosestBySelector(el, '[data-placement], [role="dialog"], [class*="popper"], [class*="Popper"], [class*="portal"], [class*="Portal"]');
+        if (!container) container = el;
+        if (findClosestBySelector(container, '.pc-popup')) return;
+        addClassName(container, 'pc-native-calendar-hidden');
+    }
+
+    function hideNativeAtlaskitCalendars() {
+        if (!document.body || !document.body.classList || !document.body.classList.contains('pc-calendar-is-open')) return;
+        var candidates;
+        try {
+            candidates = document.querySelectorAll('table[role="grid"], [role="grid"], [data-placement], [role="dialog"], [class*="calendar"], [class*="datepicker"], [class*="date-picker"]');
+        } catch (ex) {
+            return;
+        }
+        for (var i = 0; i < candidates.length; i++) {
+            var node = candidates[i];
+            if (findClosestBySelector(node, '.pc-popup')) continue;
+            if (hasNativeCalendarContent(node) || elementMatchesSelector(node, 'table[role="grid"], [role="grid"]')) {
+                markNativeCalendarContainer(node);
+            }
+        }
+    }
+
+    function installNativeCalendarSuppressor() {
+        if (window.pcNativeCalendarSuppressorInstalled) return;
+        window.pcNativeCalendarSuppressorInstalled = true;
+
+        document.addEventListener('focusin', function(e) {
+            setTimeout(hideNativeAtlaskitCalendars, 0);
+            setTimeout(hideNativeAtlaskitCalendars, 80);
+
+            var target = e.target;
+            if (!target || target.tagName !== 'INPUT') return;
+            var $targetInput = jQuery(target);
+            if (!looksLikeRoadmapsDateInput($targetInput)) return;
+            if (window.pcRoadmapsOpeningInput === target) return;
+            window.pcRoadmapsOpeningInput = target;
+
+            if (document.body && document.body.classList) {
+                document.body.classList.add('pc-calendar-is-open');
+            }
+            hideNativeAtlaskitCalendars();
+
+            checkLicenseStatus(function(license) {
+                if (!license.enabled) {
+                    window.pcRoadmapsOpeningInput = null;
+                    showLicenseExpiredMessage();
+                    return;
+                }
+                setTimeout(function() {
+                    openPersianPickerForInput($targetInput, $targetInput, jQuery);
+                    setTimeout(function() { window.pcRoadmapsOpeningInput = null; }, 300);
+                }, 10);
+            });
+        }, true);
+
+        if (typeof MutationObserver === 'undefined' || !document.body) return;
+        var observer = new MutationObserver(function(mutations) {
+            if (!document.body.classList || !document.body.classList.contains('pc-calendar-is-open')) return;
+            var shouldScan = false;
+            for (var i = 0; i < mutations.length; i++) {
+                if (mutations[i].addedNodes && mutations[i].addedNodes.length > 0) {
+                    shouldScan = true;
+                    break;
+                }
+            }
+            if (shouldScan) {
+                hideNativeAtlaskitCalendars();
+                setTimeout(hideNativeAtlaskitCalendars, 50);
+            }
+        });
+        observer.observe(document.body, { childList: true, subtree: true });
+        window.pcNativeCalendarSuppressor = observer;
+        logInfo('Native Atlaskit calendar suppressor installed');
+    }
+
+    function looksLikeRoadmapsDateInput($input) {
+        if (!$input || $input.length === 0) return false;
+        var el = $input[0];
+        var id = ($input.attr('id') || '').toLowerCase();
+        var name = ($input.attr('name') || '').toLowerCase();
+        var placeholder = ($input.attr('placeholder') || '').toLowerCase();
+        var aria = ($input.attr('aria-label') || '').toLowerCase();
+        var value = $input.val() || '';
+        if (id.indexOf('target') !== -1 || name.indexOf('target') !== -1 || aria.indexOf('target') !== -1) return true;
+        if (placeholder.indexOf('target start') !== -1 || placeholder.indexOf('target end') !== -1) return true;
+        if (placeholder.indexOf('start') !== -1 && placeholder.indexOf('date') !== -1) return true;
+        if (placeholder.indexOf('end') !== -1 && placeholder.indexOf('date') !== -1) return true;
+        if (value && parseJiraDate(value)) return true;
+        if (findClosestBySelector(el, '[data-testid*="roadmap"], [data-testid*="plan"], [class*="roadmap"], [class*="Roadmap"], [class*="portfolio"], [class*="Portfolio"]')) return true;
+        return false;
+    }
+
+    // ========================================================================
     // GLOBAL CAPTURE-PHASE HELPERS
     // These power the document-level mousedown interceptor added below.
     // ========================================================================
@@ -4637,6 +4795,8 @@
         if (!$input || $input.length === 0) return false;
         var inputType = $input.attr('type') || 'text';
         if (inputType !== 'text') return false;
+
+        if (looksLikeRoadmapsDateInput($input)) return true;
 
         // Skip fields inside inline-edit / view-page containers
         if ($input.closest('.inline-edit-fields').length > 0 ||
@@ -4717,18 +4877,24 @@
                 if ($prev.length > 0 && isPersianCalendarCandidate($prev)) return $prev;
             }
 
-            // Case 3: AUI wraps the input in a div/span; find the input inside
+            // Case 3: AUI/Atlaskit wraps the input in a div/span; find the input inside
             if (el.querySelector) {
                 var inner = el.querySelector(
                     'input.datepicker-input, input.datetimepicker-input, ' +
                     'input.aui-date-picker, input#duedate, input[name="duedate"], ' +
-                    'input#dateBetweenStart, input#dateBetweenEnd'
+                    'input#dateBetweenStart, input#dateBetweenEnd, ' +
+                    'input[id*="react-select"], input[aria-label*="Target"], input[placeholder*="date"], input[placeholder*="Date"]'
                 );
                 if (inner) {
                     var $inner = jQuery(inner);
                     if (isPersianCalendarCandidate($inner)) return $inner;
                 }
             }
+
+            var $nearInput = jQuery(el).find('input[type="text"], input:not([type])').filter(function() {
+                return isPersianCalendarCandidate(jQuery(this));
+            }).first();
+            if ($nearInput.length > 0) return $nearInput;
 
             el = el.parentElement;
         }
@@ -4743,13 +4909,20 @@
      * @param {jQuery}  $        - jQuery reference
      */
     function openPersianPickerForInput($input, $anchor, $) {
-        // Hide any native AUI datepicker that may already be open
+        if (document.body && document.body.classList) {
+            document.body.classList.add('pc-calendar-is-open');
+        }
+
+        // Hide any native AUI/Atlaskit datepicker that may already be open
         try {
             if ($input.data('aui-datepicker')) $input.data('aui-datepicker').hide();
         } catch(ex) {}
         try {
             jQuery('.aui-datepicker-dropdown, .aui-calendar, [class*="aui-datepicker"]').hide();
         } catch(ex) {}
+        hideNativeAtlaskitCalendars();
+        setTimeout(hideNativeAtlaskitCalendars, 50);
+        setTimeout(hideNativeAtlaskitCalendars, 150);
 
         var isDateTimeField = isFieldDateTime($input);
         logInfo('Global interceptor: opening ' + (isDateTimeField ? 'DateTime' : 'Date') +
@@ -4814,7 +4987,6 @@
         auditCSS.textContent = [
             '/* Hide Atlaskit calendar popup when it appears on audit page */',
             'body.pc-calendar-is-open [role="dialog"] table[role="grid"] { display: none !important; }',
-            'body.pc-calendar-is-open [role="dialog"]:has(table[role="grid"]) { display: none !important; }',
             'body.pc-calendar-is-open div[data-placement] { display: none !important; }',
             'body.pc-calendar-is-open .react-datepicker-popper { display: none !important; }',
             'body.pc-calendar-is-open .react-datepicker { display: none !important; }',
@@ -5014,6 +5186,7 @@
                     initPersianCalendar($);
                     convertViewPageDates($);
                     initInlineEditCalendar($);
+                    installNativeCalendarSuppressor();
                     // v11.4.0: New date display converters
                     convertActivityStreamTime($);
                     convertAuditLogDates($);
@@ -5100,13 +5273,16 @@
                 var $input = findCalendarInputFromEventTarget(target);
                 if (!$input || $input.length === 0) return;
 
-                // Require license before blocking anything
-                checkLicenseStatus(function(license) {
-                    if (!license.enabled) return;
+                // Stop Jira/AUI/React immediately; async license checks are too late for capture phase.
+                e.preventDefault();
+                e.stopPropagation();
+                e.stopImmediatePropagation();
 
-                    // At this point we will handle it — stop Jira/AUI from seeing it
-                    e.preventDefault();
-                    e.stopImmediatePropagation();
+                checkLicenseStatus(function(license) {
+                    if (!license.enabled) {
+                        showLicenseExpiredMessage();
+                        return;
+                    }
 
                     // Small delay so the click fully lands before we open the popup
                     // (avoids positioning issues when the popup opens before layout settles)

@@ -155,3 +155,17 @@
 .persian-datepicker-wrapper~.trigger {
     display: none !important;
 }
+
+/* Hide native Jira/AUI/Atlaskit calendar portals while the Persian picker is active. */
+body.pc-calendar-is-open .pc-native-calendar-hidden,
+body.pc-calendar-is-open .aui-datepicker-dropdown,
+body.pc-calendar-is-open .aui-calendar,
+body.pc-calendar-is-open .react-datepicker-popper,
+body.pc-calendar-is-open .react-datepicker,
+body.pc-calendar-is-open div[data-placement].pc-native-calendar-hidden,
+body.pc-calendar-is-open [role="dialog"].pc-native-calendar-hidden {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
