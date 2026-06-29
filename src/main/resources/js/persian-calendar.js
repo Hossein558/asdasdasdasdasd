@@ -4823,14 +4823,45 @@
         var placeholder = ($input.attr('placeholder') || '').toLowerCase();
         var aria = ($input.attr('aria-label') || '').toLowerCase();
         var value = $input.val() || '';
+
+        // Match target start / target end by id, name, aria-label
         if (id.indexOf('target') !== -1 || name.indexOf('target') !== -1 || aria.indexOf('target') !== -1) return true;
         if (placeholder.indexOf('target start') !== -1 || placeholder.indexOf('target end') !== -1) return true;
         if (placeholder.indexOf('start') !== -1 && placeholder.indexOf('date') !== -1) return true;
         if (placeholder.indexOf('end') !== -1 && placeholder.indexOf('date') !== -1) return true;
+
+        // Detect already-filled Shamsi date value (e.g. "1405/04/02" or "1404/12/30")
+        if (value && /^1[34]\d{2}\/\d{1,2}\/\d{1,2}$/.test(value.trim())) return true;
+
+        // Detect Gregorian date value already set
         if (value && parseJiraDate(value)) return true;
-        if (findClosestBySelector(el, '[data-testid*="roadmap"], [data-testid*="plan"], [class*="roadmap"], [class*="Roadmap"], [class*="portfolio"], [class*="Portfolio"]')) return true;
+
+        // Roadmap/Portfolio container selectors
+        if (findClosestBySelector(el,
+            '[data-testid*="roadmap"], [data-testid*="plan"], ' +
+            '[class*="roadmap"], [class*="Roadmap"], ' +
+            '[class*="portfolio"], [class*="Portfolio"], ' +
+            '[class*="PlanPage"], [class*="planPage"], ' +
+            '[class*="jpo"], [class*="JPO"]')) return true;
+
+        // Check if we are on the Jira Portfolio/Plan page by URL
+        if (window.location && (
+            window.location.href.indexOf('PortfolioPlanning') !== -1 ||
+            window.location.href.indexOf('portfolio') !== -1 ||
+            window.location.href.indexOf('/plan/') !== -1 ||
+            window.location.href.indexOf('jpo') !== -1
+        )) {
+            // On a plan page, any text input that looks like a date input is a candidate
+            if (placeholder.indexOf('date') !== -1 || placeholder.indexOf('start') !== -1 ||
+                placeholder.indexOf('end') !== -1 || placeholder.indexOf('target') !== -1) return true;
+            // Inputs near a label containing "target" or "date"
+            var $label = $input.closest('[class*="DateField"], [class*="dateField"], [class*="DateInput"], [class*="dateInput"]');
+            if ($label.length > 0) return true;
+        }
+
         return false;
     }
+
 
     // ========================================================================
     // GLOBAL CAPTURE-PHASE HELPERS
