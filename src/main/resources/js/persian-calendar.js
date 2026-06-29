@@ -4504,47 +4504,44 @@
                     $cleanupWrapper.siblings('.pc-calendar-btn, .pc-persian-display').remove();
                 }
 
-                // Hide native calendar trigger
+                // Hide native calendar trigger icon (we'll replace it with our own)
                 $original.siblings('.aui-ss, .aui-date-picker, .icon-calendar, [class*="calendar"]').hide();
                 $original.next('.icon-calendar').hide();
-                
-                // Also hide AUI calendar trigger that might be inside a wrapper
                 $original.parent().find('.icon-calendar, .aui-ss').hide();
 
-                // Create Persian calendar button and display span
-                var $persianDisplay = $('<span class="pc-persian-display" style="margin-right:5px; color:#0052cc; font-weight:bold; font-size:12px; direction:rtl;"></span>');
-                var $btn = $('<button type="button" class="aui-button pc-calendar-btn" style="margin-right:5px; background:#0052cc; color:#fff; padding:2px 8px; font-size:11px; border-radius:3px;">📅 تقویم شمسی</button>');
-                
+                // Create a single compact icon button (no external display span needed)
+                var $btn = $('<button type="button" class="aui-button pc-calendar-btn" title="تقویم شمسی" style="margin-right:4px; padding:3px 6px; font-size:14px; line-height:1; border-radius:3px; cursor:pointer;">📅</button>');
+
                 // Try to insert after the input's parent wrapper (if AUI already wrapped it)
                 var $wrapper = $original.parent('.aui-date-picker, .date-picker-wrapper, [class*="date-picker"]');
                 if ($wrapper.length > 0) {
-                    logDebug('Input is already wrapped by AUI, inserting button after wrapper');
+                    logDebug('Input is already wrapped by AUI, inserting icon after wrapper');
                     $wrapper.after($btn);
-                    $btn.after($persianDisplay);
                 } else {
-                    logDebug('Input not wrapped, inserting button after input');
+                    logDebug('Input not wrapped, inserting icon after input');
                     $original.after($btn);
-                    $btn.after($persianDisplay);
                 }
-                logInfo('Added Persian calendar button to Create/Edit input');
-                
+                logInfo('Added Persian calendar icon to Create/Edit input');
+
                 // Store button reference on the input for recovery
                 $original.data('pc-btn', $btn);
-                $original.data('pc-display', $persianDisplay);
+                $original.data('pc-display', $btn); // point to btn itself (no separate display)
 
-                // If input already has a value, show Persian equivalent
+                // If input already has a value, show Persian equivalent as tooltip on icon
                 var currentVal = $original.val();
                 if (currentVal) {
                     var parsedDate = parseJiraDate(currentVal);
                     if (parsedDate) {
                         var jDate = toJalaali(parsedDate.year, parsedDate.month, parsedDate.day);
+                        var persianLabel;
                         if (isDateTimeField) {
                             var timeMatch = currentVal.match(/(\d{1,2}):(\d{2})\s*(AM|PM)?/i);
                             var timeStr = timeMatch ? ' ' + timeMatch[0] : '';
-                            $persianDisplay.text(formatPersianDate(jDate.jy, jDate.jm, jDate.jd) + timeStr);
+                            persianLabel = formatPersianDate(jDate.jy, jDate.jm, jDate.jd) + timeStr;
                         } else {
-                            $persianDisplay.text(formatPersianDate(jDate.jy, jDate.jm, jDate.jd));
+                            persianLabel = formatPersianDate(jDate.jy, jDate.jm, jDate.jd);
                         }
+                        $btn.attr('title', persianLabel + ' - تقویم شمسی');
                     }
                 }
 
@@ -4575,14 +4572,14 @@
                                 var minStr = selectedDateTime.minute < 10 ? '0' + selectedDateTime.minute : '' + selectedDateTime.minute;
                                 var timeStr = hStr + ':' + minStr;
                                 var pDisplay = formatPersianDate(selectedDateTime.jy, selectedDateTime.jm, selectedDateTime.jd) + ' ' + timeStr;
-                                $persianDisplay.text(pDisplay);
+                                $btn.attr('title', pDisplay + ' - تقویم شمسی');
 
                                 var gDate = toGregorian(selectedDateTime.jy, selectedDateTime.jm, selectedDateTime.jd);
                                 var formattedDate = formatJiraDateTime(gDate.gy, gDate.gm, gDate.gd, selectedDateTime.hour, selectedDateTime.minute, selectedDateTime.ampm);
                                 logInfo('DateTime saved to original input: ' + formattedDate);
                                 setInputAndTriggerEvents($original, formattedDate);
                             } else {
-                                $persianDisplay.text('');
+                                $btn.attr('title', 'تقویم شمسی');
                                 logInfo('DateTime cleared');
                                 setInputAndTriggerEvents($original, '');
                             }
@@ -4590,8 +4587,9 @@
                     } else {
                         showPersianCalendar($btn, $original, function (selectedDate) {
                             if (selectedDate) {
-                                $persianDisplay.text(formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd));
-                                
+                                var persianText = formatPersianDate(selectedDate.jy, selectedDate.jm, selectedDate.jd);
+                                $btn.attr('title', persianText + ' - تقویم شمسی');
+
                                 var currentVal = $original.val();
                                 var exactFormat = null;
                                 if (currentVal) {
@@ -4605,7 +4603,7 @@
                                 logInfo('Date saved to original input: ' + formattedDate);
                                 setInputAndTriggerEvents($original, formattedDate);
                             } else {
-                                $persianDisplay.text('');
+                                $btn.attr('title', 'تقویم شمسی');
                                 logInfo('Date cleared');
                                 setInputAndTriggerEvents($original, '');
                             }
