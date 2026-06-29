@@ -5464,6 +5464,8 @@
 
                             // Patterns for English durations, relative times, and history fields
                             var hasTimeContent = content.match(/minute|hour|ago|now|yesterday|tomorrow|Original|New:|Old Value|GMT|[AP]M|january|february|march|april|may|june|july|august|september|october|november|december|\d{4}-\d{2}-\d{2}T/i);
+                            // Tempo worklog list dates: 16/Jul/26, 09/Jul/26, etc.
+                            var hasJiraShortDate = content.match(/\d{1,2}\/[A-Z][a-z]{2}\/\d{2}/);
                             var hasRelevantClass = className.indexOf('worklog') !== -1 ||
                                 className.indexOf('activity') !== -1 ||
                                 className.indexOf('history') !== -1 ||
@@ -5473,7 +5475,7 @@
                             var containsIframe = (node.tagName === 'IFRAME' || (node.querySelector && node.querySelector('iframe')));
 
                             if (node.hasAttribute && (node.hasAttribute('data-test-cv-dummy-text') ||
-                                (content.match(/\d{1,2}\/[A-Z][a-z]{2}\/\d{2}/)) ||
+                                hasJiraShortDate ||
                                 hasTimeContent ||
                                 hasRelevantClass ||
                                 containsIframe)) {
@@ -5511,15 +5513,84 @@
                         convertIssueSearchDates($);
                         convertTimeSpentDurations($);
                     });
-                }, 100);
+                }, 300); // increased from 100ms to 300ms for React re-render time
             }
+
         });
 
         observer.observe(document.body, { childList: true, subtree: true });
         logInfo('MutationObserver attached');
 
-        // ========== REACT PORTAL INTERCEPTOR ==========
-        // Aggressive React interceptor removed.
+        // ========== TEMPO PANEL NAVIGATION LISTENER ==========
+        // When user clicks Tempo pagination arrows or week/period navigators,
+        // React re-renders the list asynchronously. We need to trigger date
+        // conversion after each navigation click with delays to catch the re-render.
+        (function installTempoPaginationListener() {
+            var tempoConvertTimer = null;
+            function triggerTempoConvert() {
+                if (tempoConvertTimer) clearTimeout(tempoConvertTimer);
+                // Run conversion at 300ms, 700ms and 1500ms after click
+                // to cover fast and slow renders
+                [300, 700, 1500].forEach(function(delay) {
+                    setTimeout(function() {
+                        checkLicenseStatus(function(license) {
+                            if (!license.enabled) return;
+                            logDebug('Tempo nav: running date conversion at ' + delay + 'ms');
+                            convertViewPageDates($);
+                            convertActivityStreamTime($);
+                            convertAuditLogDates($);
+                            convertIssueSearchDates($);
+                            convertTimeSpentDurations($);
+                        });
+                    }, delay);
+                });
+            }
+
+            document.addEventListener('click', function(e) {
+                var target = e.target;
+                if (!target) return;
+                // Detect clicks on Tempo pagination/navigation controls
+                // Tempo uses SVG arrows and styled buttons for navigation
+                var el = target;
+                for (var depth = 0; depth < 5 && el && el !== document.body; depth++) {
+                    var cls = (el.className && typeof el.className === 'string') ? el.className : '';
+                    var tag = el.tagName || '';
+                    var role = el.getAttribute ? (el.getAttribute('role') || '') : '';
+                    var ariaLabel = el.getAttribute ? (el.getAttribute('aria-label') || '').toLowerCase() : '';
+
+                    // Match Tempo navigation buttons: pagination arrows, week/period arrows
+                    var isTempoNav = (
+                        // Tempo React pagination buttons
+                        (tag === 'BUTTON' && el.closest && (
+                            el.closest('[class*="Pagination"]') ||
+                            el.closest('[class*="pagination"]') ||
+                            el.closest('[class*="Navigator"]') ||
+                            el.closest('[class*="PeriodPicker"]') ||
+                            el.closest('[class*="WeekNav"]')
+                        )) ||
+                        // SVG arrow icons inside nav areas
+                        (tag === 'path' && el.closest && (
+                            el.closest('[class*="Pagination"]') ||
+                            el.closest('[class*="pagination"]') ||
+                            el.closest('[class*="Navigator"]')
+                        )) ||
+                        // aria-label navigation
+                        (ariaLabel.indexOf('next') !== -1 || ariaLabel.indexOf('prev') !== -1) && el.closest && el.closest('[class*="tempo"], [class*="Tempo"]') ||
+                        // Generic pagination controls inside Tempo section
+                        (tag === 'BUTTON' && el.closest && el.closest('.tempo, [data-testid*="tempo"]'))
+                    );
+
+                    if (isTempoNav) {
+                        logDebug('Tempo navigation click detected, scheduling conversion');
+                        triggerTempoConvert();
+                        break;
+                    }
+                    el = el.parentElement;
+                }
+            }, false /* bubble phase - after React handles it */);
+            logInfo('Tempo pagination listener installed');
+        })();
+
 
         // ========== JXL SUPPORT ==========
         try {
