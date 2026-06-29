@@ -2419,6 +2419,7 @@
         popup.style.position = 'absolute';
         popup.style.top = topPos + 'px';
         popup.style.left = leftPos + 'px';
+        popup.style.right = 'auto';
         popup.style.maxHeight = (viewportHeight - 40) + 'px';
         popup.style.overflowY = 'auto';
         logDebug('Popup positioned at', { top: popup.style.top, left: popup.style.left, spaceBelow: spaceBelow, spaceAbove: spaceAbove });
@@ -4690,6 +4691,20 @@
         var container = findClosestBySelector(el, '[data-placement], [role="dialog"], [class*="popper"], [class*="Popper"], [class*="portal"], [class*="Portal"]');
         if (!container) container = el;
         if (findClosestBySelector(container, '.pc-popup')) return;
+        
+        // Prevent hiding main Jira dialogs (Fix for Create Issue form disappearing)
+        if (elementMatchesSelector(container, '#create-issue-dialog, .jira-dialog, .aui-dialog2, .jira-dialog-core, #edit-issue-dialog')) {
+            // If the closest dialog is the main form, don't hide it! 
+            // We only want to hide the popup. Fallback to hiding just the element or an inner container.
+            var innerContainer = findClosestBySelector(el, '.aui-datepicker-dropdown, .react-datepicker-popper, [class*="calendar"]');
+            if (innerContainer) {
+                addClassName(innerContainer, 'pc-native-calendar-hidden');
+            } else {
+                addClassName(el, 'pc-native-calendar-hidden');
+            }
+            return;
+        }
+
         addClassName(container, 'pc-native-calendar-hidden');
     }
 
