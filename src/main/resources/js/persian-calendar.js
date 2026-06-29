@@ -4848,6 +4848,23 @@
         var inputType = $input.attr('type') || 'text';
         if (inputType !== 'text') return false;
 
+        // Skip known non-date (duration/time) fields by ID or name
+        var id   = $input.attr('id')   || '';
+        var name = $input.attr('name') || '';
+        var cls  = $input.attr('class') || '';
+        var idL  = id.toLowerCase();
+        var nameL = name.toLowerCase();
+        var NON_DATE = ['timespentseconds', 'timespent', 'remainingestimate', 'timeremaining',
+            'timetracking', 'workedhours', 'timespenthoursfield', 'timespentminutesfield',
+            'log-work-time-logged', 'log-work-adjust-estimate', 'new-estimate', 'adjust-estimate',
+            'issuePickerInput', 'issuepickerinput', 'search issues'];
+        for (var ni = 0; ni < NON_DATE.length; ni++) {
+            if (idL.indexOf(NON_DATE[ni]) !== -1 || nameL.indexOf(NON_DATE[ni]) !== -1) return false;
+        }
+
+        // Skip inputs inside the Tempo Log Work form - it manages its own date pickers
+        if ($input.closest('#worklogForm').length > 0) return false;
+
         if (looksLikeRoadmapsDateInput($input)) return true;
 
         // Skip fields inside inline-edit / view-page containers
@@ -4864,10 +4881,6 @@
         }
 
         // Must match one of the selector patterns used by initPersianCalendar
-        var id   = $input.attr('id')   || '';
-        var name = $input.attr('name') || '';
-        var cls  = $input.attr('class') || '';
-
         if (id === 'duedate' || name === 'duedate') return true;
         if (id === 'dateBetweenStart' || id === 'dateBetweenEnd') return true;
         if (id === 'log-work-form-date-logged-date-picker' ||
