@@ -155,13 +155,18 @@
 }
 
 /* Hide native Jira/AUI/Atlaskit calendar portals while the Persian picker is active. */
-body.pc-calendar-is-open .pc-native-calendar-hidden,
+/* IMPORTANT: Never match the main Jira Create/Edit dialog - only calendar popups */
+body.pc-calendar-is-open .pc-native-calendar-hidden:not(.aui-dialog2):not(.jira-dialog):not(#create-issue-dialog):not(#edit-issue-dialog):not([id*="dialog"]):not(.atlaskit-portal-container),
 body.pc-calendar-is-open .aui-datepicker-dropdown,
-body.pc-calendar-is-open .aui-calendar,
-body.pc-calendar-is-open .react-datepicker-popper,
-body.pc-calendar-is-open .react-datepicker,
-body.pc-calendar-is-open div[data-placement].pc-native-calendar-hidden,
-body.pc-calendar-is-open [role="dialog"].pc-native-calendar-hidden {
+body.pc-calendar-is-open .aui-calendar {
+    display: none !important;
+    visibility: hidden !important;
+    pointer-events: none !important;
+}
+
+/* Only hide react calendar poppers that are NOT inside the main Jira form */
+body.pc-calendar-is-open .react-datepicker-popper:not([id*="dialog"] .react-datepicker-popper),
+body.pc-calendar-is-open .react-datepicker:not([id*="dialog"] .react-datepicker) {
     display: none !important;
     visibility: hidden !important;
     pointer-events: none !important;

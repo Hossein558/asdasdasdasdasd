@@ -4685,43 +4685,61 @@
         }
     }
 
+    // Selectors that identify main Jira form dialogs - these must NEVER be hidden
+    var MAIN_DIALOG_SELECTORS = '#create-issue-dialog, #edit-issue-dialog, .jira-dialog, .aui-dialog2, .jira-dialog-core, [id$="-dialog"]';
+
+    function isMainJiraDialog(el) {
+        if (!el || el.nodeType !== 1) return false;
+        // Check if the element itself is a main dialog
+        if (elementMatchesSelector(el, MAIN_DIALOG_SELECTORS)) return true;
+        // Check if the element contains main form elements (inputs with name="summary", etc.)
+        try {
+            if (el.querySelector && el.querySelector('input[name="summary"], #summary, #issuetype')) return true;
+        } catch(e) {}
+        return false;
+    }
+
     function markNativeCalendarContainer(el) {
         if (!el || el.nodeType !== 1) return;
+        // Never touch our own popup
         if (findClosestBySelector(el, '.pc-popup')) return;
-        var container = findClosestBySelector(el, '[data-placement], [role="dialog"], [class*="popper"], [class*="Popper"], [class*="portal"], [class*="Portal"]');
-        if (!container) container = el;
-        if (findClosestBySelector(container, '.pc-popup')) return;
-        
-        // Prevent hiding main Jira dialogs (Fix for Create Issue form disappearing)
-        if (elementMatchesSelector(container, '#create-issue-dialog, .jira-dialog, .aui-dialog2, .jira-dialog-core, #edit-issue-dialog')) {
-            // If the closest dialog is the main form, don't hide it! 
-            // We only want to hide the popup. Fallback to hiding just the element or an inner container.
-            var innerContainer = findClosestBySelector(el, '.aui-datepicker-dropdown, .react-datepicker-popper, [class*="calendar"]');
-            if (innerContainer) {
-                addClassName(innerContainer, 'pc-native-calendar-hidden');
-            } else {
-                addClassName(el, 'pc-native-calendar-hidden');
+        // Never touch an element that is inside the main Jira dialog but is not a calendar widget
+        // Only hide very specific calendar-related elements
+        var calendarSpecific = findClosestBySelector(el,
+            '.aui-datepicker-dropdown, .aui-calendar, .react-datepicker-popper, .react-datepicker, [class*="datepicker-popper"], [class*="DatePicker"]');
+        if (calendarSpecific) {
+            if (!findClosestBySelector(calendarSpecific, '.pc-popup')) {
+                addClassName(calendarSpecific, 'pc-native-calendar-hidden');
             }
             return;
         }
-
-        addClassName(container, 'pc-native-calendar-hidden');
+        // For portal containers (appended to body, NOT inside the Jira dialog)
+        var portalContainer = findClosestBySelector(el, '[data-placement], [class*="popper"], [class*="Popper"], [class*="portal"], [class*="Portal"]');
+        if (portalContainer && !findClosestBySelector(portalContainer, '.pc-popup')) {
+            // Only hide if it does NOT contain the main Jira form
+            if (!isMainJiraDialog(portalContainer)) {
+                addClassName(portalContainer, 'pc-native-calendar-hidden');
+            }
+        }
     }
 
     function hideNativeAtlaskitCalendars() {
         if (!document.body || !document.body.classList || !document.body.classList.contains('pc-calendar-is-open')) return;
         var candidates;
         try {
-            candidates = document.querySelectorAll('table[role="grid"], [role="grid"], [data-placement], [role="dialog"], [class*="calendar"], [class*="datepicker"], [class*="date-picker"]');
+            // Use a much more targeted selector - only calendar widgets, NOT [role=dialog] in general
+            candidates = document.querySelectorAll(
+                '.aui-datepicker-dropdown, .aui-calendar, .react-datepicker-popper, .react-datepicker, ' +
+                'table[role="grid"], [class*="datepicker-popper"], [class*="DatePicker__Popup"]'
+            );
         } catch (ex) {
             return;
         }
         for (var i = 0; i < candidates.length; i++) {
             var node = candidates[i];
             if (findClosestBySelector(node, '.pc-popup')) continue;
-            if (hasNativeCalendarContent(node) || elementMatchesSelector(node, 'table[role="grid"], [role="grid"]')) {
-                markNativeCalendarContainer(node);
-            }
+            if (isMainJiraDialog(node)) continue;
+            markNativeCalendarContainer(node);
         }
     }
 
