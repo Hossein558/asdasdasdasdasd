@@ -4375,7 +4375,28 @@
                 return;
             }
 
-            // Skip if already has Persian button next to it
+            // Skip known non-date fields: time tracking, duration, remaining estimate, etc.
+            var inputId   = ($original.attr('id')   || '').toLowerCase();
+            var inputName = ($original.attr('name') || '').toLowerCase();
+            var NON_DATE_IDS = [
+                'timespentseconds', 'timespent', 'remainingestimate',
+                'timeremaining', 'timetracking', 'workedhours',
+                'timespenthoursfield', 'timespentminutesfield',
+                'log-work-time-logged', 'log-work-adjust-estimate',
+                'new-estimate', 'adjust-estimate'
+            ];
+            var isNonDateField = false;
+            for (var ndi = 0; ndi < NON_DATE_IDS.length; ndi++) {
+                if (inputId.indexOf(NON_DATE_IDS[ndi]) !== -1 || inputName.indexOf(NON_DATE_IDS[ndi]) !== -1) {
+                    isNonDateField = true;
+                    break;
+                }
+            }
+            if (isNonDateField) {
+                logDebug('Skipping non-date (duration/time) field: id=' + inputId + ' name=' + inputName);
+                return;
+            }
+
             if ($original.next('.pc-search-btn').length > 0 || $original.prev('.pc-search-btn').length > 0) {
                 logDebug('Skipping - already has Persian button');
                 return;
